@@ -43,7 +43,6 @@ CREATE TABLE "oauth_grants" (
     "scope" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "revoked_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "oauth_grants_pkey" PRIMARY KEY ("user_id")
 );
