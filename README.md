@@ -63,6 +63,7 @@ All variables are optional at build time so Preview deployments build without se
 | `SNAPTRADE_OAUTH_REDIRECT_URI` | Must exactly match a registered redirect URI |
 | `SNAPTRADE_OAUTH_SCOPES` | Default `openid email profile read trade` |
 | `SNAPTRADE_ISSUER` | Default `https://api.snaptrade.com` |
+| `SNAPTRADE_API_BASE_URL` | Default `https://api.snaptrade.com`; point at `npm run dev:api-stub` for local testing |
 | `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`) |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5` |
 | `LIVE_TRADING_ENABLED` | Kill switch for real orders; default `false` |
