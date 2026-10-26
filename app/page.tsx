@@ -42,6 +42,12 @@ export default function Home({ searchParams }: PageProps<"/">) {
               orders in your own brokerage account, live or as a paper
               simulation.
             </p>
+            <a
+              href="/demo"
+              className="w-fit text-sm font-medium underline underline-offset-4"
+            >
+              Explore the demo portfolio, no sign-in needed
+            </a>
           </div>
           <ThesisPreview
             footer={

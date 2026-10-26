@@ -22,10 +22,11 @@ model AppUser {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   lastLoginAt     DateTime @default(now()) @map("last_login_at") @db.Timestamptz(6)
 
-  sessions Session[]
-  grant    OauthGrant?
-  events   Event[]
-  apiCalls ApiCall[]
+  sessions  Session[]
+  grant     OauthGrant?
+  events    Event[]
+  apiCalls  ApiCall[]
+  snapshots AccountSnapshot[]
 
   @@map("app_users")
 }
@@ -105,5 +106,23 @@ model ApiCall {
 
   @@index([operation, createdAt])
   @@index([userId])
+  @@index([accountHash, createdAt])
   @@map("api_calls")
+}
+
+/// Normalized balances and positions per account, cached so page views stay
+/// inside SnapTrade's 10 requests/minute/account limit. Deleted on disconnect.
+model AccountSnapshot {
+  userId    String    @map("user_id") @db.Uuid
+  accountId String    @map("account_id")
+  balances  Json
+  positions Json
+  /// When SnapTrade fetched the data from the brokerage, if reported.
+  dataAsOf  DateTime? @map("data_as_of") @db.Timestamptz(6)
+  fetchedAt DateTime  @map("fetched_at") @db.Timestamptz(6)
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, accountId])
+  @@map("account_snapshots")
 }

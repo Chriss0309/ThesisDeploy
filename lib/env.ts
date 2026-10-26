@@ -27,6 +27,7 @@ const serverEnvSchema = z.object({
     .regex(/^postgres(ql)?:\/\//, "must be a postgres:// connection string")
     .optional(),
   SNAPTRADE_ISSUER: httpsOrLoopbackUrl.default("https://api.snaptrade.com"),
+  SNAPTRADE_API_BASE_URL: httpsOrLoopbackUrl.default("https://api.snaptrade.com"),
   SNAPTRADE_OAUTH_CLIENT_ID: z.string().optional(),
   SNAPTRADE_OAUTH_CLIENT_SECRET: z.string().optional(),
   SNAPTRADE_OAUTH_REDIRECT_URI: httpsOrLoopbackUrl.optional(),

@@ -9,6 +9,7 @@ export const APP_TABLES = [
   "oauth_grants",
   "events",
   "api_calls",
+  "account_snapshots",
 ] as const;
 
 class TimeoutError extends Error {
