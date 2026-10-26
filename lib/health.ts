@@ -1,6 +1,7 @@
+import { checkDatabase } from "@/lib/db/check";
 import { configuredFeatures, parseServerEnv, type EnvSource } from "@/lib/env";
 
-type Check = { status: "ok" | "error" } & Record<string, unknown>;
+export type Check = { status: "ok" | "error" } & Record<string, unknown>;
 
 export type HealthReport = {
   status: "ok" | "degraded";
@@ -11,12 +12,22 @@ export type HealthReport = {
   checks: Record<string, Check>;
 };
 
-export function getHealth(source: EnvSource = process.env): HealthReport {
+export type DatabaseProbe = (url: string) => Promise<Check>;
+
+export async function getHealth(
+  source: EnvSource = process.env,
+  probe: DatabaseProbe = checkDatabase,
+): Promise<HealthReport> {
   const parsed = parseServerEnv(source);
+  const databaseUrl = parsed.ok ? parsed.env.DATABASE_URL : undefined;
+
   const checks: Record<string, Check> = {
     env: parsed.ok
       ? { status: "ok", features: configuredFeatures(parsed.env) }
       : { status: "error", invalid: parsed.invalid },
+    database: databaseUrl
+      ? await probe(databaseUrl)
+      : { status: "error", reason: parsed.ok ? "not_configured" : "env_invalid" },
   };
 
   return {

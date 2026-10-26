@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793054647967,
+      "tag": "20261026224407_init_auth_and_telemetry",
+      "breakpoints": true
+    }
+  ]
+}

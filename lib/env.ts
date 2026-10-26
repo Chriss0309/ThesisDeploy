@@ -10,6 +10,10 @@ const base64Key32 = z
 // features check `configuredFeatures` before using their variables.
 const serverEnvSchema = z.object({
   APP_BASE_URL: z.url().optional(),
+  DATABASE_URL: z
+    .string()
+    .regex(/^postgres(ql)?:\/\//, "must be a postgres:// connection string")
+    .optional(),
   SNAPTRADE_ISSUER: z.url().default("https://api.snaptrade.com"),
   SNAPTRADE_OAUTH_CLIENT_ID: z.string().optional(),
   SNAPTRADE_OAUTH_CLIENT_SECRET: z.string().optional(),
@@ -44,6 +48,14 @@ export function parseServerEnv(source: EnvSource = process.env): EnvParseResult 
   if (result.success) return { ok: true, env: result.data };
   const invalid = new Set(result.error.issues.map((issue) => String(issue.path[0])));
   return { ok: false, invalid: [...invalid].sort() };
+}
+
+export function serverEnv(): ServerEnv {
+  const result = parseServerEnv();
+  if (!result.ok) {
+    throw new Error(`Invalid environment variables: ${result.invalid.join(", ")}`);
+  }
+  return result.env;
 }
 
 export function configuredFeatures(env: ServerEnv) {

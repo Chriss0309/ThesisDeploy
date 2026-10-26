@@ -18,4 +18,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Migrations match schema
+        run: |
+          npm run db:check
+          npm run db:generate
+          test -z "$(git status --porcelain supabase/migrations)"
       - run: npm run build

@@ -34,6 +34,16 @@ describe("parseServerEnv", () => {
     expect(JSON.stringify(result)).not.toContain(secret);
   });
 
+  it("requires DATABASE_URL to be a postgres connection string", () => {
+    expect(parseServerEnv({ DATABASE_URL: "mysql://u:p@host/db" })).toEqual({
+      ok: false,
+      invalid: ["DATABASE_URL"],
+    });
+    expect(
+      parseServerEnv({ DATABASE_URL: "postgresql://u:p@host:6543/postgres" }).ok,
+    ).toBe(true);
+  });
+
   it("rejects base64 keys that are not 32 bytes", () => {
     const result = parseServerEnv({ SESSION_SECRET: Buffer.alloc(16).toString("base64") });
     expect(result).toEqual({ ok: false, invalid: ["SESSION_SECRET"] });
