@@ -1,10 +1,15 @@
-import { getTableName, sql } from "drizzle-orm";
-
 import { getDb } from "@/lib/db/client";
-import { appTables } from "@/lib/db/schema";
 import type { Check } from "@/lib/health";
 
-const APP_TABLE_NAMES = appTables.map((table) => getTableName(table));
+// Must match the tables the migrations create; lib/db/migrations.test.ts enforces it.
+export const APP_TABLES = [
+  "app_users",
+  "sessions",
+  "oauth_login_attempts",
+  "oauth_grants",
+  "events",
+  "api_calls",
+] as const;
 
 class TimeoutError extends Error {
   name = "TimeoutError";
@@ -30,23 +35,20 @@ export async function checkDatabase(url: string, timeoutMs = 3000): Promise<Chec
 
   try {
     const rows = await withTimeout(
-      getDb(url).execute<{ name: string; rls: boolean }>(sql`
+      getDb(url).$queryRaw<{ name: string; rls: boolean }[]>`
         select c.relname as name, c.relrowsecurity as rls
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
           and c.relkind = 'r'
-          and c.relname in (${sql.join(
-            APP_TABLE_NAMES.map((name) => sql`${name}`),
-            sql`, `,
-          )})
-      `),
+          and c.relname = any(${[...APP_TABLES]})
+      `,
       timeoutMs,
     );
 
     const rlsByTable = new Map(rows.map((row) => [row.name, row.rls]));
-    const missingTables = APP_TABLE_NAMES.filter((name) => !rlsByTable.has(name));
-    const rlsDisabled = APP_TABLE_NAMES.filter((name) => rlsByTable.get(name) === false);
+    const missingTables = APP_TABLES.filter((name) => !rlsByTable.has(name));
+    const rlsDisabled = APP_TABLES.filter((name) => rlsByTable.get(name) === false);
     const ok = missingTables.length === 0 && rlsDisabled.length === 0;
 
     return {

@@ -8,6 +8,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: thesisdeploy
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/thesisdeploy
+      SHADOW_DATABASE_URL: postgresql://ci:ci@localhost:5432/shadow
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,9 +34,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - name: Migrations match schema
+      - name: Migrations apply and match the schema
         run: |
-          npm run db:check
-          npm run db:generate
-          test -z "$(git status --porcelain supabase/migrations)"
+          PGPASSWORD=ci psql -h localhost -U ci -d thesisdeploy -c "create database shadow"
+          npm run db:migrate
+          npm run db:drift
       - run: npm run build

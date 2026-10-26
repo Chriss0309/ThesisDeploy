@@ -1,27 +1,28 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 import { serverEnv } from "@/lib/env";
-import * as schema from "@/lib/db/schema";
+import { PrismaClient } from "@/lib/generated/prisma/client";
 
-function createDb(url: string) {
-  const client = postgres(url, {
-    // Supabase's transaction pooler (port 6543) does not support prepared statements.
-    prepare: false,
+function createClient(url: string) {
+  const adapter = new PrismaPg({
+    connectionString: url,
     max: 5,
-    connect_timeout: 5,
-    idle_timeout: 20,
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 20_000,
   });
-  return drizzle(client, { schema });
+  return new PrismaClient({ adapter });
 }
 
-export type Db = ReturnType<typeof createDb>;
+// Kept on globalThis so Next.js dev reloads reuse one pool.
+const globalForDb = globalThis as typeof globalThis & {
+  thesisDeployDb?: { url: string; client: PrismaClient };
+};
 
-let cached: { url: string; db: Db } | undefined;
-
-export function getDb(url?: string): Db {
+export function getDb(url?: string): PrismaClient {
   const databaseUrl = url ?? serverEnv().DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
-  if (cached?.url !== databaseUrl) cached = { url: databaseUrl, db: createDb(databaseUrl) };
-  return cached.db;
+  if (globalForDb.thesisDeployDb?.url !== databaseUrl) {
+    globalForDb.thesisDeployDb = { url: databaseUrl, client: createClient(databaseUrl) };
+  }
+  return globalForDb.thesisDeployDb.client;
 }
