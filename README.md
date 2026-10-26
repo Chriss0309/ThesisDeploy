@@ -11,6 +11,7 @@ Early scaffold. What works today:
 - Landing page with thesis presets. It pings `/api/health` on load and shows whether the backend is ready.
 - `GET /api/health`: liveness, environment validation, and a database check. It returns `200` when every check passes and `503` when one fails. It reports which features are configured (booleans only), the names of malformed variables, and whether the database is reachable, migrated, and has RLS on every app table. It never returns values.
 - Supabase schema for users, sessions, OAuth login attempts, OAuth grants, events, and API-call telemetry.
+- Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
 
 Sign in with SnapTrade, Portfolio X-Ray, Thesis Studio, and paced execution land in later PRs.
 
