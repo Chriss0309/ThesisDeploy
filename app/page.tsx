@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+
+import { AuthPanel, AuthPanelSkeleton } from "@/components/auth-panel";
 import { BackendStatus } from "@/components/backend-status";
 import { ThesisPreview } from "@/components/thesis-preview";
 
@@ -16,7 +19,7 @@ const STEPS = [
   },
 ];
 
-export default function Home() {
+export default function Home({ searchParams }: PageProps<"/">) {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
@@ -40,7 +43,13 @@ export default function Home() {
               simulation.
             </p>
           </div>
-          <ThesisPreview />
+          <ThesisPreview
+            footer={
+              <Suspense fallback={<AuthPanelSkeleton />}>
+                <AuthPanel searchParams={searchParams} />
+              </Suspense>
+            }
+          />
         </section>
 
         <section aria-labelledby="how-it-works" className="flex flex-col gap-6">

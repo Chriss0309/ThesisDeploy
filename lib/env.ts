@@ -6,6 +6,18 @@ const base64Key32 = z
     message: "must be 32 random bytes, base64-encoded",
   });
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+// Zod runs refinements even after z.url() fails, so unparseable values pass
+// here and are reported by the URL check instead.
+const httpsOrLoopbackUrl = z.url().refine(
+  (value) => {
+    const url = URL.parse(value);
+    return !url || url.protocol === "https:" || LOOPBACK_HOSTS.has(url.hostname);
+  },
+  { message: "must use https unless the host is loopback" },
+);
+
 // Every variable is optional so builds and previews work without secrets;
 // features check `configuredFeatures` before using their variables.
 const serverEnvSchema = z.object({
@@ -14,10 +26,10 @@ const serverEnvSchema = z.object({
     .string()
     .regex(/^postgres(ql)?:\/\//, "must be a postgres:// connection string")
     .optional(),
-  SNAPTRADE_ISSUER: z.url().default("https://api.snaptrade.com"),
+  SNAPTRADE_ISSUER: httpsOrLoopbackUrl.default("https://api.snaptrade.com"),
   SNAPTRADE_OAUTH_CLIENT_ID: z.string().optional(),
   SNAPTRADE_OAUTH_CLIENT_SECRET: z.string().optional(),
-  SNAPTRADE_OAUTH_REDIRECT_URI: z.url().optional(),
+  SNAPTRADE_OAUTH_REDIRECT_URI: httpsOrLoopbackUrl.optional(),
   SNAPTRADE_OAUTH_SCOPES: z.string().default("openid email profile read trade"),
   SESSION_SECRET: base64Key32.optional(),
   TOKEN_ENCRYPTION_KEY: base64Key32.optional(),
@@ -65,7 +77,8 @@ export function configuredFeatures(env: ServerEnv) {
         env.SNAPTRADE_OAUTH_CLIENT_SECRET &&
         env.SNAPTRADE_OAUTH_REDIRECT_URI &&
         env.SESSION_SECRET &&
-        env.TOKEN_ENCRYPTION_KEY,
+        env.TOKEN_ENCRYPTION_KEY &&
+        env.DATABASE_URL,
     ),
     anthropic: Boolean(env.ANTHROPIC_API_KEY),
     liveTrading: env.LIVE_TRADING_ENABLED,

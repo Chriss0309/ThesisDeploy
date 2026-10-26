@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
 
-export function ThesisPreview() {
+export function ThesisPreview({ footer }: { footer: ReactNode }) {
   const [thesis, setThesis] = useState("");
 
   return (
@@ -47,15 +47,7 @@ export function ThesisPreview() {
           ))}
         </div>
       </CardContent>
-      <CardFooter className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Button size="lg" disabled>
-          Sign in with SnapTrade
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          Sign-in is next on the roadmap. Paper mode will work without a funded
-          account.
-        </p>
-      </CardFooter>
+      <CardFooter>{footer}</CardFooter>
     </Card>
   );
 }

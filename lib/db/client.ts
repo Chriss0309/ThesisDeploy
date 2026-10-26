@@ -26,3 +26,8 @@ export function getDb(url?: string): PrismaClient {
   }
   return globalForDb.thesisDeployDb.client;
 }
+
+export async function closeDb(): Promise<void> {
+  await globalForDb.thesisDeployDb?.client.$disconnect();
+  globalForDb.thesisDeployDb = undefined;
+}
