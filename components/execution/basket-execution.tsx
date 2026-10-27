@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef } from "react";
 
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
+import { LinkPendingStatus } from "@/components/loader/pending";
 import { buttonVariants } from "@/components/ui/button";
 import type { ExecutionView } from "@/lib/execution/types";
 
@@ -29,6 +30,7 @@ export function BasketExecution({ execution, studioPath }: { execution: Executio
       actions={
         <Link href={studioPath} className={buttonVariants({ variant: "outline", size: "sm" })}>
           Build another basket
+          <LinkPendingStatus variant="scan" label="Opening Thesis Studio…" />
         </Link>
       }
     />

@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ExecutionLoader } from "@/components/execution/execution-loader";
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
+import { LoaderGlyph } from "@/components/loader/loader";
+import { LinkPendingStatus } from "@/components/loader/pending";
 import { formatMoney, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -246,6 +248,7 @@ function PreflightFlow({
   const [rejectSeq, setRejectSeq] = useState<number | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [execution, setExecution] = useState<ExecutionView | null>(null);
+  const top = useRef<HTMLDivElement>(null);
 
   const apply = useCallback((result: PreflightResult) => {
     if (!result.ok) {
@@ -300,6 +303,8 @@ function PreflightFlow({
       setExecution(body);
       setPhase("running");
       onExecuted(body.basketPath);
+      // The run starts at the top of the dialog, wherever pre-flight was scrolled to.
+      requestAnimationFrame(() => top.current?.scrollIntoView({ block: "start" }));
     } catch {
       setError("Couldn't reach ThesisDeploy. Your confirmation is safe to retry.");
       setPhase("ready");
@@ -309,7 +314,7 @@ function PreflightFlow({
   const count = preflight?.orders.length ?? 0;
   return (
     <>
-      <DialogSection className="flex flex-col gap-1 pt-6 pb-4">
+      <DialogSection ref={top} className="flex flex-col gap-1 pt-6 pb-4">
         <p className="eyebrow text-muted-foreground">
           ► {execution ? "Paper run" : "Pre-flight"}
           {preflight && ` · ${preflight.account.name}`}
@@ -340,7 +345,12 @@ function PreflightFlow({
 
       {phase === "loading" && (
         <DialogSection className="pb-6">
-          <ExecutionLoader variant="preflight" label="Pricing the orders…" />
+          <ExecutionLoader
+            label="Pricing the orders…"
+            legs={request.lines
+              .filter((line) => line.units > 0)
+              .map((line) => ({ symbol: line.symbol, shares: line.units, status: "queued" }))}
+          />
         </DialogSection>
       )}
 
@@ -355,6 +365,7 @@ function PreflightFlow({
                 <DialogClose render={<Button variant="outline" size="sm" />}>Close</DialogClose>
                 <Link href={execution.basketPath} className={buttonVariants({ size: "sm" })}>
                   View saved basket
+                  <LinkPendingStatus variant="stacks" label="Opening the saved basket…" />
                 </Link>
               </>
             }
@@ -400,6 +411,7 @@ function PreflightFlow({
               </Button>
             ) : (
               <Button disabled={phase !== "ready" || count === 0} onClick={() => void confirm()}>
+                {phase === "confirming" && <LoaderGlyph variant="stacks" />}
                 {phase === "confirming" ? "Starting…" : "Run paper simulation"}
               </Button>
             )}

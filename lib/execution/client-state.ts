@@ -1,3 +1,5 @@
+import type { ExecutionLeg as StackLeg, LegStatus as StackStatus } from "@/components/loader/timing";
+import { latestAttempts } from "@/lib/execution/summary";
 import type { DrainEvent, ExecutionView, LegView } from "@/lib/execution/types";
 
 // Browser-side helpers for the drain stream. No server imports.
@@ -51,4 +53,41 @@ export function elapsedLabel(startedAt: string | null, at: string | null): strin
   if (!startedAt || !at) return "--:--s";
   const seconds = Math.max(0, Math.round((Date.parse(at) - Date.parse(startedAt)) / 1000));
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}s`;
+}
+
+/** The leg waiting on the account's pacing slot: the next pending one while draining, if none is in flight. */
+export function pacingLegId(execution: ExecutionView, draining: boolean): string | null {
+  if (!draining) return null;
+  const latest = latestAttempts(execution.legs);
+  if (latest.some((leg) => leg.status === "claimed")) return null;
+  return latest.find((leg) => leg.status === "pending")?.id ?? null;
+}
+
+function stackStatus(leg: LegView, pacing: boolean): StackStatus {
+  switch (leg.status) {
+    case "pending":
+      return pacing ? "pacing" : "queued";
+    case "claimed":
+      return "submitting";
+    case "executed":
+    case "accepted":
+    case "partial":
+      return "submitted";
+    case "rejected":
+    case "failed":
+    case "unknown":
+      return "failed";
+    case "skipped":
+      return "queued";
+  }
+}
+
+/** One stack per order (its latest attempt) for the `stacks` loader. */
+export function stackLegs(execution: ExecutionView, draining: boolean): StackLeg[] {
+  const pacing = pacingLegId(execution, draining);
+  return latestAttempts(execution.legs).map((leg) => ({
+    symbol: leg.symbol,
+    shares: leg.units,
+    status: stackStatus(leg, leg.id === pacing),
+  }));
 }
