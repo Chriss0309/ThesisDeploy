@@ -228,7 +228,7 @@ Every wait in the app uses one shared loader system built on the same engraved l
 | `link` | Two interlocked tori (a link) turning through each other | Sign-in redirect, SnapTrade session check, sign out, disconnect |
 | `scan` | A tower of layered discs with a cobalt plane sweeping down it | Portfolio X-Ray load, account switch, refresh; Studio accounts and holdings load |
 | `orbit` | The hero coin with candidate lots orbiting it and a cobalt marker checking each one; on reveal the lots settle into a row of whole shares | The Studio's Claude generation, symbol grounding, and sizing (the showpiece) |
-| `stacks` | One stack of whole-share lots per order leg on a ruled baseline: queued is a ring, pacing pulses, submitting lifts the cobalt lot, submitted is full ink, failed is a toppled lot in `negative` | The execution queue; indeterminate loop when no progress is passed |
+| `stacks` | One stack of whole-share lots per order leg on a ruled baseline: queued is a ring, pacing pulses, submitting lifts the cobalt lot, submitted is full ink, failed is a toppled lot in `negative` | The execution queue; indeterminate loop when no progress is passed. The row zooms out to fit any leg count (four legs keep the default framing; six and eight fit a 390 px canvas) |
 
 Sizes: `inline` (20 px glyph with text beside it), `panel` (a framed stage in a card), and `showpiece` (the Studio's generation panel, with the step list and elapsed timer under it). Stage sizes are `--loader-*` tokens.
 

@@ -12,17 +12,22 @@ const BASKET = [
   { symbol: "ETN", shares: 6 },
   { symbol: "CCJ", shares: 12 },
   { symbol: "CEG", shares: 5 },
+  { symbol: "NEE", shares: 8 },
+  { symbol: "GEV", shares: 2 },
+  { symbol: "TLN", shares: 7 },
+  { symbol: "OKLO", shares: 9 },
 ];
+const LEG_COUNTS = [4, 6, 8];
 const STEP_MS = 1000;
 
 /** A paced queue on a timer: one leg per second, the third leg rejected by the brokerage. */
-function useSimulatedQueue(): { progress: ExecutionProgress; label: string } {
+function useSimulatedQueue(count: number): { progress: ExecutionProgress; label: string } {
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const timer = window.setInterval(() => setTick((value) => (value + 1) % (BASKET.length * 2 + 4)), STEP_MS / 2);
+    const timer = window.setInterval(() => setTick((value) => (value + 1) % (count * 2 + 4)), STEP_MS / 2);
     return () => window.clearInterval(timer);
-  }, []);
-  const legs: ExecutionLeg[] = BASKET.map((leg, i) => {
+  }, [count]);
+  const legs: ExecutionLeg[] = BASKET.slice(0, count).map((leg, i) => {
     const at = tick - i * 2;
     const status = at >= 2 ? (i === 2 ? "failed" : "submitted") : at === 1 ? "submitting" : at === 0 ? "pacing" : "queued";
     return { ...leg, status };
@@ -37,7 +42,8 @@ function useSimulatedQueue(): { progress: ExecutionProgress; label: string } {
 }
 
 export function LoaderGallery() {
-  const queue = useSimulatedQueue();
+  const [legCount, setLegCount] = useState(4);
+  const queue = useSimulatedQueue(legCount);
   const [settled, setSettled] = useState(false);
   const [round, setRound] = useState(0);
   const [toast, setToast] = useState(false);
@@ -85,7 +91,22 @@ export function LoaderGallery() {
             label={queue.label}
             detail="stacks · live progress: paced, submitting, submitted, failed"
             progress={queue.progress}
-          />
+          >
+            <div className="flex items-center gap-2 pt-1" role="group" aria-label="Legs in the basket">
+              <span className="eyebrow text-muted-foreground">Legs</span>
+              {LEG_COUNTS.map((count) => (
+                <Button
+                  key={count}
+                  size="sm"
+                  variant={count === legCount ? "default" : "outline"}
+                  aria-pressed={count === legCount}
+                  onClick={() => setLegCount(count)}
+                >
+                  {count}
+                </Button>
+              ))}
+            </div>
+          </Loader>
           <Loader variant="stacks" label="Submitting orders…" detail="stacks · no progress given: an indeterminate loop" />
         </div>
       </section>

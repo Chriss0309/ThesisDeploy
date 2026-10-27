@@ -478,9 +478,15 @@ function orbitMotif(kit: Kit): Parts {
   };
 }
 
+const STACK_PITCH = 0.82;
+const STACK_MARGIN = 1.04;
+/** Four legs span exactly this; fewer legs keep the same framing. */
+const STACKS_MIN_WIDTH = 3 * STACK_PITCH + STACK_MARGIN;
+
 /** stacks: paced order legs, one stack of whole-share lots per leg. Execution queue. */
 function stacksMotif(kit: Kit): Parts {
   const root = new Group();
+  const box = { w: STACKS_MIN_WIDTH, h: 1.45 };
   type Leg = { group: Group; coins: ReturnType<typeof share>[]; fill: number; slot: LineLoop; pulse: LineLoop };
   let legs: Leg[] = [];
   let baseline: LineSegments | null = null;
@@ -497,7 +503,9 @@ function stacksMotif(kit: Kit): Parts {
     for (const leg of legs) root.remove(leg.group);
     if (baseline) root.remove(baseline);
     const heights = stackHeights(source);
-    const xs = source.map((_, i) => (i - (source.length - 1) / 2) * 0.82);
+    const xs = source.map((_, i) => (i - (source.length - 1) / 2) * STACK_PITCH);
+    // The camera frames this box, so more legs zoom the whole row out to fit any canvas width.
+    box.w = Math.max(STACKS_MIN_WIDTH, (source.length - 1) * STACK_PITCH + STACK_MARGIN);
     baseline = new LineSegments(ruler(xs[0] - 0.55, xs[xs.length - 1] + 0.55, xs), kit.line("ink"));
     baseline.position.y = BASE_Y;
     root.add(baseline);
@@ -520,7 +528,7 @@ function stacksMotif(kit: Kit): Parts {
   return {
     root,
     still: 20,
-    box: { w: 3.5, h: 1.45 },
+    box,
     target: new Vector3(0, -0.12, 0),
     pitch: 0.42,
     update(time, state) {
@@ -588,13 +596,23 @@ export function buildMotif(variant: LoaderVariant, palette: Palette): Motif {
   scene.add(parts.root);
   const camera = new PerspectiveCamera(28, 1, 0.1, 60);
   const frame = framer(camera, parts.box, parts.target ?? new Vector3(), parts.pitch ?? 0.1);
+  let size: [number, number] | null = null;
+  let fitted = parts.box.w;
+  const fit = () => {
+    if (size) kit.setScale(frame(size[0], size[1]), size[1]);
+    fitted = parts.box.w;
+  };
   return {
     scene,
     camera,
     still: parts.still,
-    update: parts.update,
+    update(time, state) {
+      parts.update(time, state);
+      if (parts.box.w !== fitted) fit();
+    },
     resize(width, height) {
-      kit.setScale(frame(width, height), height);
+      size = [width, height];
+      fit();
     },
     setPalette: (next) => kit.setPalette(next),
     dispose: () => kit.dispose(),
