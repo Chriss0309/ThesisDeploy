@@ -48,6 +48,22 @@ Status key: **docs/SDK** means found by reading the docs, the OpenAPI spec, or t
 - **Suggestion:** publish the per-user limit or return `X-RateLimit-*` headers for it.
 - **Status:** docs/SDK
 
+### 429s carry the wait time in reset headers and body text, not `Retry-After`
+- **Date / source:** 2026-10-26, rate-limiting docs.
+- **Observation:** the docs describe `X-RateLimit-Reset` and `X-RateLimit-Account-Reset` (customer and account layers) and a body like `"Request was throttled. Expected available in 7 seconds."`. Clients have to work out which layer was exhausted from the two `*-Remaining` headers, or parse the sentence.
+- **What we did:** use `Retry-After` if present, then the reset header of the exhausted layer, then the body text. We also keep our own per-account budget (8 of 10 per rolling minute, shared through `api_calls`) so the app rarely reaches a 429.
+- **Suggestion:** send a standard `Retry-After` header on 429s, and a machine-readable field naming the exhausted layer.
+- **Status:** docs/SDK
+
+## Accounts and positions
+
+### The unified account list has no institution name or open/closed status
+- **Date / source:** 2026-10-26, `InvestmentAccount` in `snaptrade-typescript-sdk@13.1.11` (`listAllUserAccounts`).
+- **Observation:** each entry has `connection_id`, `display_name`, `masked_account_number`, `is_paper`, and `cash_or_margin`, but not the institution's name or a `status` (the older `Account` model had `status: open | closed | archived | unavailable`). Showing "Questrade · ****4821" requires a second call (`listBrokerageAuthorizations`) and a join on `connection_id`, and closed accounts can't be filtered out.
+- **What we did:** join connections and accounts on every page load. Both calls are cheap, since they aren't account-scoped and the account list is Daily-cached.
+- **Suggestion:** include `institution_name` (or the brokerage slug) and `status` on `ConnectionAccount`.
+- **Status:** docs/SDK
+
 ## Trading and market data
 
 ### Off-hours behavior for Market/Day orders is not documented

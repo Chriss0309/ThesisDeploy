@@ -1,0 +1,186 @@
+{
+  "connections": [
+    {
+      "id": "demo-conn-questrade",
+      "created_date": "2026-03-02T15:04:11Z",
+      "name": "Questrade",
+      "type": "trade",
+      "disabled": false,
+      "disabled_date": null,
+      "brokerage": {
+        "id": "demo-brokerage-questrade",
+        "slug": "QUESTRADE",
+        "name": "Questrade",
+        "display_name": "Questrade",
+        "allows_trading": true
+      }
+    },
+    {
+      "id": "demo-conn-alpaca-paper",
+      "created_date": "2026-09-14T18:22:40Z",
+      "name": "Alpaca Paper",
+      "type": "trade",
+      "disabled": false,
+      "disabled_date": null,
+      "brokerage": {
+        "id": "demo-brokerage-alpaca-paper",
+        "slug": "ALPACA-PAPER",
+        "name": "Alpaca Paper",
+        "display_name": "Alpaca Paper",
+        "allows_trading": true
+      }
+    },
+    {
+      "id": "demo-conn-ibkr",
+      "created_date": "2025-11-20T12:00:00Z",
+      "name": "Interactive Brokers",
+      "type": "read",
+      "disabled": false,
+      "disabled_date": null,
+      "brokerage": {
+        "id": "demo-brokerage-ibkr",
+        "slug": "INTERACTIVE-BROKERS",
+        "name": "Interactive Brokers",
+        "display_name": "Interactive Brokers",
+        "allows_trading": true
+      }
+    },
+    {
+      "id": "demo-conn-wealthsimple",
+      "created_date": "2025-06-01T09:30:00Z",
+      "name": "Wealthsimple",
+      "type": "trade",
+      "disabled": true,
+      "disabled_date": "2026-10-19T04:12:00Z",
+      "brokerage": {
+        "id": "demo-brokerage-wealthsimple",
+        "slug": "WEALTHSIMPLETRADE",
+        "name": "Wealthsimple",
+        "display_name": "Wealthsimple",
+        "allows_trading": true
+      }
+    }
+  ],
+  "accounts": {
+    "results": [
+      {
+        "kind": "investment",
+        "id": "demo-acct-tfsa",
+        "connection_id": "demo-conn-questrade",
+        "display_name": "TFSA",
+        "masked_account_number": "****4821",
+        "raw_type": "TFSA",
+        "cash_or_margin": "cash",
+        "is_paper": false,
+        "net_value": { "amount": 39291.75, "currency": "CAD" },
+        "sync_status": { "positions": "2026-10-26T13:30:00Z", "balances": "2026-10-26T13:30:00Z" }
+      },
+      {
+        "kind": "investment",
+        "id": "demo-acct-alpaca-paper",
+        "connection_id": "demo-conn-alpaca-paper",
+        "display_name": "Paper Trading",
+        "masked_account_number": "****9012",
+        "raw_type": "Margin",
+        "cash_or_margin": "margin",
+        "is_paper": true,
+        "net_value": { "amount": 70543.8, "currency": "USD" },
+        "sync_status": { "positions": "2026-10-26T13:31:00Z", "balances": "2026-10-26T13:31:00Z" }
+      },
+      {
+        "kind": "investment",
+        "id": "demo-acct-ibkr",
+        "connection_id": "demo-conn-ibkr",
+        "display_name": "Individual",
+        "masked_account_number": "****3307",
+        "raw_type": "Margin",
+        "cash_or_margin": "margin",
+        "is_paper": false,
+        "net_value": { "amount": 56130.7, "currency": "USD" },
+        "sync_status": { "positions": "2026-10-26T06:02:00Z", "balances": "2026-10-26T06:02:00Z" }
+      },
+      {
+        "kind": "investment",
+        "id": "demo-acct-wealthsimple",
+        "connection_id": "demo-conn-wealthsimple",
+        "display_name": "Personal",
+        "masked_account_number": "****1175",
+        "raw_type": "Non-registered",
+        "cash_or_margin": "cash",
+        "is_paper": false,
+        "net_value": { "amount": 2823, "currency": "CAD" },
+        "sync_status": { "positions": "2026-10-19T04:00:00Z", "balances": "2026-10-19T04:00:00Z" }
+      },
+      {
+        "kind": "deposit",
+        "id": "demo-acct-chequing",
+        "connection_id": "demo-conn-questrade",
+        "display_name": "Cash Account",
+        "masked_account_number": "****0008",
+        "raw_type": "Chequing",
+        "net_value": { "amount": 1840.12, "currency": "CAD" },
+        "sync_status": { "balances": "2026-10-26T13:30:00Z" }
+      }
+    ]
+  },
+  "balances": {
+    "demo-acct-tfsa": [
+      { "currency": { "id": "cad", "code": "CAD", "name": "Canadian Dollar" }, "cash": 4951.75, "buying_power": 4951.75 },
+      { "currency": { "id": "usd", "code": "USD", "name": "US Dollar" }, "cash": 812.3, "buying_power": 812.3 }
+    ],
+    "demo-acct-alpaca-paper": [
+      { "currency": { "id": "usd", "code": "USD", "name": "US Dollar" }, "cash": 48210.4, "buying_power": 96420.8 }
+    ],
+    "demo-acct-ibkr": [
+      { "currency": { "id": "usd", "code": "USD", "name": "US Dollar" }, "cash": 5300, "buying_power": null }
+    ],
+    "demo-acct-wealthsimple": [
+      { "currency": { "id": "cad", "code": "CAD", "name": "Canadian Dollar" }, "cash": 120, "buying_power": 120 }
+    ]
+  },
+  "positions": {
+    "demo-acct-tfsa": {
+      "data_freshness": { "as_of": "2026-10-26T13:30:00Z" },
+      "results": [
+        { "instrument": { "kind": "stock", "id": "demo-inst-ry", "symbol": "RY.TO", "raw_symbol": "RY", "description": "Royal Bank of Canada", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-RY" } }, "units": "40", "price": "152.30", "cost_basis": "131.10", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-enb", "symbol": "ENB.TO", "raw_symbol": "ENB", "description": "Enbridge Inc.", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-ENB" } }, "units": "120", "price": "57.85", "cost_basis": "49.20", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "etf", "id": "demo-inst-xeqt", "symbol": "XEQT.TO", "raw_symbol": "XEQT", "description": "iShares Core Equity ETF Portfolio", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-XEQT" } }, "units": "180", "price": "33.95", "cost_basis": "29.80", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-ccj", "symbol": "CCJ.TO", "raw_symbol": "CCJ", "description": "Cameco Corporation", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-CCJ" } }, "units": "35", "price": "98.40", "cost_basis": "61.75", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-su", "symbol": "SU.TO", "raw_symbol": "SU", "description": "Suncor Energy Inc.", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-SU" } }, "units": "60", "price": "51.20", "cost_basis": "44.90", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-cnr", "symbol": "CNR.TO", "raw_symbol": "CNR", "description": "Canadian National Railway", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-CNR" } }, "units": "15", "price": "148.60", "cost_basis": "161.00", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "etf", "id": "demo-inst-cash", "symbol": "CASH.TO", "raw_symbol": "CASH", "description": "Global X High Interest Savings ETF", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-CASH" } }, "units": "50", "price": "50.02", "cost_basis": "50.00", "currency": "CAD", "cash_equivalent": true },
+        { "instrument": { "kind": "stock", "id": "demo-inst-nvda", "symbol": "NVDA", "raw_symbol": "NVDA", "description": "NVIDIA Corporation", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-NVDA" } }, "units": "12", "price": "182.40", "cost_basis": "121.30", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-msft", "symbol": "MSFT", "raw_symbol": "MSFT", "description": "Microsoft Corporation", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-MSFT" } }, "units": "4", "price": "418.20", "cost_basis": "377.00", "currency": "USD", "cash_equivalent": false }
+      ]
+    },
+    "demo-acct-alpaca-paper": {
+      "data_freshness": { "as_of": "2026-10-26T13:31:00Z" },
+      "results": [
+        { "instrument": { "kind": "stock", "id": "demo-inst-ceg", "symbol": "CEG", "raw_symbol": "CEG", "description": "Constellation Energy Corporation", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-CEG" } }, "units": "15", "price": "291.80", "cost_basis": "244.10", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-vst", "symbol": "VST", "raw_symbol": "VST", "description": "Vistra Corp.", "currency": "USD", "exchange": "NYSE", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-VST" } }, "units": "40", "price": "168.25", "cost_basis": "131.40", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-gev", "symbol": "GEV", "raw_symbol": "GEV", "description": "GE Vernova Inc.", "currency": "USD", "exchange": "NYSE", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-GEV" } }, "units": "8", "price": "610.40", "cost_basis": "402.50", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-etn", "symbol": "ETN", "raw_symbol": "ETN", "description": "Eaton Corporation plc", "currency": "USD", "exchange": "NYSE", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-ETN" } }, "units": "12", "price": "342.10", "cost_basis": "318.70", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-nee", "symbol": "NEE", "raw_symbol": "NEE", "description": "NextEra Energy, Inc.", "currency": "USD", "exchange": "NYSE", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-NEE" } }, "units": "30", "price": "74.60", "cost_basis": "70.15", "currency": "USD", "cash_equivalent": false }
+      ]
+    },
+    "demo-acct-ibkr": {
+      "data_freshness": { "as_of": "2026-10-26T06:02:00Z" },
+      "results": [
+        { "instrument": { "kind": "stock", "id": "demo-inst-msft-2", "symbol": "MSFT", "raw_symbol": "MSFT", "description": "Microsoft Corporation", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-MSFT" } }, "units": "30", "price": "418.20", "cost_basis": "301.00", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-aapl", "symbol": "AAPL", "raw_symbol": "AAPL", "description": "Apple Inc.", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-AAPL" } }, "units": "50", "price": "226.10", "cost_basis": "170.40", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-nvda-2", "symbol": "NVDA", "raw_symbol": "NVDA", "description": "NVIDIA Corporation", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-NVDA" } }, "units": "60", "price": "182.40", "cost_basis": "48.75", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-meta", "symbol": "META", "raw_symbol": "META", "description": "Meta Platforms, Inc.", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-META" } }, "units": "10", "price": "585.40", "cost_basis": "390.20", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-brkb", "symbol": "BRK.B", "raw_symbol": "BRK.B", "description": "Berkshire Hathaway Inc. Class B", "currency": "USD", "exchange": "NYSE", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-BRKB" } }, "units": "8", "price": "471.90", "cost_basis": "402.00", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-googl", "symbol": "GOOGL", "raw_symbol": "GOOGL", "description": "Alphabet Inc. Class A", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-GOOGL" } }, "units": "20", "price": "171.30", "cost_basis": "139.90", "currency": "USD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-amzn", "symbol": "AMZN", "raw_symbol": "AMZN", "description": "Amazon.com, Inc.", "currency": "USD", "exchange": "NASDAQ", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-AMZN" } }, "units": "15", "price": "198.70", "cost_basis": "151.20", "currency": "USD", "cash_equivalent": false }
+      ]
+    },
+    "demo-acct-wealthsimple": {
+      "data_freshness": { "as_of": "2026-10-19T04:00:00Z" },
+      "results": [
+        { "instrument": { "kind": "stock", "id": "demo-inst-bn", "symbol": "BN.TO", "raw_symbol": "BN", "description": "Brookfield Corporation", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-BN" } }, "units": "20", "price": "78.90", "cost_basis": "60.20", "currency": "CAD", "cash_equivalent": false },
+        { "instrument": { "kind": "stock", "id": "demo-inst-shop", "symbol": "SHOP.TO", "raw_symbol": "SHOP", "description": "Shopify Inc.", "currency": "CAD", "exchange": "TSX", "figi_instrument": { "figi_code": null, "figi_share_class": "DEMO-SHOP" } }, "units": "10", "price": "112.50", "cost_basis": "98.00", "currency": "CAD", "cash_equivalent": false }
+      ]
+    }
+  }
+}

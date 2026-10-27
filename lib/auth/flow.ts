@@ -10,6 +10,7 @@ import { createSession, findSessionUser, revokeSession, revokeUserSessions } fro
 import { deleteGrant, saveGrant } from "@/lib/auth/vault";
 import { getDb } from "@/lib/db/client";
 import { describeError } from "@/lib/errors";
+import { deleteSnapshots } from "@/lib/portfolio/service";
 import { recordEvent } from "@/lib/telemetry/events";
 
 export type AuthErrorCode = "access_denied" | "state_mismatch" | "signin_failed";
@@ -152,6 +153,7 @@ export async function signOut(
 
   const refreshToken = await deleteGrant(config, user.id);
   await revokeUserSessions(user.id);
+  await deleteSnapshots(user.id);
   if (!refreshToken) return { revoked: true };
 
   try {

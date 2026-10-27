@@ -11,6 +11,7 @@ Early scaffold. What works today:
 - Landing page with thesis presets. It pings `/api/health` on load and shows whether the backend is ready.
 - `GET /api/health`: liveness, environment validation, and a database check. It returns `200` when every check passes and `503` when one fails. It reports which features are configured (booleans only), the names of malformed variables, and whether the database is reachable, migrated, and has RLS on every app table. It never returns values.
 - Supabase schema for users, sessions, OAuth login attempts, OAuth grants, events, and API-call telemetry.
+- Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
 
 Sign in with SnapTrade, Portfolio X-Ray, Thesis Studio, and paced execution land in later PRs.
 
@@ -62,6 +63,7 @@ All variables are optional at build time so Preview deployments build without se
 | `SNAPTRADE_OAUTH_REDIRECT_URI` | Must exactly match a registered redirect URI |
 | `SNAPTRADE_OAUTH_SCOPES` | Default `openid email profile read trade` |
 | `SNAPTRADE_ISSUER` | Default `https://api.snaptrade.com` |
+| `SNAPTRADE_API_BASE_URL` | Default `https://api.snaptrade.com`; point at `npm run dev:api-stub` for local testing |
 | `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`) |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5` |
 | `LIVE_TRADING_ENABLED` | Kill switch for real orders; default `false` |
