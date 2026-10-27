@@ -8,7 +8,7 @@ import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfo
 import { OverlapBadge } from "@/components/thesis/overlap-badge";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import type { AllocatedLine } from "@/lib/solver";
 import {
@@ -277,15 +277,19 @@ export function BasketComposer({
   return (
     <Card>
       <CardHeader className="gap-2">
-        <p className="eyebrow text-muted-foreground">► Thesis · Basket Composer</p>
-        <CardTitle className="font-display text-xl font-semibold">{thesis.title}</CardTitle>
-        <CardAction className="flex flex-wrap justify-end gap-1">
-          <Badge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</Badge>
-          {payload.account.isPaper && <Badge tone="info">Paper</Badge>}
-          <Badge>
-            {payload.currency} · {payload.account.name}
-          </Badge>
-        </CardAction>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-col gap-1">
+            <p className="eyebrow text-muted-foreground">► Thesis · Basket Composer</p>
+            <CardTitle className="font-display text-xl font-semibold">{thesis.title}</CardTitle>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <Badge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</Badge>
+            {payload.account.isPaper && <Badge tone="info">Paper</Badge>}
+            <Badge>
+              {payload.currency} · {payload.account.name}
+            </Badge>
+          </div>
+        </div>
         <CardDescription className="max-w-prose text-pretty text-foreground">{thesis.summary}</CardDescription>
         <SourceLine payload={payload} />
       </CardHeader>
