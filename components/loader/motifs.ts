@@ -51,6 +51,8 @@ export type Motif = {
   still: number;
   /** Seconds a pose plays before holding its last frame; Infinity for loops. */
   duration(pose: Pose): number;
+  /** One cycle of a looping pose. Phones play this once and hold; desktop windows loop. */
+  cycle(pose: Pose): number;
   update(time: number, state: MotifState): void;
   resize(width: number, height: number): void;
   setPalette(palette: Palette): void;
@@ -358,6 +360,8 @@ type Parts = {
   target?: Vector3;
   pitch?: number;
   durations?: Partial<Record<Pose, number>>;
+  /** One cycle of this motif's looping poses. Phones play it once. */
+  cycle(pose: Pose): number;
 };
 
 const fade = (material: LineBasicMaterial, opacity: number) => {
@@ -367,6 +371,7 @@ const fade = (material: LineBasicMaterial, opacity: number) => {
 
 /** coin: the brand mark. Spins while loading, lands face-up on success, topples on a 404. */
 function coinMotif(kit: Kit): Parts {
+  const SPIN = 1.5;
   const root = new Group();
   const body = coin(kit);
   root.add(body);
@@ -382,6 +387,7 @@ function coinMotif(kit: Kit): Parts {
     box: { w: 2.3, h: 2.3 },
     pitch: 0.1,
     durations: { success: 1.7, lost: 3.2 },
+    cycle: () => (2 * Math.PI) / SPIN,
     update(time, state) {
       ring.visible = false;
       ground.visible = state.pose === "lost";
@@ -405,7 +411,7 @@ function coinMotif(kit: Kit): Parts {
         body.position.y = ground.position.y + Math.cos(lean) + Math.sin(lean) * 0.1;
         return;
       }
-      body.rotation.set(0.18, time * 1.5, 0);
+      body.rotation.set(0.18, time * SPIN, 0);
       body.position.y = Math.sin(time * 2.2) * 0.04;
     },
   };
@@ -413,6 +419,7 @@ function coinMotif(kit: Kit): Parts {
 
 /** link: two interlocked rings. The connection to SnapTrade: loading, linked, apart, broken. */
 function linkMotif(kit: Kit, pose: Pose): Parts {
+  const TURN = 0.9;
   const root = new Group();
   const ring = (role: Role, flat: boolean, dir: [number, number, number]) => {
     const mesh = new Mesh(torusGeometry(), kit.engraving(role, dir));
@@ -434,10 +441,11 @@ function linkMotif(kit: Kit, pose: Pose): Parts {
     box: { w: spread ? 3.7 : 2.5, h: 1.9 },
     pitch: 0.08,
     durations: { linked: 1.4, apart: 1.6, broken: 1.6 },
+    cycle: () => (2 * Math.PI) / TURN,
     update(time, state) {
       if (state.pose === "loading") {
         place(0.34);
-        root.rotation.set(0.3 + Math.sin(time * 1.2) * 0.15, time * 0.9, Math.sin(time * 0.7) * 0.1);
+        root.rotation.set(0.3 + Math.sin(time * 1.2) * 0.15, time * TURN, Math.sin(time * 0.7) * 0.1);
         return;
       }
       const p = easeOutCubic(clamp01(state.poseTime / (state.pose === "linked" ? 1.4 : 1.6)));
@@ -452,6 +460,7 @@ function linkMotif(kit: Kit, pose: Pose): Parts {
 
 /** scan: a layered tower of holdings read by a moving cobalt plane. Portfolio X-Ray. */
 function scanMotif(kit: Kit): Parts {
+  const SWEEP = 1.7;
   const root = new Group();
   const tower = new Group();
   const radii = [0.95, 0.7, 0.86, 0.56, 0.78, 0.6];
@@ -478,6 +487,7 @@ function scanMotif(kit: Kit): Parts {
     box: { w: 2.7, h: 2.6 },
     pitch: 0.34,
     durations: { reveal: 1.9 },
+    cycle: () => (2 * Math.PI) / SWEEP,
     update(time, state) {
       if (state.pose === "reveal") {
         // One pass from top to bottom as the holdings arrive, then the plane fades out.
@@ -494,7 +504,7 @@ function scanMotif(kit: Kit): Parts {
       }
       tower.rotation.y = time * 0.45;
       ticks.rotation.y = -time * 0.3;
-      scanAt(Math.sin(time * 1.7) * 1.05, 1);
+      scanAt(Math.sin(time * SWEEP) * 1.05, 1);
     },
   };
 }
@@ -527,17 +537,19 @@ function orbitMotif(kit: Kit): Parts {
   });
   const local = new Vector3();
   const target = new Vector3();
+  const STORY = 14;
   return {
     root,
-    still: 14,
+    still: STORY,
     box: { w: 4.3, h: 2.85 },
     target: new Vector3(0, -0.35, 0),
     pitch: 0.3,
     durations: { reveal: 3 },
+    cycle: () => STORY,
     update(time, state) {
       // reveal: the same story compressed, candidates every 0.2 s and settled by 3 s.
       const reveal = state.pose === "reveal";
-      const t = reveal ? state.poseTime : state.still ? 14 : time - state.startedAt;
+      const t = reveal ? state.poseTime : state.still ? STORY : time - state.startedAt;
       const settle = reveal
         ? easeOutCubic(clamp01((state.poseTime - 2) / 1))
         : state.settledAt == null
@@ -599,6 +611,8 @@ function stacksMotif(kit: Kit, pose: Pose): Parts {
   let last = 0;
   const BASE_Y = -0.55;
   const DROP = 0.75;
+  const INDETERMINATE_SECONDS = 6.5;
+  const PULSE_SECONDS = 1;
   const slotLine = kit.line("ink", 0.35);
   const failedLine = kit.line("negative");
   const pulseLine = kit.line("accent");
@@ -672,10 +686,11 @@ function stacksMotif(kit: Kit, pose: Pose): Parts {
       drift: 2.4,
       empty: 1.6,
     },
+    cycle: (which) => (which === "paced" ? PULSE_SECONDS : INDETERMINATE_SECONDS),
     update(time, state) {
       let source = legsFor(state);
       if (state.pose === "loading" && !state.progress?.legs.length) {
-        const cycle = state.still ? 99 : (time - state.startedAt) % 6.5;
+        const cycle = state.still ? 99 : (time - state.startedAt) % INDETERMINATE_SECONDS;
         source = DEFAULT_LEGS.map((leg, i) => ({
           ...leg,
           status: cycle >= i + 1.4 ? "submitted" : cycle >= i + 0.6 ? "submitting" : cycle >= i ? "pacing" : "queued",
@@ -705,7 +720,7 @@ function stacksMotif(kit: Kit, pose: Pose): Parts {
             leg.slot.visible = waiting;
             placeCoins(leg, waiting ? 0 : leg.coins.length, leg.coins.length);
             if (waiting) {
-              const phase = state.still ? 0.35 : time % 1;
+              const phase = state.still ? 0.35 : time % PULSE_SECONDS;
               leg.pulse.visible = true;
               leg.pulse.scale.setScalar(1 + phase * 0.7);
               fade(pulseLine, 1 - phase);
@@ -790,6 +805,7 @@ export function buildMotif(variant: LoaderVariant, palette: Palette, pose: Pose 
     camera,
     still: parts.still,
     duration: (which) => parts.durations?.[which] ?? Infinity,
+    cycle: (which) => parts.cycle(which),
     update(time, state) {
       parts.update(time, state);
       if (parts.box.w !== fitted) fit();

@@ -1,7 +1,15 @@
 import { LinearSRGBColorSpace, WebGLRenderer } from "three";
 
 import { buildMotif, type Motif, type MotifState, type Palette } from "./motifs";
-import { animatedViews, backingSize, gpuBudget, type ExecutionProgress, type LoaderVariant, type Pose } from "./timing";
+import {
+  animatedViews,
+  backingSize,
+  endlessPlayback,
+  gpuBudget,
+  type ExecutionProgress,
+  type LoaderVariant,
+  type Pose,
+} from "./timing";
 
 // One WebGL context for every motif on the page (loaders, marks, and the landing hero):
 // each frame, every visible view's scene is drawn into a corner of a single detached
@@ -36,6 +44,7 @@ const budget = gpuBudget({
   cores: navigator.hardwareConcurrency,
   memoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
 });
+/** Phones (coarse pointer or viewport under 768). Endless scenes play once there; desktops loop. */
 export const constrainedDevice = budget.constrained;
 
 let renderer: WebGLRenderer | null = null;
@@ -59,10 +68,15 @@ function getRenderer() {
   return renderer;
 }
 
-/** Loops animate while visible; one-shot poses animate until their duration, then hold. */
+/** Desktop loops run while visible. Phones and one-shot poses play once, then hold. */
 function animating(view: View, time: number) {
   if (reducedMotion.matches) return false;
-  const duration = view.motif.duration(view.state.pose);
+  const natural = view.motif.duration(view.state.pose);
+  const duration = endlessPlayback(
+    natural,
+    view.motif.cycle(view.state.pose),
+    constrainedDevice && view.state.poseAt != null,
+  );
   if (duration === Infinity) return true;
   return view.state.poseAt != null && time - view.state.poseAt <= duration;
 }
@@ -87,12 +101,19 @@ function draw(view: View, time: number) {
   view.ctx.drawImage(target, 0, target.height - height, width, height, 0, 0, width, height);
 }
 
-/** The reduced-motion frame, or the frame a one-shot pose ends on (or starts from, before it plays). */
+/** Reduced motion keeps its still frame. A phone pass, and every one-shot pose, holds the frame it ends on. */
 function drawStill(view: View) {
   const { state, motif } = view;
-  const duration = motif.duration(state.pose);
+  const natural = motif.duration(state.pose);
+  const poseAt = state.poseAt;
+  const phonePass = poseAt != null && natural === Infinity && constrainedDevice && !reducedMotion.matches;
   view.state.still = true;
-  draw(view, duration === Infinity ? motif.still : (state.poseAt ?? 0) + (state.poseAt == null ? 0 : duration));
+  const at = phonePass
+    ? poseAt + motif.cycle(state.pose)
+    : natural === Infinity
+      ? motif.still
+      : (poseAt ?? 0) + (poseAt == null ? 0 : natural);
+  draw(view, at);
   view.state.still = false;
   view.dirty = false;
   view.moving = false;
