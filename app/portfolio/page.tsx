@@ -23,7 +23,7 @@ export const prefetch = "force-disabled";
 
 type SearchParams = PageProps<"/portfolio">["searchParams"];
 
-const LINK = "font-medium text-foreground underline underline-offset-4";
+const LINK = "font-medium text-brand underline underline-offset-4 hover:text-brand-hover";
 const SIGN_IN = "/api/auth/login?returnTo=/portfolio";
 
 function waitText(seconds: number | null | undefined) {
@@ -177,6 +177,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
 export default function PortfolioPage({ searchParams }: PageProps<"/portfolio">) {
   return (
     <PageShell
+      eyebrow="01 · Read from SnapTrade"
       title="Portfolio X-Ray"
       description="Cash, buying power, positions, and concentration for each connected account."
     >

@@ -18,9 +18,10 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
   const [thesis, setThesis] = useState("");
 
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-md">
       <CardHeader>
-        <CardTitle>Start with a conviction</CardTitle>
+        <p className="eyebrow text-muted-foreground">► Thesis</p>
+        <CardTitle className="font-display text-xl font-semibold">Start with a conviction</CardTitle>
         <CardDescription>
           One sentence is enough. Pick a preset or write your own.
         </CardDescription>
@@ -38,8 +39,10 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
           {THESIS_PRESETS.map((preset) => (
             <Button
               key={preset.key}
-              variant={thesis === preset.prompt ? "secondary" : "outline"}
+              variant={thesis === preset.prompt ? "default" : "outline"}
+              aria-pressed={thesis === preset.prompt}
               size="sm"
+              className="rounded-full"
               onClick={() => setThesis(preset.prompt)}
             >
               {preset.label}

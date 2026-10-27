@@ -18,10 +18,10 @@ const LABELS: Record<Status["state"], string> = {
 };
 
 const DOT: Record<Status["state"], string> = {
-  checking: "bg-amber-400 animate-pulse",
-  ready: "bg-emerald-500",
-  degraded: "bg-amber-500",
-  offline: "bg-red-500",
+  checking: "bg-warning animate-pace",
+  ready: "bg-positive",
+  degraded: "bg-warning",
+  offline: "bg-negative",
 };
 
 export function BackendStatus() {
@@ -53,9 +53,9 @@ export function BackendStatus() {
     <a
       href="/api/health"
       aria-live="polite"
-      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex h-7 items-center gap-2 rounded-sm border border-border-strong bg-card px-2.5 font-mono text-2xs text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
     >
-      <span className={cn("size-2 rounded-full", DOT[status.state])} />
+      <span className={cn("size-1.5 rounded-full", DOT[status.state])} />
       {LABELS[status.state]}
       {status.state === "ready" && (
         <span className="tabular-nums">· {status.latencyMs} ms</span>

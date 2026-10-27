@@ -30,12 +30,17 @@ async function DemoXRay({ searchParams }: { searchParams: PageProps<"/demo">["se
 export default function DemoPage({ searchParams }: PageProps<"/demo">) {
   return (
     <PageShell
+      eyebrow="01 · Guest demo"
       title="Portfolio X-Ray"
       description="Cash, buying power, positions, and concentration for each connected account."
       banner={
-        <div className="border-y bg-sky-50 px-6 py-2 text-center text-xs text-sky-900">
-          Guest demo on fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
-          <a href="/api/auth/login?returnTo=/portfolio" className="font-medium underline underline-offset-4">
+        <div className="border-b border-info-border bg-info-subtle px-4 py-2.5 text-center text-xs text-info-subtle-foreground sm:px-6">
+          <span className="eyebrow mr-2">Demo</span>
+          Fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
+          <a
+            href="/api/auth/login?returnTo=/portfolio"
+            className="font-medium underline underline-offset-4 hover:text-foreground"
+          >
             Sign in with SnapTrade
           </a>{" "}
           to see your own accounts.

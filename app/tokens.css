@@ -1,0 +1,348 @@
+/*
+ * ThesisDeploy design tokens: the only file allowed to contain raw colors,
+ * font stacks, type sizes, radii, shadows, and motion curves.
+ * Spec: docs/design-system.md. `lib/design/token-usage.test.ts` fails the
+ * build if any of these values appear anywhere else.
+ */
+
+/* ---------- Primitives (never referenced by components) ---------- */
+:root {
+  /* Paper: warm neutrals for surfaces and hairlines. */
+  --td-paper-0: #fffdf8;
+  --td-paper-50: #f7f4ec;
+  --td-paper-100: #efebe0;
+  --td-paper-200: #e3ded0;
+  --td-paper-300: #cfc9b7;
+
+  /* Ink: pine-tinted near-blacks for text, primary actions, inverse panels. */
+  --td-ink-400: #8a8f86;
+  --td-ink-500: #6b7169;
+  --td-ink-600: #545a53;
+  --td-ink-700: #3b413c;
+  --td-ink-800: #222924;
+  --td-ink-900: #141a16;
+  --td-ink-950: #0c100d;
+
+  /* Cobalt: the ledger-ink brand accent; also Paper mode and info. */
+  --td-cobalt-50: #eef1fd;
+  --td-cobalt-100: #dfe4fb;
+  --td-cobalt-200: #c3cbf6;
+  --td-cobalt-300: #9aa9f0;
+  --td-cobalt-400: #7084e6;
+  --td-cobalt-500: #4d63d6;
+  --td-cobalt-600: #3449c2;
+  --td-cobalt-700: #2a3a9e;
+  --td-cobalt-800: #213077;
+
+  /* Moss (positive), ochre (warning), brick (negative). */
+  --td-moss-50: #ecf4e4;
+  --td-moss-200: #c3daa9;
+  --td-moss-500: #4f8f2a;
+  --td-moss-600: #3d7a1f;
+  --td-moss-700: #2f5f17;
+  --td-ochre-50: #faf1d8;
+  --td-ochre-200: #ecd592;
+  --td-ochre-500: #c99a1e;
+  --td-ochre-700: #7a5806;
+  --td-brick-50: #fbede8;
+  --td-brick-200: #efc3b4;
+  --td-brick-500: #cf5233;
+  --td-brick-600: #b33a1f;
+  --td-brick-700: #922e17;
+
+  /* Font stacks. The families are loaded by next/font in app/fonts.ts. */
+  --td-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --td-font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --td-font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* ---------- Semantic tokens (light, the default theme) ---------- */
+:root {
+  --background: var(--td-paper-50);
+  --foreground: var(--td-ink-900);
+  --card: var(--td-paper-0);
+  --card-foreground: var(--td-ink-900);
+  --popover: var(--td-paper-0);
+  --popover-foreground: var(--td-ink-900);
+  --primary: var(--td-ink-900);
+  --primary-hover: var(--td-ink-700);
+  --primary-foreground: var(--td-paper-50);
+  --secondary: var(--td-paper-100);
+  --secondary-hover: var(--td-paper-200);
+  --secondary-foreground: var(--td-ink-900);
+  --muted: var(--td-paper-100);
+  --muted-foreground: var(--td-ink-600);
+  --placeholder: var(--td-ink-500);
+  --accent: var(--td-paper-100);
+  --accent-foreground: var(--td-ink-900);
+  --destructive: var(--td-brick-600);
+  --destructive-foreground: var(--td-paper-0);
+  --border: var(--td-paper-200);
+  --border-strong: var(--td-paper-300);
+  --input: var(--td-ink-400);
+  --ring: var(--td-cobalt-600);
+
+  --surface-sunken: var(--td-paper-100);
+  --surface-tint: var(--td-paper-100);
+  --overlay: color-mix(in oklab, var(--td-ink-950) 45%, transparent);
+
+  --brand: var(--td-cobalt-600);
+  --brand-hover: var(--td-cobalt-700);
+  --brand-foreground: var(--td-paper-0);
+  --highlight: var(--td-cobalt-600);
+
+  --positive: var(--td-moss-600);
+  --positive-subtle: var(--td-moss-50);
+  --positive-subtle-foreground: var(--td-moss-700);
+  --positive-border: var(--td-moss-200);
+  --warning: var(--td-ochre-500);
+  --warning-subtle: var(--td-ochre-50);
+  --warning-subtle-foreground: var(--td-ochre-700);
+  --warning-border: var(--td-ochre-200);
+  --negative: var(--td-brick-600);
+  --negative-subtle: var(--td-brick-50);
+  --negative-subtle-foreground: var(--td-brick-700);
+  --negative-border: var(--td-brick-200);
+  --info: var(--td-cobalt-600);
+  --info-subtle: var(--td-cobalt-50);
+  --info-subtle-foreground: var(--td-cobalt-700);
+  --info-border: var(--td-cobalt-200);
+
+  /* Data visualization: holdings use the cobalt ramp, largest first. */
+  --chart-1: var(--td-cobalt-800);
+  --chart-2: var(--td-cobalt-600);
+  --chart-3: var(--td-cobalt-500);
+  --chart-4: var(--td-cobalt-400);
+  --chart-5: var(--td-cobalt-300);
+  --chart-other: var(--td-paper-300);
+  --chart-track: var(--td-paper-200);
+  --chart-cash-line: var(--td-moss-600);
+  --chart-cash-fill: var(--td-moss-50);
+  --chart-target: var(--td-ink-900);
+  --drift-over: var(--td-ochre-500);
+  --drift-under: var(--td-cobalt-400);
+
+  /* Hero illustration (read at runtime by the WebGL coin). */
+  --illustration-paper: var(--td-paper-100);
+  --illustration-ink: var(--td-ink-900);
+  --illustration-accent: var(--td-cobalt-600);
+
+  --sidebar: var(--td-paper-50);
+  --sidebar-foreground: var(--td-ink-900);
+  --sidebar-primary: var(--td-ink-900);
+  --sidebar-primary-foreground: var(--td-paper-50);
+  --sidebar-accent: var(--td-paper-100);
+  --sidebar-accent-foreground: var(--td-ink-900);
+  --sidebar-border: var(--td-paper-200);
+  --sidebar-ring: var(--td-cobalt-600);
+
+  /* Shape, layout, and decoration. */
+  --radius: 0.375rem;
+  --chamfer-sm: 0.375rem;
+  --chamfer: 0.75rem;
+  --chamfer-lg: 1.25rem;
+  --frame-mark-size: 0.75rem;
+  --frame-mark-weight: 1.5px;
+  --frame-mark-color: var(--td-ink-900);
+  --hatch-line: 1px;
+  --hatch-gap: 4px;
+  --grid-card-header: 1fr auto;
+  --grid-card-header-rows: auto auto;
+  --grid-hero: minmax(0, 1fr) minmax(0, 1fr);
+  --grid-xray: 17.5rem minmax(0, 1fr);
+  --grid-steps: repeat(3, minmax(0, 1fr));
+  --table-min: 40rem;
+  --coin-stage-sm: 18rem;
+  --coin-stage: 32rem;
+
+  /* Motion. */
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-pace: 1000ms;
+}
+
+/* Inverse theme: ink panels on the light page (add `dark` to any container). */
+.dark {
+  --background: var(--td-ink-950);
+  --foreground: var(--td-paper-50);
+  --card: var(--td-ink-900);
+  --card-foreground: var(--td-paper-50);
+  --popover: var(--td-ink-900);
+  --popover-foreground: var(--td-paper-50);
+  --primary: var(--td-paper-50);
+  --primary-hover: var(--td-paper-200);
+  --primary-foreground: var(--td-ink-900);
+  --secondary: var(--td-ink-800);
+  --secondary-hover: var(--td-ink-700);
+  --secondary-foreground: var(--td-paper-50);
+  --muted: var(--td-ink-800);
+  --muted-foreground: var(--td-ink-400);
+  --placeholder: var(--td-ink-400);
+  --accent: var(--td-ink-800);
+  --accent-foreground: var(--td-paper-50);
+  --border: var(--td-ink-800);
+  --border-strong: var(--td-ink-700);
+  --input: var(--td-ink-500);
+  --ring: var(--td-cobalt-300);
+  --surface-sunken: var(--td-ink-900);
+  --surface-tint: var(--td-ink-900);
+  --brand: var(--td-cobalt-300);
+  --brand-hover: var(--td-cobalt-200);
+  --brand-foreground: var(--td-ink-950);
+  --highlight: var(--td-cobalt-300);
+  --frame-mark-color: var(--td-paper-50);
+  --illustration-paper: var(--td-ink-950);
+  --illustration-ink: var(--td-paper-50);
+  --illustration-accent: var(--td-cobalt-300);
+}
+
+/* ---------- Tailwind theme: only these tokens generate utilities ---------- */
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --ease-*: initial;
+
+  /* Type scale (rem; line-height; tracking). */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-2xl--letter-spacing: -0.015em;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.375rem;
+  --text-3xl--letter-spacing: -0.02em;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 2.75rem;
+  --text-4xl--letter-spacing: -0.025em;
+  --text-display: clamp(2.5rem, 1.6rem + 3.2vw, 4.25rem);
+  --text-display--line-height: 1;
+  --text-display--letter-spacing: -0.035em;
+
+  --tracking-label: 0.14em;
+  --tracking-badge: 0.06em;
+
+  --container-prose: 36rem;
+  --container-page: 76rem;
+
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --shadow-xs: 0 1px 0 color-mix(in oklab, var(--td-ink-900) 5%, transparent);
+  --shadow-sm:
+    0 1px 2px color-mix(in oklab, var(--td-ink-900) 6%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--td-ink-900) 3%, transparent);
+  --shadow-md:
+    0 10px 28px -12px color-mix(in oklab, var(--td-ink-900) 22%, transparent),
+    0 2px 6px -2px color-mix(in oklab, var(--td-ink-900) 10%, transparent);
+  --shadow-lg: 0 28px 64px -20px color-mix(in oklab, var(--td-ink-950) 35%, transparent);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --default-transition-duration: var(--duration-fast);
+  --default-transition-timing-function: var(--ease-standard);
+
+  --animate-pace: pace var(--duration-pace) var(--ease-standard) infinite;
+
+  @keyframes pace {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+@theme inline {
+  --font-display: var(--td-font-display);
+  --font-sans: var(--td-font-sans);
+  --font-mono: var(--td-font-mono);
+  --font-heading: var(--td-font-display);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-placeholder: var(--placeholder);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-tint: var(--surface-tint);
+  --color-overlay: var(--overlay);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-highlight: var(--highlight);
+  --color-positive: var(--positive);
+  --color-positive-subtle: var(--positive-subtle);
+  --color-positive-subtle-foreground: var(--positive-subtle-foreground);
+  --color-positive-border: var(--positive-border);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-negative: var(--negative);
+  --color-negative-subtle: var(--negative-subtle);
+  --color-negative-subtle-foreground: var(--negative-subtle-foreground);
+  --color-negative-border: var(--negative-border);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-subtle-foreground: var(--info-subtle-foreground);
+  --color-info-border: var(--info-border);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-other: var(--chart-other);
+  --color-chart-track: var(--chart-track);
+  --color-chart-target: var(--chart-target);
+  --color-drift-over: var(--drift-over);
+  --color-drift-under: var(--drift-under);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
