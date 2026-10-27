@@ -72,9 +72,15 @@ function TelemetryPanel() {
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4 border-b px-5 py-4 sm:px-6 sm:py-5">
-        <div className="flex flex-col gap-1">
-          <p className="eyebrow text-muted-foreground">► Product telemetry</p>
+      <div className="flex items-center justify-between gap-4 border-b py-2 pr-3 pl-5 sm:pl-6">
+        <p className="eyebrow text-muted-foreground">► Product telemetry</p>
+        <DrawerClose render={<Button variant="ghost" size="icon-sm" aria-label="Close telemetry" />}>
+          <X />
+        </DrawerClose>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div className="flex flex-col gap-1 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
           <DrawerTitle className="font-display text-2xl font-semibold">How ThesisDeploy is used</DrawerTitle>
           <DrawerDescription className="text-sm text-muted-foreground">
             The activation funnel, how much people trust Claude&apos;s baskets, and how SnapTrade behaves, from the{" "}
@@ -82,12 +88,6 @@ function TelemetryPanel() {
             tables.
           </DrawerDescription>
         </div>
-        <DrawerClose render={<Button variant="ghost" size="icon-sm" aria-label="Close telemetry" />}>
-          <X />
-        </DrawerClose>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <div className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-card px-5 py-3 sm:px-6">
           <Segmented
             name="Whose activity"
@@ -99,7 +99,7 @@ function TelemetryPanel() {
             onChange={setScope}
           />
           <p className="text-xs text-muted-foreground">
-            {data ? scopeNote(scope, data.viewer, data.windowDays) : `Last 30 days.`}
+            {data ? scopeNote(scope, data.viewer, data.windowDays) : "Last 30 days."}
           </p>
         </div>
 
@@ -325,7 +325,6 @@ function Metrics({ snapshot, scope, viewer }: { snapshot: TelemetrySnapshot; sco
 
       <Section
         title="SnapTrade latency"
-        aside={latency.length > 0 ? "p50 / p95" : undefined}
         note="Every call through the Bearer-only client, failures and timeouts included, since that's the wait people saw."
       >
         {latency.length === 0 ? (

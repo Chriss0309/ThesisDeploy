@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { serverEnv } from "@/lib/env";
@@ -11,6 +11,7 @@ export const maxDuration = 10;
 
 /** Aggregates only: everyone's (cached for a minute) and this browser's own (its session and demo cookie). */
 export async function GET(request: NextRequest) {
+  await connection();
   if (!serverEnv().DATABASE_URL) {
     return errorResponse(503, "not_configured", "Telemetry needs the database, which isn't configured on this deployment.");
   }
