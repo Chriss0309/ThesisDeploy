@@ -1,6 +1,6 @@
 # Thesis Studio
 
-Thesis Studio (`/studio`) turns a one-line conviction into a whole-share stock basket on the signed-in user's portfolio. `/demo/studio` runs the same pipeline on the fictional demo portfolio with no sign-in. Nothing is ordered here; pre-flight and execution come next.
+Thesis Studio (`/studio`) turns a one-line conviction into a whole-share stock basket on the signed-in user's portfolio. `/demo/studio` runs the same pipeline on the fictional demo portfolio with no sign-in. Nothing is ordered here: "Continue to pre-flight" hands the edited basket to [paper execution](paper-execution.md).
 
 ## Pipeline (`POST /api/theses`)
 

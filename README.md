@@ -14,8 +14,9 @@ Early scaffold. What works today:
 - Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
 - Thesis Studio (`/studio`): Claude proposes a basket from a one-line conviction and the user's holdings across every account. SnapTrade grounds and prices every ticker in one quotes call, the top-up rule trims what the user already holds, and a whole-share solver sizes it. The Basket Composer has overlap badges, weight sliders, share steppers, and remove, with live cost and leftover cash. The guest demo is at `/demo/studio`, with cached presets and strict generation limits. See [`docs/thesis-studio.md`](docs/thesis-studio.md).
 - Design system: every color, font, type size, radius, shadow, and motion value lives in `app/tokens.css`, and a test fails the build on hardcoded values anywhere else. The landing page has a three.js engraved-coin animation of paced, whole-share execution. See [`docs/design-system.md`](docs/design-system.md).
+- Paper execution: a pre-flight modal with the exact order list, fresh SnapTrade quotes, and every reason Live is unavailable. Confirming runs a Postgres-backed queue that submits one leg per 1.1 seconds per account, keeps going past a rejected leg, offers "Retry failed leg", and resumes after a dropped connection or closed tab. Fills land in a Virtual Basket ledger (`/baskets/:id`, or `/demo/baskets/:id` for guests). No order endpoint is called, and Live stays behind `LIVE_TRADING_ENABLED`. See [`docs/paper-execution.md`](docs/paper-execution.md).
 
-Paced execution (paper and live) and drift tracking land in later PRs.
+Live order submission and drift tracking land in later PRs.
 
 ## Stack
 
@@ -71,7 +72,7 @@ All variables are optional at build time so Preview deployments build without se
 | `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`) |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5`. Without a key, Thesis Studio generation is off and the demo shows sample baskets. |
 | `GUEST_GENERATIONS_PER_DAY` | Claude calls the guest demo may make per rolling 24 hours across all visitors; default 40, `0` turns them off |
-| `LIVE_TRADING_ENABLED` | Kill switch for real orders; default `false` |
+| `LIVE_TRADING_ENABLED` | Kill switch for real orders, checked on every leg; default `false`. Live submission isn't wired yet, so Live stays disabled either way. |
 
 Secrets live only in Vercel environment variables and `.env.local`, never in the repo. All SnapTrade calls go through the backend.
 
