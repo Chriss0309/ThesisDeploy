@@ -17,7 +17,6 @@ import type {
   PreflightPayload,
   PreflightRequest,
 } from "@/lib/execution/types";
-import { cn } from "@/lib/utils";
 
 type Phase = "loading" | "error" | "ready" | "confirming" | "running";
 
@@ -354,7 +353,7 @@ function PreflightFlow({
             actions={
               <>
                 <DialogClose render={<Button variant="outline" size="sm" />}>Close</DialogClose>
-                <Link href={execution.basketPath} className={cn(buttonVariants({ size: "sm" }))}>
+                <Link href={execution.basketPath} className={buttonVariants({ size: "sm" })}>
                   View saved basket
                 </Link>
               </>

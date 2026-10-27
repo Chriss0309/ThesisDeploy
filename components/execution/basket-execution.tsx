@@ -7,7 +7,6 @@ import { useCallback, useRef } from "react";
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
 import { buttonVariants } from "@/components/ui/button";
 import type { ExecutionView } from "@/lib/execution/types";
-import { cn } from "@/lib/utils";
 
 /** The basket page's execution: resumes pending paper legs on open and refreshes the ledger once settled. */
 export function BasketExecution({ execution, studioPath }: { execution: ExecutionView; studioPath: string }) {
@@ -28,7 +27,7 @@ export function BasketExecution({ execution, studioPath }: { execution: Executio
       autoResume={execution.mode === "paper"}
       onStateChange={onStateChange}
       actions={
-        <Link href={studioPath} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+        <Link href={studioPath} className={buttonVariants({ variant: "outline", size: "sm" })}>
           Build another basket
         </Link>
       }
