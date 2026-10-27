@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ExecutionLoader } from "@/components/execution/execution-loader";
 import { ExecutionLog } from "@/components/execution/execution-log";
 import { useExecution } from "@/components/execution/use-execution";
+import { Mark } from "@/components/loader/mark";
 import { Button } from "@/components/ui/button";
 import { stackLegs } from "@/lib/execution/client-state";
 import { summarizeLegs, summaryLine } from "@/lib/execution/summary";
@@ -62,7 +63,11 @@ export function ExecutionPanel({
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!draining && (
-          <p className="text-xs text-muted-foreground">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            {!active && execution.status === "completed" && <Mark kind="success" size="inline" />}
+            {!active && (execution.status === "partial" || execution.status === "failed") && (
+              <Mark kind="error" size="inline" />
+            )}
             {active
               ? "Paused with legs left to submit. Filled legs are saved."
               : execution.status === "canceled"

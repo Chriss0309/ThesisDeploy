@@ -1,11 +1,12 @@
 import { LinearSRGBColorSpace, WebGLRenderer } from "three";
 
 import { buildMotif, type Motif, type MotifState, type Palette } from "./motifs";
-import { animatedViews, backingSize, gpuBudget, type ExecutionProgress, type LoaderVariant } from "./timing";
+import { animatedViews, backingSize, gpuBudget, type ExecutionProgress, type LoaderVariant, type Pose } from "./timing";
 
-// One WebGL context for every loader on the page: each frame, every visible loader's
-// scene is drawn into a corner of a single detached canvas and copied into that
-// loader's own 2D canvas. Phones stay within one context however many loaders mount.
+// One WebGL context for every motif on the page (loaders, marks, and the landing hero):
+// each frame, every visible view's scene is drawn into a corner of a single detached
+// canvas and copied into that view's own 2D canvas. Phones stay within one context
+// however many views mount.
 
 type View = {
   ctx: CanvasRenderingContext2D;
@@ -14,11 +15,13 @@ type View = {
   backing: { width: number; height: number };
   visible: boolean;
   dirty: boolean;
+  /** Was drawn animating last frame, so it owes one final still frame when it stops. */
+  moving: boolean;
 };
 
 export type LoaderView = {
   resize(cssWidth: number, cssHeight: number): void;
-  update(next: { progress?: ExecutionProgress; settled?: boolean; palette?: Palette }): void;
+  update(next: { progress?: ExecutionProgress; settled?: boolean; palette?: Palette; start?: boolean }): void;
   setVisible(visible: boolean): void;
   dispose(): void;
 };
@@ -55,6 +58,14 @@ function getRenderer() {
   return renderer;
 }
 
+/** Loops animate while visible; one-shot poses animate until their duration, then hold. */
+function animating(view: View, time: number) {
+  if (reducedMotion.matches) return false;
+  const duration = view.motif.duration(view.state.pose);
+  if (duration === Infinity) return true;
+  return view.state.poseAt != null && time - view.state.poseAt <= duration;
+}
+
 function draw(view: View, time: number) {
   const gl = getRenderer();
   const { width, height } = view.backing;
@@ -65,10 +76,25 @@ function draw(view: View, time: number) {
   gl.setViewport(0, 0, width, height);
   gl.setScissor(0, 0, width, height);
   gl.clear();
-  view.motif.update(time, view.state);
+  const { state } = view;
+  const duration = view.motif.duration(state.pose);
+  state.poseTime =
+    state.poseAt == null ? 0 : state.still && duration !== Infinity ? duration : Math.min(time - state.poseAt, duration);
+  view.motif.update(time, state);
   gl.render(view.motif.scene, view.motif.camera);
   view.ctx.clearRect(0, 0, width, height);
   view.ctx.drawImage(target, 0, target.height - height, width, height, 0, 0, width, height);
+}
+
+/** The reduced-motion frame, or the frame a one-shot pose ends on (or starts from, before it plays). */
+function drawStill(view: View) {
+  const { state, motif } = view;
+  const duration = motif.duration(state.pose);
+  view.state.still = true;
+  draw(view, duration === Infinity ? motif.still : (state.poseAt ?? 0) + (state.poseAt == null ? 0 : duration));
+  view.state.still = false;
+  view.dirty = false;
+  view.moving = false;
 }
 
 function tick(now: number) {
@@ -78,35 +104,30 @@ function tick(now: number) {
     lastFrame = now;
     const time = seconds();
     const visible = [...views].filter((view) => view.visible);
-    const animated = reducedMotion.matches
-      ? new Set<number>()
-      : animatedViews(
-          visible.map(({ backing }) => backing.width * backing.height),
-          budget.framePixels,
-        );
-    visible.forEach((view, index) => {
-      if (animated.has(index)) {
-        draw(view, time);
-        view.dirty = false;
-      } else if (view.dirty) {
-        drawStill(view);
-      }
+    const live = visible.filter((view) => animating(view, time));
+    const chosen = animatedViews(
+      live.map(({ backing }) => backing.width * backing.height),
+      budget.framePixels,
+    );
+    live.forEach((view, index) => {
+      if (!chosen.has(index)) return;
+      draw(view, time);
+      view.dirty = false;
+      view.moving = true;
     });
+    for (const view of visible) {
+      const drawn = live.includes(view) && chosen.has(live.indexOf(view));
+      if (!drawn && (view.dirty || view.moving)) drawStill(view);
+    }
   }
   schedule();
 }
 
-function drawStill(view: View) {
-  view.state.still = true;
-  draw(view, view.motif.still);
-  view.state.still = false;
-  view.dirty = false;
-}
-
 function schedule() {
   if (frame || document.hidden) return;
+  const time = seconds();
   for (const view of views) {
-    if (view.visible && (view.dirty || !reducedMotion.matches)) {
+    if (view.visible && (view.dirty || view.moving || animating(view, time))) {
       frame = requestAnimationFrame(tick);
       return;
     }
@@ -125,29 +146,11 @@ reducedMotion.addEventListener("change", () => {
   schedule();
 });
 
-/** Throws when WebGL is unavailable; callers keep their text-only status. */
-export function attachLoader(
-  canvas: HTMLCanvasElement,
-  options: { variant: LoaderVariant; palette: Palette; progress?: ExecutionProgress; settled?: boolean; settleMs: number },
-): LoaderView {
+function attach(canvas: HTMLCanvasElement, motif: Motif, state: MotifState): LoaderView {
   getRenderer();
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D is unavailable");
-  const now = seconds();
-  const view: View = {
-    ctx,
-    motif: buildMotif(options.variant, options.palette),
-    state: {
-      progress: options.progress,
-      settledAt: options.settled ? now : null,
-      startedAt: now,
-      settleSeconds: options.settleMs / 1000,
-      still: false,
-    },
-    backing: { width: 1, height: 1 },
-    visible: true,
-    dirty: true,
-  };
+  const view: View = { ctx, motif, state, backing: { width: 1, height: 1 }, visible: true, dirty: true, moving: false };
   views.add(view);
 
   return {
@@ -157,14 +160,17 @@ export function attachLoader(
       canvas.width = view.backing.width;
       canvas.height = view.backing.height;
       view.motif.resize(cssWidth, cssHeight);
-      // Paint right away so a remounted loader never shows an empty frame.
-      if (reducedMotion.matches) drawStill(view);
-      else draw(view, seconds());
+      // Paint right away so a remounted view never shows an empty frame.
+      const time = seconds();
+      if (animating(view, time)) draw(view, time);
+      else drawStill(view);
       schedule();
     },
-    update({ progress, settled, palette }) {
+    update({ progress, settled, palette, start }) {
+      const now = seconds();
       if (progress !== undefined) view.state.progress = progress;
-      if (settled && view.state.settledAt == null) view.state.settledAt = seconds();
+      if (settled && view.state.settledAt == null) view.state.settledAt = now;
+      if (start && view.state.poseAt == null) view.state.poseAt = now;
       if (palette) view.motif.setPalette(palette);
       view.dirty = true;
       schedule();
@@ -179,4 +185,45 @@ export function attachLoader(
       view.motif.dispose();
     },
   };
+}
+
+/** Throws when WebGL is unavailable; callers keep their text and layout without the canvas. */
+export function attachView(
+  canvas: HTMLCanvasElement,
+  options: {
+    variant: LoaderVariant;
+    pose: Pose;
+    palette: Palette;
+    progress?: ExecutionProgress;
+    settled?: boolean;
+    settleMs: number;
+    /** False holds the pose's first frame until `update({ start: true })`. */
+    started: boolean;
+  },
+): LoaderView {
+  const now = seconds();
+  return attach(canvas, buildMotif(options.variant, options.palette, options.pose), {
+    progress: options.progress,
+    settledAt: options.settled ? now : null,
+    startedAt: now,
+    settleSeconds: options.settleMs / 1000,
+    still: false,
+    pose: options.pose,
+    poseAt: options.started ? now : null,
+    poseTime: 0,
+  });
+}
+
+/** A custom looping scene (the landing hero) drawn by the same renderer. */
+export function attachScene(canvas: HTMLCanvasElement, motif: Motif): LoaderView {
+  const now = seconds();
+  return attach(canvas, motif, {
+    settledAt: null,
+    startedAt: now,
+    settleSeconds: 0,
+    still: false,
+    pose: "loading",
+    poseAt: now,
+    poseTime: 0,
+  });
 }

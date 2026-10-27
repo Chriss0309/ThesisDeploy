@@ -12,8 +12,9 @@ export default function LoadersPage() {
   return (
     <PageShell
       eyebrow="Design system"
-      title="Loaders"
-      description="Every loading motif, rendered by the shared three.js engine. See docs/design-system.md."
+      title="Loaders and marks"
+      description="Every motif and pose, rendered by the shared three.js engine. See docs/design-system.md."
+      mark="studio"
     >
       <LoaderGallery />
     </PageShell>

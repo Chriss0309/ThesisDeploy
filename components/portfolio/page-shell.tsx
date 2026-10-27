@@ -1,5 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
+import { Mark, Reveal } from "@/components/loader/mark";
+import type { MarkKind } from "@/components/loader/timing";
 import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
 
 const NAV = [
@@ -14,12 +16,15 @@ export function PageShell({
   title,
   description,
   banner,
+  mark,
   children,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   banner?: ReactNode;
+  /** The page's engraved mark beside the title; it plays when the page's content renders. */
+  mark?: MarkKind;
   children: ReactNode;
 }) {
   return (
@@ -42,10 +47,13 @@ export function PageShell({
       </header>
       {banner}
       <main className="mx-auto flex min-h-(--page-main-min) w-full max-w-page flex-1 flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 sm:pt-10">
-        <div className="flex flex-col gap-2">
-          <p className="eyebrow text-muted-foreground">► {eyebrow}</p>
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h1>
-          <p className="max-w-prose text-sm text-muted-foreground sm:text-base">{description}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow text-muted-foreground">► {eyebrow}</p>
+            <h1 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h1>
+            <p className="max-w-prose text-sm text-muted-foreground sm:text-base">{description}</p>
+          </div>
+          {mark && <Mark kind={mark} size="header" reveal="data" />}
         </div>
         {children}
       </main>
@@ -59,11 +67,15 @@ export function PageShell({
   );
 }
 
-export function MessageCard({ title, children }: { title: string; children: ReactNode }) {
+export function MessageCard({ title, mark, children }: { title: string; mark?: MarkKind; children: ReactNode }) {
   return (
-    <div className="frame-marks flex max-w-xl flex-col gap-3 bg-card p-6 shadow-sm">
-      <h2 className="font-display text-xl font-semibold">{title}</h2>
-      <div className="flex flex-col gap-3 text-sm text-muted-foreground">{children}</div>
+    <div className="frame-marks flex max-w-xl flex-col items-start gap-4 bg-card p-6 shadow-sm sm:flex-row sm:gap-5">
+      {mark && <Mark kind={mark} />}
+      <div className="flex flex-col gap-3">
+        <h2 className="font-display text-xl font-semibold">{title}</h2>
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground">{children}</div>
+      </div>
+      <Reveal />
     </div>
   );
 }

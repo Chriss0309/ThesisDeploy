@@ -169,6 +169,15 @@
   --loader-showpiece-stage-sm: 13rem;
   --loader-showpiece-stage: 17rem;
   --loader-showpiece: 26rem;
+  /* Marks: the same motifs at content time (page headers, empty, success, error). */
+  --mark-header-w-sm: 6rem;
+  --mark-header-h-sm: 4rem;
+  --mark-header-w: 9rem;
+  --mark-header-h: 6rem;
+  --mark-card-w: 7rem;
+  --mark-card-h: 4.5rem;
+  --mark-inline-w: 2.25rem;
+  --mark-inline-h: 1.5rem;
   /* Page bodies fill the viewport, so the footer starts below the fold and a loader
      handing over to taller content never moves anything in view. */
   --page-main-min: calc(100svh - 4.25rem);

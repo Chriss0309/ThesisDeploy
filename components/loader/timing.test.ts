@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { animatedViews, appearDelay, backingSize, gpuBudget, parseMs, settleHold, stackHeights } from "./timing";
+import {
+  LOADER_VARIANTS,
+  MARKS,
+  animatedViews,
+  appearDelay,
+  backingSize,
+  gpuBudget,
+  parseLegs,
+  parseMs,
+  settleHold,
+  stackHeights,
+} from "./timing";
 
 describe("loader timing", () => {
   it("parses timing tokens", () => {
@@ -49,5 +60,23 @@ describe("GPU budget", () => {
 describe("execution stacks", () => {
   it("draws coins in proportion to shares, within readable bounds", () => {
     expect(stackHeights([{ shares: 4 }, { shares: 12 }, { shares: 1 }])).toEqual([3, 10, 2]);
+  });
+
+  it("reads a basket's legs from a mark attribute, ignoring junk", () => {
+    expect(parseLegs("18,2,0,3")?.legs.map((leg) => [leg.shares, leg.status])).toEqual([
+      [18, "submitted"],
+      [2, "submitted"],
+      [3, "submitted"],
+    ]);
+    expect(parseLegs("")).toBeUndefined();
+    expect(parseLegs(null)).toBeUndefined();
+    expect(parseLegs("a,-1")).toBeUndefined();
+  });
+
+  it("maps every mark to a motif in the family and a one-shot or waiting pose", () => {
+    for (const { variant, pose } of Object.values(MARKS)) {
+      expect(LOADER_VARIANTS).toContain(variant);
+      expect(pose).not.toBe("loading");
+    }
   });
 });

@@ -8,6 +8,38 @@ export type ExecutionLeg = { symbol: string; shares: number; status: LegStatus }
 /** Live state for the `stacks` variant; omit it for an indeterminate loop. */
 export type ExecutionProgress = { legs: ExecutionLeg[] };
 
+/**
+ * What a motif is doing. `loading` loops (the loaders); every other pose plays once
+ * when its content renders and then holds a still frame.
+ */
+export type Pose = "loading" | "reveal" | "success" | "lost" | "linked" | "apart" | "broken" | "empty" | "paced" | "drift";
+
+/** Content-time marks: one motif and pose per meaning, so every page reads the same way. */
+export const MARKS = {
+  xray: { variant: "scan", pose: "reveal" },
+  studio: { variant: "orbit", pose: "reveal" },
+  theses: { variant: "stacks", pose: "drift" },
+  basket: { variant: "stacks", pose: "reveal" },
+  signin: { variant: "link", pose: "apart" },
+  connected: { variant: "link", pose: "linked" },
+  error: { variant: "link", pose: "broken" },
+  "rate-limit": { variant: "stacks", pose: "paced" },
+  empty: { variant: "stacks", pose: "empty" },
+  success: { variant: "coin", pose: "success" },
+  lost: { variant: "coin", pose: "lost" },
+} as const satisfies Record<string, { variant: LoaderVariant; pose: Pose }>;
+export type MarkKind = keyof typeof MARKS;
+
+/** `legs="4,6,12"` (shares per leg) as filled stacks; anything unparseable is ignored. */
+export function parseLegs(value: string | null | undefined): ExecutionProgress | undefined {
+  const shares = (value ?? "")
+    .split(",")
+    .map(Number)
+    .filter((count) => Number.isFinite(count) && count > 0);
+  if (shares.length === 0) return undefined;
+  return { legs: shares.map((count, i) => ({ symbol: `L${i}`, shares: count, status: "submitted" })) };
+}
+
 /** Fallbacks for the --loader-* timing tokens in app/tokens.css. */
 export const DEFAULT_TIMING = { delayMs: 300, minVisibleMs: 600, settleMs: 450 };
 

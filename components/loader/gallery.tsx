@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Loader, LoaderGlyph, type ExecutionLeg, type ExecutionProgress } from "./loader";
+import { Mark } from "./mark";
 import { NavigationStatus } from "./pending";
 
 const BASKET = [
@@ -18,6 +19,20 @@ const BASKET = [
   { symbol: "OKLO", shares: 9 },
 ];
 const LEG_COUNTS = [4, 6, 8];
+
+const MARK_EXAMPLES = [
+  { kind: "xray", label: "Portfolio X-Ray header", detail: "scan · one pass as holdings arrive" },
+  { kind: "studio", label: "Thesis Studio header", detail: "orbit · candidates settle into lots" },
+  { kind: "theses", label: "My Theses header", detail: "stacks · lots against cobalt targets" },
+  { kind: "basket", label: "Saved basket header", detail: "stacks · the basket's own legs" },
+  { kind: "empty", label: "Empty state", detail: "stacks · open slots, one lot waiting" },
+  { kind: "success", label: "Saved, rebalanced, closed", detail: "coin · lands face-up, one ring" },
+  { kind: "signin", label: "Sign in needed", detail: "link · two rings, not yet joined" },
+  { kind: "connected", label: "Connected", detail: "link · rings slide together" },
+  { kind: "error", label: "Error or expired access", detail: "link · rings pull apart" },
+  { kind: "rate-limit", label: "Rate limited", detail: "stacks · the next leg waits a beat" },
+  { kind: "lost", label: "404", detail: "coin · wobbles down and rests" },
+] as const;
 const STEP_MS = 1000;
 
 /** A paced queue on a timer: one leg per second, the third leg rejected by the brokerage. */
@@ -47,6 +62,7 @@ export function LoaderGallery() {
   const [settled, setSettled] = useState(false);
   const [round, setRound] = useState(0);
   const [toast, setToast] = useState(false);
+  const [replay, setReplay] = useState(0);
 
   return (
     <div className="flex flex-col gap-10">
@@ -108,6 +124,28 @@ export function LoaderGallery() {
             </div>
           </Loader>
           <Loader variant="stacks" label="Submitting orders…" detail="stacks · no progress given: an indeterminate loop" />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4" aria-labelledby="marks">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="marks" className="eyebrow text-muted-foreground">
+            Marks: content-time poses
+          </h2>
+          <Button size="sm" variant="outline" onClick={() => setReplay((value) => value + 1)}>
+            Replay
+          </Button>
+        </div>
+        <div key={replay} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {MARK_EXAMPLES.map(({ kind, label, detail }) => (
+            <div key={kind} className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-border">
+              <Mark kind={kind} />
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-xs text-muted-foreground">{detail}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 

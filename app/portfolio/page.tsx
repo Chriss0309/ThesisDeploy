@@ -59,7 +59,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   if (!isAuthConfigured()) {
     return (
-      <MessageCard title="Sign-in isn't configured on this deployment">
+      <MessageCard title="Sign-in isn't configured on this deployment" mark="signin">
         <p>
           You can still explore the{" "}
           <a href="/demo" className={LINK}>
@@ -74,7 +74,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
   const user = await getCurrentUser();
   if (!user) {
     return (
-      <MessageCard title="Sign in to see your portfolio">
+      <MessageCard title="Sign in to see your portfolio" mark="signin">
         <p>
           ThesisDeploy reads balances and positions from the brokerage accounts you manage in SnapTrade. It never
           trades without your confirmation.
@@ -104,7 +104,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
 
   if (overview.accounts.length === 0) {
     return (
-      <MessageCard title="No investment accounts yet">
+      <MessageCard title="No investment accounts yet" mark="empty">
         <p>
           Connect a brokerage in the{" "}
           <a href={SNAPTRADE_DASHBOARD_URL} className={LINK} target="_blank" rel="noreferrer">

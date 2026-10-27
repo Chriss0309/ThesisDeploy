@@ -24,7 +24,7 @@ import {
   type Object3D,
 } from "three";
 
-import { stackHeights, type ExecutionLeg, type ExecutionProgress, type LoaderVariant } from "./timing";
+import { stackHeights, type ExecutionLeg, type ExecutionProgress, type LoaderVariant, type Pose } from "./timing";
 
 export type Rgb = [number, number, number];
 export type Palette = { paper: Rgb; ink: Rgb; accent: Rgb; negative: Rgb };
@@ -37,13 +37,20 @@ export type MotifState = {
   startedAt: number;
   settleSeconds: number;
   still: boolean;
+  pose: Pose;
+  /** Global seconds when a one-shot pose started; null holds its first frame. */
+  poseAt: number | null;
+  /** Seconds into a one-shot pose, clamped to its duration (the engine fills this in). */
+  poseTime: number;
 };
 
 export type Motif = {
   scene: Scene;
   camera: PerspectiveCamera;
-  /** Global time of the reduced-motion still frame. */
+  /** Global time of the reduced-motion still frame for looping poses. */
   still: number;
+  /** Seconds a pose plays before holding its last frame; Infinity for loops. */
+  duration(pose: Pose): number;
   update(time: number, state: MotifState): void;
   resize(width: number, height: number): void;
   setPalette(palette: Palette): void;
@@ -343,45 +350,102 @@ function framer(camera: PerspectiveCamera, box: { w: number; h: number }, target
   };
 }
 
-type Parts = { root: Object3D; update: (time: number, state: MotifState) => void; still: number; box: { w: number; h: number }; target?: Vector3; pitch?: number };
+type Parts = {
+  root: Object3D;
+  update: (time: number, state: MotifState) => void;
+  still: number;
+  box: { w: number; h: number };
+  target?: Vector3;
+  pitch?: number;
+  durations?: Partial<Record<Pose, number>>;
+};
 
-/** coin: the brand mark spinning. Generic and inline waits. */
+const fade = (material: LineBasicMaterial, opacity: number) => {
+  material.transparent = true;
+  material.opacity = opacity;
+};
+
+/** coin: the brand mark. Spins while loading, lands face-up on success, topples on a 404. */
 function coinMotif(kit: Kit): Parts {
-  const root = coin(kit);
+  const root = new Group();
+  const body = coin(kit);
+  root.add(body);
+  const ringMaterial = kit.line("accent");
+  const ring = new LineLoop(circle(1.18, 96), ringMaterial);
+  ring.rotation.x = Math.PI / 2;
+  const ground = new LineSegments(ruler(-1.4, 1.4, []), kit.line("ink", 0.8));
+  ground.position.y = -1.08;
+  root.add(ring, ground);
   return {
     root,
     still: 3.82,
     box: { w: 2.3, h: 2.3 },
     pitch: 0.1,
-    update(time) {
-      root.rotation.y = time * 1.5;
-      root.rotation.x = 0.18;
-      root.position.y = Math.sin(time * 2.2) * 0.04;
+    durations: { success: 1.7, lost: 3.2 },
+    update(time, state) {
+      ring.visible = false;
+      ground.visible = state.pose === "lost";
+      body.position.set(0, 0, 0);
+      if (state.pose === "success") {
+        // Minted: a fast spin that slows to face the viewer, then one cobalt ring.
+        const p = clamp01(state.poseTime / 1.7);
+        body.rotation.set(0.12, -0.42 + (1 - easeOutCubic(p)) * Math.PI * 5, 0);
+        body.position.y = (1 - easeOutBack(clamp01(p * 1.8))) * 0.45;
+        const burst = clamp01((p - 0.5) / 0.5);
+        ring.visible = burst > 0 && burst < 1;
+        ring.scale.setScalar(0.92 + burst * 0.3);
+        fade(ringMaterial, 1 - burst);
+        return;
+      }
+      if (state.pose === "lost") {
+        // A dropped coin wobbling down: it leans further and precesses until it rests.
+        const p = clamp01(state.poseTime / 3.2);
+        const lean = 0.12 + 1.08 * p ** 2.4 + Math.sin(p * 26) * 0.05 * (1 - p);
+        body.rotation.set(-lean, Math.PI * 6 * p ** 1.5 - 0.55 * p, 0, "YXZ");
+        body.position.y = ground.position.y + Math.cos(lean) + Math.sin(lean) * 0.1;
+        return;
+      }
+      body.rotation.set(0.18, time * 1.5, 0);
+      body.position.y = Math.sin(time * 2.2) * 0.04;
     },
   };
 }
 
-/** link: two interlocked rings turning. Connecting to SnapTrade and session checks. */
-function linkMotif(kit: Kit): Parts {
+/** link: two interlocked rings. The connection to SnapTrade: loading, linked, apart, broken. */
+function linkMotif(kit: Kit, pose: Pose): Parts {
   const root = new Group();
-  const ring = (role: Role, x: number, flat: boolean, dir: [number, number, number]) => {
+  const ring = (role: Role, flat: boolean, dir: [number, number, number]) => {
     const mesh = new Mesh(torusGeometry(), kit.engraving(role, dir));
     mesh.add(new Mesh(torusGeometry(), kit.outline(role)));
-    mesh.position.x = x;
     if (flat) mesh.rotation.x = Math.PI / 2;
     root.add(mesh);
+    return mesh;
   };
-  ring("ink", -0.34, false, [0, 1, 0]);
-  ring("accent", 0.34, true, [1, 1.3, 0.4]);
+  const left = ring("ink", false, [0, 1, 0]);
+  const right = ring(pose === "broken" ? "negative" : "accent", true, [1, 1.3, 0.4]);
+  const place = (offset: number) => {
+    left.position.x = -offset;
+    right.position.x = offset;
+  };
+  const spread = pose === "apart" || pose === "broken";
   return {
     root,
     still: 0.9,
-    box: { w: 2.5, h: 1.9 },
+    box: { w: spread ? 3.7 : 2.5, h: 1.9 },
     pitch: 0.08,
-    update(time) {
-      root.rotation.y = time * 0.9;
-      root.rotation.x = 0.3 + Math.sin(time * 1.2) * 0.15;
-      root.rotation.z = Math.sin(time * 0.7) * 0.1;
+    durations: { linked: 1.4, apart: 1.6, broken: 1.6 },
+    update(time, state) {
+      if (state.pose === "loading") {
+        place(0.34);
+        root.rotation.set(0.3 + Math.sin(time * 1.2) * 0.15, time * 0.9, Math.sin(time * 0.7) * 0.1);
+        return;
+      }
+      const p = easeOutCubic(clamp01(state.poseTime / (state.pose === "linked" ? 1.4 : 1.6)));
+      if (state.pose === "linked") place(0.62 + (0.34 - 0.62) * p);
+      else if (state.pose === "broken") place(0.34 + 0.62 * easeOutBack(clamp01(state.poseTime / 1.6)));
+      else place(1.02 - 0.14 * p);
+      const turn = state.pose === "broken" ? 0.35 - 0.25 * p : 1.4 - 0.85 * p;
+      root.rotation.set(0.32, turn, state.pose === "broken" ? -0.12 * p : 0);
     },
   };
 }
@@ -399,20 +463,38 @@ function scanMotif(kit: Kit): Parts {
     tower.add(disc);
     return material;
   });
-  const plane = new LineLoop(circle(1.2), kit.line("accent"));
-  const ticks = new LineSegments(circle(1.32, 48, true), kit.line("accent", 0.6));
+  const planeLine = kit.line("accent");
+  const tickLine = kit.line("accent", 0.6);
+  const plane = new LineLoop(circle(1.2), planeLine);
+  const ticks = new LineSegments(circle(1.32, 48, true), tickLine);
   root.add(tower, plane, ticks);
+  const scanAt = (y: number, strength: number) => {
+    plane.position.y = ticks.position.y = y;
+    for (const material of materials) material.uniforms.uScan.value.set(y, 0.11, strength);
+  };
   return {
     root,
     still: 0.14,
     box: { w: 2.7, h: 2.6 },
     pitch: 0.34,
-    update(time) {
+    durations: { reveal: 1.9 },
+    update(time, state) {
+      if (state.pose === "reveal") {
+        // One pass from top to bottom as the holdings arrive, then the plane fades out.
+        const p = clamp01(state.poseTime / 1.9);
+        const sweep = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+        tower.rotation.y = -0.35 + 0.9 * easeOutCubic(p);
+        ticks.rotation.y = -p * 0.6;
+        const strength = 1 - clamp01((p - 0.8) / 0.2);
+        scanAt(1.05 - 2.1 * sweep, strength);
+        plane.visible = ticks.visible = strength > 0.01;
+        fade(planeLine, strength);
+        fade(tickLine, 0.6 * strength);
+        return;
+      }
       tower.rotation.y = time * 0.45;
-      const y = Math.sin(time * 1.7) * 1.05;
-      plane.position.y = ticks.position.y = y;
       ticks.rotation.y = -time * 0.3;
-      for (const material of materials) material.uniforms.uScan.value.set(y, 0.11, 1);
+      scanAt(Math.sin(time * 1.7) * 1.05, 1);
     },
   };
 }
@@ -451,10 +533,18 @@ function orbitMotif(kit: Kit): Parts {
     box: { w: 4.3, h: 2.85 },
     target: new Vector3(0, -0.35, 0),
     pitch: 0.3,
+    durations: { reveal: 3 },
     update(time, state) {
-      const t = state.still ? 14 : time - state.startedAt;
-      const settle = state.settledAt == null ? 0 : easeOutCubic(clamp01((time - state.settledAt) / state.settleSeconds));
-      hero.rotation.y = time * 0.6;
+      // reveal: the same story compressed, candidates every 0.2 s and settled by 3 s.
+      const reveal = state.pose === "reveal";
+      const t = reveal ? state.poseTime : state.still ? 14 : time - state.startedAt;
+      const settle = reveal
+        ? easeOutCubic(clamp01((state.poseTime - 2) / 1))
+        : state.settledAt == null
+          ? 0
+          : easeOutCubic(clamp01((time - state.settledAt) / state.settleSeconds));
+      const spacing = reveal ? 0.2 : 1.1;
+      hero.rotation.y = reveal ? (t - 3) * 0.6 - 0.45 : time * 0.6;
       hero.position.y = 0.15 + settle * 0.2 + Math.sin(time * 1.4) * 0.03;
       const sweep = t * 1.3;
       marker.position.set(Math.cos(sweep) * RADIUS, 0, Math.sin(sweep) * RADIUS);
@@ -462,7 +552,7 @@ function orbitMotif(kit: Kit): Parts {
       (marker.material as LineBasicMaterial).opacity = 1 - settle;
       base.visible = settle > 0;
       candidates.forEach(({ group, material, line }, i) => {
-        const appear = settle > 0 ? 1 : easeOutBack(clamp01((t - 0.4 - i * 1.1) / 0.35));
+        const appear = settle > 0 ? 1 : easeOutBack(clamp01((t - (reveal ? 0.1 : 0.4) - i * spacing) / 0.35));
         const angle = (i / COUNT) * Math.PI * 2 + t * 0.35;
         local.set(Math.cos(angle) * RADIUS, -0.2, Math.sin(angle) * RADIUS);
         target.set((i - (COUNT - 1) / 2) * 0.46, -1.53, 0.6);
@@ -482,48 +572,92 @@ const STACK_PITCH = 0.82;
 const STACK_MARGIN = 1.04;
 /** Four legs span exactly this; fewer legs keep the same framing. */
 const STACKS_MIN_WIDTH = 3 * STACK_PITCH + STACK_MARGIN;
+const shares = (counts: number[]): ExecutionLeg[] =>
+  counts.map((count, i) => ({ symbol: `L${i}`, shares: count, status: "queued" }));
+const DEFAULT_LEGS = shares([4, 6, 12, 5]);
+// Theses: lots held against each name's target (cobalt rings), two over and two under.
+const DRIFT_TARGETS = [1, -1, -1, 1];
+const EMPTY_LEGS = shares([4, 6, 5]);
+const PACED_LEGS = shares([4, 6, 5]);
 
-/** stacks: paced order legs, one stack of whole-share lots per leg. Execution queue. */
-function stacksMotif(kit: Kit): Parts {
+/** stacks: whole-share lots per order leg. Execution queue, saved baskets, drift, empty and paced states. */
+function stacksMotif(kit: Kit, pose: Pose): Parts {
   const root = new Group();
   const box = { w: STACKS_MIN_WIDTH, h: 1.45 };
-  type Leg = { group: Group; coins: ReturnType<typeof share>[]; fill: number; slot: LineLoop; pulse: LineLoop };
+  type Leg = {
+    group: Group;
+    coins: ReturnType<typeof share>[];
+    fill: number;
+    slot: LineLoop;
+    pulse: LineLoop;
+    target: LineLoop;
+  };
   let legs: Leg[] = [];
+  let heights: number[] = [];
   let baseline: LineSegments | null = null;
   let signature = "";
   let last = 0;
   const BASE_Y = -0.55;
   const DROP = 0.75;
-  const DEFAULT: ExecutionLeg[] = [4, 6, 12, 5].map((shares, i) => ({ symbol: `L${i}`, shares, status: "queued" }));
   const slotLine = kit.line("ink", 0.35);
   const failedLine = kit.line("negative");
   const pulseLine = kit.line("accent");
+  const targetLine = kit.line("accent");
+  const ghost = share(kit, true);
+  kit.setRoleIfChanged(ghost.material, ghost.line, "accent");
+  ghost.group.visible = false;
+  root.add(ghost.group);
 
   function build(source: ExecutionLeg[]) {
     for (const leg of legs) root.remove(leg.group);
     if (baseline) root.remove(baseline);
-    const heights = stackHeights(source);
+    heights = stackHeights(source);
     const xs = source.map((_, i) => (i - (source.length - 1) / 2) * STACK_PITCH);
     // The camera frames this box, so more legs zoom the whole row out to fit any canvas width.
-    box.w = Math.max(STACKS_MIN_WIDTH, (source.length - 1) * STACK_PITCH + STACK_MARGIN);
+    // Three-leg marks (empty, paced) frame tighter so they read at card size.
+    const least = pose === "empty" || pose === "paced" ? 2 * STACK_PITCH + STACK_MARGIN : STACKS_MIN_WIDTH;
+    box.w = Math.max(least, (source.length - 1) * STACK_PITCH + STACK_MARGIN);
     baseline = new LineSegments(ruler(xs[0] - 0.55, xs[xs.length - 1] + 0.55, xs), kit.line("ink"));
     baseline.position.y = BASE_Y;
     root.add(baseline);
     legs = source.map((_, i) => {
       const group = new Group();
       group.position.set(xs[i], BASE_Y, 0);
-      const coins = Array.from({ length: heights[i] }, () => {
+      const coins = Array.from({ length: heights[i] + (pose === "drift" ? 1 : 0) }, () => {
         const piece = share(kit, true);
         group.add(piece.group);
         return piece;
       });
       const slot = new LineLoop(circle(0.3, 40), slotLine);
       const pulse = new LineLoop(circle(0.34, 40), pulseLine);
-      group.add(slot, pulse);
+      const target = new LineLoop(circle(0.36, 48), targetLine);
+      group.add(slot, pulse, target);
       root.add(group);
-      return { group, coins, fill: 0, slot, pulse };
+      return { group, coins, fill: 0, slot, pulse, target };
     });
   }
+
+  const legsFor = (state: MotifState) => {
+    if (state.pose === "empty") return EMPTY_LEGS;
+    if (state.pose === "paced") return PACED_LEGS;
+    return state.progress?.legs.length ? state.progress.legs : DEFAULT_LEGS;
+  };
+
+  const placeCoins = (leg: Leg, shown: number, count: number, rejected = false) => {
+    leg.coins.forEach((piece, slot) => {
+      kit.setRoleIfChanged(piece.material, piece.line, rejected && slot === 0 ? "negative" : "ink");
+      const landed = rejected && slot === 0 ? 1 : slot < count ? clamp01(shown - slot) : 0;
+      piece.group.visible = landed > 0;
+      piece.group.rotation.set(0, 0, rejected && slot === 0 ? 1.15 : 0);
+      piece.group.position.set(
+        rejected && slot === 0 ? 0.18 : 0,
+        rejected && slot === 0 ? 0.24 : LOT_HEIGHT * (slot + 0.5) + (1 - easeOutCubic(landed)) * DROP,
+        0,
+      );
+    });
+  };
+
+  const revealSeconds = () => 0.22 * Math.max(legs.length - 1, 0) + 0.75;
 
   return {
     root,
@@ -531,11 +665,18 @@ function stacksMotif(kit: Kit): Parts {
     box,
     target: new Vector3(0, -0.12, 0),
     pitch: 0.42,
+    durations: {
+      get reveal() {
+        return revealSeconds();
+      },
+      drift: 2.4,
+      empty: 1.6,
+    },
     update(time, state) {
-      let source = state.progress?.legs.length ? state.progress.legs : DEFAULT;
-      if (!state.progress?.legs.length) {
+      let source = legsFor(state);
+      if (state.pose === "loading" && !state.progress?.legs.length) {
         const cycle = state.still ? 99 : (time - state.startedAt) % 6.5;
-        source = DEFAULT.map((leg, i) => ({
+        source = DEFAULT_LEGS.map((leg, i) => ({
           ...leg,
           status: cycle >= i + 1.4 ? "submitted" : cycle >= i + 0.6 ? "submitting" : cycle >= i ? "pacing" : "queued",
         }));
@@ -545,6 +686,57 @@ function stacksMotif(kit: Kit): Parts {
         signature = key;
         build(source);
       }
+      ghost.group.visible = false;
+
+      if (state.pose !== "loading") {
+        const t = state.poseTime;
+        legs.forEach((leg, i) => {
+          leg.pulse.visible = false;
+          leg.target.visible = false;
+          leg.slot.material = slotLine;
+          if (state.pose === "empty") {
+            leg.slot.visible = true;
+            placeCoins(leg, 0, 0);
+            return;
+          }
+          if (state.pose === "paced") {
+            // Two legs placed, the third waiting out the rate limit: one pulse a second.
+            const waiting = i === legs.length - 1;
+            leg.slot.visible = waiting;
+            placeCoins(leg, waiting ? 0 : leg.coins.length, leg.coins.length);
+            if (waiting) {
+              const phase = state.still ? 0.35 : time % 1;
+              leg.pulse.visible = true;
+              leg.pulse.scale.setScalar(1 + phase * 0.7);
+              fade(pulseLine, 1 - phase);
+            }
+            return;
+          }
+          // reveal and drift: each stack rises in turn, left to right.
+          const span = state.pose === "drift" ? 2.4 : revealSeconds();
+          const each = (span - 0.75) / Math.max(legs.length - 1, 1);
+          const rise = easeOutCubic(clamp01((t - i * each) / 0.75));
+          const count = state.pose === "drift" ? heights[i] + (DRIFT_TARGETS[i % DRIFT_TARGETS.length] > 0 ? 1 : -1) : heights[i];
+          leg.slot.visible = rise < 0.05;
+          placeCoins(leg, rise * count, count);
+          if (state.pose === "drift") {
+            const show = clamp01((t - 1.4) / 0.6);
+            leg.target.visible = show > 0;
+            leg.target.position.y = LOT_HEIGHT * heights[i];
+            fade(targetLine, show);
+          }
+        });
+        if (state.pose === "empty") {
+          // An empty basket: open slots and one cobalt lot waiting above the middle one.
+          const p = easeOutBack(clamp01(t / 1.6));
+          const middle = legs[Math.floor(legs.length / 2)];
+          ghost.group.visible = true;
+          ghost.group.position.set(middle.group.position.x, BASE_Y + 1.1 - 0.55 * p, 0);
+          ghost.group.rotation.set(0.25 * (1 - p), 0, 0);
+        }
+        return;
+      }
+
       const dt = Math.min(Math.max(time - last, 0), 0.1);
       last = time;
       legs.forEach((leg, i) => {
@@ -552,19 +744,8 @@ function stacksMotif(kit: Kit): Parts {
         const goal = status === "submitted" ? 1 : 0;
         leg.fill = state.still ? goal : leg.fill + Math.sign(goal - leg.fill) * Math.min(Math.abs(goal - leg.fill), dt / 0.45);
         const shown = leg.fill * leg.coins.length;
-        leg.coins.forEach((piece, slot) => {
-          // A rejected order places no shares: one toppled lot in the negative color.
-          const rejected = status === "failed" && slot === 0;
-          kit.setRoleIfChanged(piece.material, piece.line, rejected ? "negative" : "ink");
-          const landed = rejected ? 1 : clamp01(shown - slot);
-          piece.group.visible = landed > 0;
-          piece.group.rotation.set(0, 0, rejected ? 1.15 : 0);
-          piece.group.position.set(
-            rejected ? 0.18 : 0,
-            rejected ? 0.24 : LOT_HEIGHT * (slot + 0.5) + (1 - easeOutCubic(landed)) * DROP,
-            0,
-          );
-        });
+        // A rejected order places no shares: one toppled lot in the negative color.
+        placeCoins(leg, shown, leg.coins.length, status === "failed");
         // A lot on its way while the order is in flight.
         const next = leg.coins[Math.min(Math.ceil(shown), leg.coins.length - 1)];
         if (status === "submitting" && next && !state.still) {
@@ -572,8 +753,10 @@ function stacksMotif(kit: Kit): Parts {
           next.group.visible = true;
           next.group.position.y = LOT_HEIGHT * (Math.ceil(shown) + 0.5) + (1 - phase) * DROP;
         }
+        leg.target.visible = false;
         leg.pulse.visible = status === "pacing" || status === "submitting";
         leg.pulse.scale.setScalar(1 + (state.still ? 0.1 : (Math.sin(time * 6) + 1) * 0.1));
+        fade(pulseLine, 1);
         leg.slot.visible = status === "queued" || status === "failed";
         leg.slot.material = status === "failed" ? failedLine : slotLine;
       });
@@ -581,7 +764,7 @@ function stacksMotif(kit: Kit): Parts {
   };
 }
 
-const BUILDERS: Record<LoaderVariant, (kit: Kit) => Parts> = {
+const BUILDERS: Record<LoaderVariant, (kit: Kit, pose: Pose) => Parts> = {
   coin: coinMotif,
   link: linkMotif,
   scan: scanMotif,
@@ -589,9 +772,9 @@ const BUILDERS: Record<LoaderVariant, (kit: Kit) => Parts> = {
   stacks: stacksMotif,
 };
 
-export function buildMotif(variant: LoaderVariant, palette: Palette): Motif {
+export function buildMotif(variant: LoaderVariant, palette: Palette, pose: Pose = "loading"): Motif {
   const kit = new Kit(palette);
-  const parts = BUILDERS[variant](kit);
+  const parts = BUILDERS[variant](kit, pose);
   const scene = new Scene();
   scene.add(parts.root);
   const camera = new PerspectiveCamera(28, 1, 0.1, 60);
@@ -606,6 +789,7 @@ export function buildMotif(variant: LoaderVariant, palette: Palette): Motif {
     scene,
     camera,
     still: parts.still,
+    duration: (which) => parts.durations?.[which] ?? Infinity,
     update(time, state) {
       parts.update(time, state);
       if (parts.box.w !== fitted) fit();

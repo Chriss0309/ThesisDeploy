@@ -21,7 +21,7 @@ export const prefetch = "force-disabled";
 async function SignedInTheses() {
   if (!isAuthConfigured()) {
     return (
-      <MessageCard title="Sign-in isn't configured on this deployment">
+      <MessageCard title="Sign-in isn't configured on this deployment" mark="signin">
         <p>
           Try the{" "}
           <a href="/demo/theses" className={LINK}>
@@ -35,7 +35,7 @@ async function SignedInTheses() {
   const user = await getCurrentUser();
   if (!user) {
     return (
-      <MessageCard title="Sign in to see your theses">
+      <MessageCard title="Sign in to see your theses" mark="signin">
         <p>
           <a href="/api/auth/login?returnTo=/theses" className={LINK}>
             Sign in with SnapTrade
@@ -51,7 +51,7 @@ async function SignedInTheses() {
   }
   if (!serverEnv().DATABASE_URL) {
     return (
-      <MessageCard title="Saved baskets aren't available here">
+      <MessageCard title="Saved baskets aren't available here" mark="empty">
         <p>This deployment has no database, so paper runs can&apos;t be saved.</p>
       </MessageCard>
     );

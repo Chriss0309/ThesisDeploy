@@ -28,7 +28,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
   const { account: requested, preset } = await searchParams;
   if (!isAuthConfigured()) {
     return (
-      <MessageCard title="Sign-in isn't configured on this deployment">
+      <MessageCard title="Sign-in isn't configured on this deployment" mark="signin">
         <p>
           Try the{" "}
           <a href="/demo/studio" className={LINK}>
@@ -42,7 +42,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
   const user = await getCurrentUser();
   if (!user) {
     return (
-      <MessageCard title="Sign in to build a basket on your portfolio">
+      <MessageCard title="Sign in to build a basket on your portfolio" mark="signin">
         <p>
           The Studio reads your holdings across every connected account so it can flag and trim what you already own.
         </p>
@@ -82,7 +82,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
 
   if (accounts.length === 0) {
     return (
-      <MessageCard title="No investment accounts yet">
+      <MessageCard title="No investment accounts yet" mark="empty">
         <p>
           Connect a brokerage in the{" "}
           <a href={SNAPTRADE_DASHBOARD_URL} className={LINK} target="_blank" rel="noreferrer">

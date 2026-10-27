@@ -12,7 +12,7 @@ export function waitText(seconds: number | null | undefined) {
 export function SnapTradeProblem({ error, returnTo }: { error: unknown; returnTo: string }) {
   if (error instanceof ReauthRequiredError) {
     return (
-      <MessageCard title="Reconnect SnapTrade">
+      <MessageCard title="Reconnect SnapTrade" mark="error">
         <p>ThesisDeploy&apos;s access to SnapTrade expired or was revoked.</p>
         <p>
           <PendingLink
@@ -29,13 +29,13 @@ export function SnapTradeProblem({ error, returnTo }: { error: unknown; returnTo
   }
   if (error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")) {
     return (
-      <MessageCard title="SnapTrade rate limit reached">
+      <MessageCard title="SnapTrade rate limit reached" mark="rate-limit">
         <p>{waitText(error.retryAfterSeconds)}</p>
       </MessageCard>
     );
   }
   return (
-    <MessageCard title="Couldn't load your accounts">
+    <MessageCard title="Couldn't load your accounts" mark="error">
       <p>SnapTrade didn&apos;t respond as expected. Try again shortly.</p>
     </MessageCard>
   );

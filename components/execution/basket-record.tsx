@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BasketExecution } from "@/components/execution/basket-execution";
+import { Reveal } from "@/components/loader/mark";
 import { LinkPendingStatus } from "@/components/loader/pending";
 import { formatMoney, formatMoneyDelta, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ export function BasketRecord({
 
   return (
     <div className="flex flex-col gap-6">
+      <Reveal legs={basket.constituents.map((row) => row.ledgerUnits).filter((units) => units > 0)} />
       <Card>
         <CardHeader className="gap-2">
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
