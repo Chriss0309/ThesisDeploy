@@ -31,6 +31,7 @@ async function DemoXRay({ searchParams }: { searchParams: PageProps<"/demo">["se
 export default function DemoPage({ searchParams }: PageProps<"/demo">) {
   return (
     <PageShell
+      eyebrow="01 · Guest demo"
       title="Portfolio X-Ray"
       description="Cash, buying power, positions, and concentration for each connected account."
       banner={<DemoBanner active="xray" returnTo="/portfolio" />}

@@ -13,13 +13,14 @@ Early scaffold. What works today:
 - Supabase schema for users, sessions, OAuth login attempts, OAuth grants, events, and API-call telemetry.
 - Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
 - Thesis Studio (`/studio`): Claude proposes a basket from a one-line conviction and the user's holdings across every account. SnapTrade grounds and prices every ticker in one quotes call, the top-up rule trims what the user already holds, and a whole-share solver sizes it. The Basket Composer has overlap badges, weight sliders, share steppers, and remove, with live cost and leftover cash. The guest demo is at `/demo/studio`, with cached presets and strict generation limits. See [`docs/thesis-studio.md`](docs/thesis-studio.md).
+- Design system: every color, font, type size, radius, shadow, and motion value lives in `app/tokens.css`, and a test fails the build on hardcoded values anywhere else. The landing page has a three.js engraved-coin animation of paced, whole-share execution. See [`docs/design-system.md`](docs/design-system.md).
 
 Paced execution (paper and live) and drift tracking land in later PRs.
 
 ## Stack
 
 - Next.js 16 (App Router, Cache Components) on Vercel (Pro), Node runtime only
-- TypeScript, Tailwind CSS 4, shadcn/ui (Base UI)
+- TypeScript, Tailwind CSS 4, shadcn/ui (Base UI), three.js (landing illustration only, lazy-loaded)
 - Zod for environment validation, Vitest for unit tests, ESLint
 - Supabase Postgres via Prisma ORM 7 and the `pg` driver adapter (server-only; no Supabase Auth or supabase-js)
 - SnapTrade OAuth + OIDC and the SnapTrade TypeScript SDK (Bearer-only)

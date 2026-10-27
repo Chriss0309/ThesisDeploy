@@ -1,7 +1,10 @@
+import type { VariantProps } from "class-variance-authority";
+
 import { formatMoney, formatPercent } from "@/components/portfolio/format";
-import { StatusBadge, type StatusTone } from "@/components/thesis/status-badge";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import type { ComposerLine } from "@/lib/thesis/types";
-import { cn } from "@/lib/utils";
+
+type Tone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
 
 function joinNames(names: string[]) {
   const unique = [...new Set(names)];
@@ -17,17 +20,17 @@ export function OverlapBadge({ line, currency, budget }: { line: ComposerLine; c
     overlap.heldShare != null ? ` (${formatPercent(overlap.heldShare)} of your ${currency} portfolio)` : ""
   } of ${line.symbol} in ${accounts}.`;
 
-  let tone: StatusTone = "positive";
+  let tone: Tone = "positive";
   let label = "New exposure";
   let detail: string | null = null;
   switch (overlap.status) {
     case "adjusted":
-      tone = "attention";
+      tone = "warning";
       label = "Overlap adjusted";
-      detail = `${held} Target weight reduced from ${formatPercent(line.llmWeight)} to ${formatPercent(line.targetWeight)}.`;
+      detail = `${held} Target reduced from ${formatPercent(line.llmWeight)} to ${formatPercent(line.targetWeight)}.`;
       break;
     case "fully_held":
-      tone = "attention";
+      tone = "warning";
       label = "Already held at target";
       detail = `${held} That covers this name's ${formatMoney(line.llmWeight * budget, currency)} target, so it starts at 0%. Raise the weight to buy more anyway.`;
       break;
@@ -48,9 +51,11 @@ export function OverlapBadge({ line, currency, budget }: { line: ComposerLine; c
   }
 
   return (
-    <div className={cn("flex flex-col items-start gap-1 text-xs", tone === "attention" ? "text-foreground" : "text-muted-foreground")}>
-      <StatusBadge tone={tone}>{label}</StatusBadge>
-      {detail && <p className="text-pretty">{detail}</p>}
+    <div className="flex flex-col items-start gap-1.5">
+      <Badge tone={tone} dot={tone === "warning"}>
+        {label}
+      </Badge>
+      {detail && <p className="max-w-prose text-xs text-pretty text-muted-foreground">{detail}</p>}
     </div>
   );
 }

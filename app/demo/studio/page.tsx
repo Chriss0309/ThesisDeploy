@@ -50,11 +50,12 @@ async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/stu
 export default function DemoStudioPage({ searchParams }: PageProps<"/demo/studio">) {
   return (
     <PageShell
+      eyebrow="02 · Guest demo"
       title="Thesis Studio"
       description="Turn a one-line conviction into a whole-share basket, checked against what the portfolio already holds."
       banner={<DemoBanner active="studio" returnTo="/studio" />}
     >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-muted" aria-hidden />}>
+      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
         <DemoStudio searchParams={searchParams} />
       </Suspense>
     </PageShell>

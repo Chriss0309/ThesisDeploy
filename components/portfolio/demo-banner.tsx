@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { cn } from "@/lib/utils";
-
 const TABS = [
   { key: "xray", href: "/demo", label: "Portfolio X-Ray" },
   { key: "studio", href: "/demo/studio", label: "Thesis Studio" },
@@ -9,11 +7,15 @@ const TABS = [
 
 export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]["key"]; returnTo: string }) {
   return (
-    <div className="border-y bg-muted px-6 py-2 text-xs">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2">
+    <div className="border-b border-info-border bg-info-subtle px-4 py-2.5 text-xs text-info-subtle-foreground sm:px-6">
+      <div className="mx-auto flex w-full max-w-page flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <p>
-          Guest demo on fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
-          <a href={`/api/auth/login?returnTo=${returnTo}`} className="font-medium underline underline-offset-4">
+          <span className="eyebrow mr-2">Demo</span>
+          Fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
+          <a
+            href={`/api/auth/login?returnTo=${returnTo}`}
+            className="font-medium underline underline-offset-4 hover:text-foreground"
+          >
             Sign in with SnapTrade
           </a>{" "}
           to use your own accounts.
@@ -24,12 +26,7 @@ export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]
               key={tab.key}
               href={tab.href}
               aria-current={tab.key === active ? "page" : undefined}
-              className={cn(
-                "rounded-md px-2 py-1 font-medium",
-                tab.key === active
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground",
-              )}
+              className="eyebrow rounded-sm px-2 py-1 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-xs"
             >
               {tab.label}
             </Link>

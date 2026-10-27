@@ -50,8 +50,10 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
         <p
           role={notice.error ? "alert" : "status"}
           className={cn(
-            "rounded-md border px-3 py-2 text-xs",
-            notice.error ? "border-destructive/30 text-destructive" : "text-muted-foreground",
+            "rounded-md border px-3 py-2.5 text-xs",
+            notice.error
+              ? "border-negative-border bg-negative-subtle text-negative-subtle-foreground"
+              : "border-border bg-card text-muted-foreground",
           )}
         >
           {notice.text}
@@ -61,8 +63,9 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
       {user ? (
         <>
           <div className="flex flex-col gap-1 text-sm">
+            <span className="eyebrow text-muted-foreground">{grant ? "► Connected" : "► Access expired"}</span>
             <span>
-              Signed in as <strong>{user.name ?? user.email ?? "SnapTrade user"}</strong>
+              Signed in as <strong className="font-semibold">{user.name ?? user.email ?? "SnapTrade user"}</strong>
             </span>
             <span className="text-xs text-muted-foreground">
               {!grant
@@ -93,7 +96,7 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
               </Button>
             </form>
             <form action="/api/auth/logout?disconnect=1" method="post">
-              <Button type="submit" variant="ghost" size="sm" className="text-destructive">
+              <Button type="submit" variant="destructive" size="sm">
                 Disconnect SnapTrade
               </Button>
             </form>
@@ -124,5 +127,5 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
 }
 
 export function AuthPanelSkeleton() {
-  return <div className="h-9 w-full animate-pulse rounded-md bg-muted" aria-hidden />;
+  return <div className="h-11 w-full animate-pulse rounded-md bg-muted" aria-hidden />;
 }

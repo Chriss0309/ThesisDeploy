@@ -116,10 +116,11 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
 export default function StudioPage({ searchParams }: PageProps<"/studio">) {
   return (
     <PageShell
+      eyebrow="02 · Build the basket"
       title="Thesis Studio"
       description="Turn a one-line conviction into a whole-share basket, checked against what you already hold."
     >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-muted" aria-hidden />}>
+      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
         <LiveStudio searchParams={searchParams} />
       </Suspense>
     </PageShell>

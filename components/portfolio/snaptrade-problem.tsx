@@ -2,7 +2,7 @@ import { MessageCard } from "@/components/portfolio/page-shell";
 import { ReauthRequiredError } from "@/lib/auth/vault";
 import { SnapTradeError } from "@/lib/snaptrade/client";
 
-export const LINK = "font-medium text-foreground underline underline-offset-4";
+export const LINK = "font-medium text-brand underline underline-offset-4 hover:text-brand-hover";
 
 export function waitText(seconds: number | null | undefined) {
   return seconds ? `Try again in about ${Math.ceil(seconds)} seconds.` : "Try again in a minute.";

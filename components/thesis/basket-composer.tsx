@@ -1,13 +1,15 @@
 "use client";
 
+import type { VariantProps } from "class-variance-authority";
 import { Minus, Plus, Trash2, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { OverlapBadge } from "@/components/thesis/overlap-badge";
-import { StatusBadge, type StatusTone } from "@/components/thesis/status-badge";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import type { AllocatedLine } from "@/lib/solver";
 import {
   removeLine,
@@ -23,11 +25,13 @@ import { cn } from "@/lib/utils";
 
 export type EditAction = "remove" | "restore" | "reweight" | "step";
 
-const RISK_TONE: Record<ComposerPayload["thesis"]["riskProfile"], StatusTone> = {
+type Tone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
+
+const RISK_TONE: Record<ComposerPayload["thesis"]["riskProfile"], Tone> = {
   conservative: "neutral",
   moderate: "neutral",
-  aggressive: "attention",
-  speculative: "attention",
+  aggressive: "warning",
+  speculative: "warning",
 };
 
 const DROP_LABEL: Record<ComposerPayload["dropped"][number]["status"], string> = {
@@ -39,7 +43,7 @@ const DROP_LABEL: Record<ComposerPayload["dropped"][number]["status"], string> =
   invalid: "Invalid",
 };
 
-const BAR_COLORS = ["bg-chart-5", "bg-chart-4", "bg-chart-3", "bg-chart-2", "bg-chart-1"];
+const BAR_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
 
 const initialLines = (payload: ComposerPayload): EditableLine[] =>
   payload.lines.map((line) => ({
@@ -83,21 +87,31 @@ function CapitalSummary({
 }) {
   const { currency, budget } = payload;
   const orders = allocation.lines.filter((line) => line.units > 0).length;
-  const over = allocation.overSpendCap;
+  const over = allocation.unallocated < 0;
   const active = lines.filter((line) => !line.removed);
+  const bought = allocation.lines.filter((line) => line.cost > 0);
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-3">
-      <p className="text-sm" aria-live="polite">
-        Deploying <strong className="tabular-nums">{formatMoney(allocation.invested, currency)}</strong> of{" "}
-        <span className="tabular-nums">{formatMoney(budget, currency)}</span> across {orders} whole-share{" "}
-        {orders === 1 ? "order" : "orders"};{" "}
-        <strong className={cn("tabular-nums", allocation.unallocated < 0 && "text-destructive")}>
-          {formatMoney(allocation.unallocated, currency)}
-        </strong>{" "}
-        {allocation.unallocated < 0 ? "over budget" : "stays in cash"}.
+    <section aria-label="Capital" className="flex flex-col gap-3 rounded-md bg-surface-sunken p-4">
+      <p className="eyebrow text-muted-foreground">► Capital · {currency}</p>
+      <p className="font-display text-2xl font-semibold tabular-nums" aria-live="polite">
+        {formatMoney(allocation.invested, currency)} deployed ·{" "}
+        <span className={cn(over && "text-negative-subtle-foreground")}>
+          {formatMoney(Math.abs(allocation.unallocated), currency)} {over ? "over budget" : "unallocated"}
+        </span>
       </p>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
-        {allocation.lines.map((line, index) => (
+      <p className="text-xs text-muted-foreground">
+        Of a {formatMoney(budget, currency)} budget, across {orders} whole-share {orders === 1 ? "order" : "orders"}.
+        Market orders can fill above the quote, so {formatPercent(payload.slippageBuffer)} (
+        {formatMoney(budget * payload.slippageBuffer, currency)}) is held back when sizing.
+      </p>
+      <div
+        role="img"
+        aria-label={`Budget used: ${bought
+          .map((line) => `${line.symbol} ${formatMoney(line.cost, currency)}`)
+          .join(", ")}; unallocated ${formatMoney(allocation.unallocated, currency)}`}
+        className="flex h-3 w-full gap-px overflow-hidden rounded-xs bg-chart-track"
+      >
+        {bought.map((line, index) => (
           <div
             key={line.symbol}
             className={BAR_COLORS[index % BAR_COLORS.length]}
@@ -105,18 +119,52 @@ function CapitalSummary({
           />
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Market orders can fill above the quote, so {formatPercent(payload.slippageBuffer)} of the budget (
-        {formatMoney(budget * payload.slippageBuffer, currency)}) is held back when sizing.
-        {active.length > 0 && active.every((line) => line.weight === 0) &&
-          " Every name here is already held at or above its target; raise a weight or switch overlap handling to Ignore."}
-      </p>
-      {over && (
-        <p role="alert" className="text-xs text-destructive">
+      {active.length > 0 && active.every((line) => line.weight === 0) && (
+        <p className="text-xs text-muted-foreground">
+          Every name here is already held at or above its target. Raise a weight, or switch overlap handling to Ignore.
+        </p>
+      )}
+      {allocation.overSpendCap && (
+        <p
+          role="alert"
+          className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground"
+        >
           Manual share counts exceed the spend cap of {formatMoney(allocation.spendCap, currency)}. Remove shares
           before continuing.
         </p>
       )}
+    </section>
+  );
+}
+
+function Stepper({ symbol, units, onStep }: { symbol: string; units: number; onStep: (delta: number) => void }) {
+  return (
+    <div role="group" aria-label={`Shares of ${symbol}`} className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-input bg-card">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="h-full rounded-none"
+        aria-label={`One fewer share of ${symbol}`}
+        disabled={units === 0}
+        onClick={() => onStep(-1)}
+      >
+        <Minus />
+      </Button>
+      <span
+        className="flex w-12 items-center justify-center border-x border-input font-mono text-sm tabular-nums"
+        aria-live="polite"
+      >
+        {units}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="h-full rounded-none"
+        aria-label={`One more share of ${symbol}`}
+        onClick={() => onStep(1)}
+      >
+        <Plus />
+      </Button>
     </div>
   );
 }
@@ -144,72 +192,52 @@ function LineRow({
   const weightPct = Math.round(editable.weight * 1000) / 10;
   const slice = editable.weight * spendCap;
   const tooPricey = editable.units === 0 && editable.weight > 0 && line.price > slice;
-  const inputId = `weight-${line.symbol}`;
   return (
     <li className="flex flex-col gap-3 border-b py-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-semibold">{line.symbol}</span>
-            <span className="text-sm text-muted-foreground">
-              {line.companyName}
-              {line.exchange ? ` · ${line.exchange}` : ""}
-            </span>
+            <span className="font-mono text-sm font-medium">{line.symbol}</span>
+            <span className="text-sm text-muted-foreground">{line.companyName}</span>
+            {line.exchange && <span className="eyebrow text-muted-foreground">{line.exchange}</span>}
           </span>
-          <p className="mt-1 text-sm text-pretty">{line.rationale}</p>
+          <p className="max-w-prose text-sm text-pretty">{line.rationale}</p>
         </div>
-        <div className="shrink-0 text-right text-sm tabular-nums">
-          <div className="font-medium">{formatMoney(line.price, currency)}</div>
-          <div className="text-xs text-muted-foreground">{line.priceBasis === "ask" ? "ask" : "last trade"}</div>
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <span className="text-sm font-medium tabular-nums">{formatMoney(line.price, currency)}</span>
+          <span className="eyebrow text-muted-foreground">{line.priceBasis === "ask" ? "Ask" : "Last trade"}</span>
         </div>
       </div>
 
       <OverlapBadge line={line} currency={currency} budget={payload.budget} />
 
-      <div className="flex flex-col gap-x-6 gap-y-3 sm:flex-row sm:items-center">
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor={inputId} className="flex justify-between text-xs text-muted-foreground">
-            <span>Target weight</span>
-            <span className="tabular-nums">
-              <span className="font-medium text-foreground">{weightPct.toFixed(1)}%</span>
-              {allocated && allocated.units > 0 && ` · actual ${formatPercent(allocated.achievedWeight)}`}
-            </span>
-          </label>
-          <input
-            id={inputId}
-            type="range"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+        <div className="flex items-center gap-3">
+          <span className="eyebrow text-muted-foreground">Weight</span>
+          <Slider
+            aria-label={`Target weight of ${line.symbol}`}
+            className="flex-1 sm:w-30 sm:flex-none"
             min={0}
             max={100}
             step={1}
+            largeStep={5}
             value={weightPct}
-            onChange={(event) => onWeight(Number(event.target.value) / 100)}
-            className="w-full accent-primary"
+            onValueChange={(value) => onWeight(value / 100)}
           />
+          <span className="flex flex-col items-end">
+            <span className="text-sm font-medium tabular-nums">{weightPct.toFixed(1)}%</span>
+            {allocated && allocated.units > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                actual {formatPercent(allocated.achievedWeight)}
+              </span>
+            )}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Shares</span>
-          <div className="flex items-center rounded-lg border">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`One fewer share of ${line.symbol}`}
-              disabled={editable.units === 0}
-              onClick={() => onStep(-1)}
-            >
-              <Minus />
-            </Button>
-            <span className="w-10 text-center text-sm font-medium tabular-nums" aria-live="polite">
-              {editable.units}
-            </span>
-            <Button variant="ghost" size="icon-sm" aria-label={`One more share of ${line.symbol}`} onClick={() => onStep(1)}>
-              <Plus />
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-3 sm:justify-end">
+        <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end">
+          <Stepper symbol={line.symbol} units={editable.units} onStep={onStep} />
           <span className="text-sm font-medium tabular-nums">{formatMoney(allocated?.cost ?? 0, currency)}</span>
-          <Button variant="ghost" size="icon-sm" aria-label={`Remove ${line.symbol}`} onClick={onRemove}>
-            <Trash2 className="text-muted-foreground" />
+          <Button variant="destructive" size="icon-sm" aria-label={`Remove ${line.symbol}`} onClick={onRemove}>
+            <Trash2 />
           </Button>
         </div>
       </div>
@@ -249,26 +277,26 @@ export function BasketComposer({
   return (
     <Card>
       <CardHeader className="gap-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Basket Composer</span>
-            <h2 className="text-lg font-semibold tracking-tight">{thesis.title}</h2>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <StatusBadge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</StatusBadge>
-            <StatusBadge>
-              {payload.currency} · {payload.account.name}
-              {payload.account.isPaper ? " · paper" : ""}
-            </StatusBadge>
-          </div>
-        </div>
-        <p className="text-sm text-pretty">{thesis.summary}</p>
+        <p className="eyebrow text-muted-foreground">► Thesis · Basket Composer</p>
+        <CardTitle className="font-display text-xl font-semibold">{thesis.title}</CardTitle>
+        <CardAction className="flex flex-wrap justify-end gap-1">
+          <Badge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</Badge>
+          {payload.account.isPaper && <Badge tone="info">Paper</Badge>}
+          <Badge>
+            {payload.currency} · {payload.account.name}
+          </Badge>
+        </CardAction>
+        <CardDescription className="max-w-prose text-pretty text-foreground">{thesis.summary}</CardDescription>
         <SourceLine payload={payload} />
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-5">
         {payload.notices.map((notice) => (
-          <p key={notice} role="status" className="rounded-md border bg-muted px-3 py-2 text-xs">
+          <p
+            key={notice}
+            role="status"
+            className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5 text-xs text-warning-subtle-foreground"
+          >
             {notice}
           </p>
         ))}
@@ -310,7 +338,7 @@ export function BasketComposer({
 
         {removed.length > 0 && (
           <section aria-label="Removed by you" className="flex flex-col gap-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Removed by you</h3>
+            <h3 className="eyebrow text-muted-foreground">► Removed by you</h3>
             <ul className="flex flex-wrap gap-2">
               {removed.map((line) => (
                 <li key={line.symbol}>
@@ -322,7 +350,7 @@ export function BasketComposer({
                       onEdit?.("restore", line.symbol);
                     }}
                   >
-                    <Undo2 /> Restore {line.symbol}
+                    <Undo2 /> Restore <span className="font-mono">{line.symbol}</span>
                   </Button>
                 </li>
               ))}
@@ -332,14 +360,14 @@ export function BasketComposer({
 
         {payload.dropped.length > 0 && (
           <section aria-label="Not in the basket" className="flex flex-col gap-2">
-            <h3 className="text-xs font-medium text-muted-foreground">
-              Proposed but left out by SnapTrade grounding ({payload.dropped.length})
+            <h3 className="eyebrow text-muted-foreground">
+              ► Left out by SnapTrade grounding ({payload.dropped.length})
             </h3>
-            <ul className="flex flex-col gap-1.5 text-xs">
+            <ul className="flex flex-col gap-2 text-xs">
               {payload.dropped.map((drop) => (
                 <li key={`${drop.ticker}-${drop.status}`} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{drop.ticker}</span>
-                  <StatusBadge tone="negative">{DROP_LABEL[drop.status]}</StatusBadge>
+                  <span className="font-mono font-medium">{drop.ticker}</span>
+                  <Badge tone="negative">{DROP_LABEL[drop.status]}</Badge>
                   <span className="text-muted-foreground">
                     {drop.companyName}: {drop.detail}
                   </span>
@@ -351,11 +379,11 @@ export function BasketComposer({
 
         {payload.excluded.length > 0 && (
           <section aria-label="Considered and excluded" className="flex flex-col gap-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Considered and excluded by Claude</h3>
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <h3 className="eyebrow text-muted-foreground">► Considered and excluded by Claude</h3>
+            <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
               {payload.excluded.map((entry) => (
                 <li key={entry.ticker}>
-                  <span className="font-medium text-foreground">{entry.ticker}</span>: {entry.reason}
+                  <span className="font-mono font-medium text-foreground">{entry.ticker}</span>: {entry.reason}
                 </li>
               ))}
             </ul>
@@ -363,7 +391,7 @@ export function BasketComposer({
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
+      <CardFooter className="flex-wrap justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           Pre-flight checks and paper or live execution come next. Nothing has been ordered.
         </p>
@@ -371,7 +399,7 @@ export function BasketComposer({
           <Button variant="outline" size="sm" disabled={!edited} onClick={() => setLines(initialLines(payload))}>
             Reset edits
           </Button>
-          <Button size="sm" disabled>
+          <Button variant="brand" size="sm" disabled>
             Continue to pre-flight
           </Button>
         </div>

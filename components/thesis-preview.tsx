@@ -19,9 +19,10 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
   const chosen = THESIS_PRESETS.find((preset) => preset.prompt === thesis);
 
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-md">
       <CardHeader>
-        <CardTitle>Start with a conviction</CardTitle>
+        <p className="eyebrow text-muted-foreground">► Thesis</p>
+        <CardTitle className="font-display text-xl font-semibold">Start with a conviction</CardTitle>
         <CardDescription>
           One sentence is enough. Pick a preset or write your own.
         </CardDescription>
@@ -39,8 +40,10 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
           {THESIS_PRESETS.map((preset) => (
             <Button
               key={preset.key}
-              variant={thesis === preset.prompt ? "secondary" : "outline"}
+              variant={thesis === preset.prompt ? "default" : "outline"}
+              aria-pressed={thesis === preset.prompt}
               size="sm"
+              className="rounded-full"
               onClick={() => setThesis(preset.prompt)}
             >
               {preset.label}
@@ -48,8 +51,11 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
           ))}
         </div>
         {chosen && (
-          <a href={`/demo/studio?preset=${chosen.key}`} className="text-sm font-medium underline underline-offset-4">
-            Build this basket in the demo Studio
+          <a
+            href={`/demo/studio?preset=${chosen.key}`}
+            className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
+          >
+            ► Build this basket in the demo Studio
           </a>
         )}
       </CardContent>

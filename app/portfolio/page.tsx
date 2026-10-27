@@ -145,6 +145,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
 export default function PortfolioPage({ searchParams }: PageProps<"/portfolio">) {
   return (
     <PageShell
+      eyebrow="01 · Read from SnapTrade"
       title="Portfolio X-Ray"
       description="Cash, buying power, positions, and concentration for each connected account."
     >

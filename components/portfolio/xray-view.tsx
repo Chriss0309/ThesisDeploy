@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney, formatPercent, formatTimestamp, formatUnits } from "@/components/portfolio/format";
@@ -11,37 +12,38 @@ import { cn } from "@/lib/utils";
 
 export const SNAPTRADE_DASHBOARD_URL = "https://dashboard.snaptrade.com";
 
-function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "warn" | "bad" | "info" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium whitespace-nowrap",
-        tone === "neutral" && "text-muted-foreground",
-        tone === "good" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-        tone === "warn" && "border-amber-200 bg-amber-50 text-amber-800",
-        tone === "bad" && "border-red-200 bg-red-50 text-red-700",
-        tone === "info" && "border-sky-200 bg-sky-50 text-sky-700",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-const CAPABILITY: Record<Capability, { label: string; tone: "good" | "warn" | "bad" }> = {
-  trade: { label: "Trading", tone: "good" },
-  read_only: { label: "Read-only", tone: "warn" },
-  disabled: { label: "Disabled", tone: "bad" },
+const CAPABILITY: Record<Capability, { label: string; tone: "positive" | "warning" | "negative" }> = {
+  trade: { label: "Trading", tone: "positive" },
+  read_only: { label: "Read-only", tone: "warning" },
+  disabled: { label: "Disabled", tone: "negative" },
 };
 
 function AccountBadges({ account }: { account: PortfolioAccount }) {
   const capability = CAPABILITY[account.capability];
   return (
     <span className="flex flex-wrap gap-1">
-      <Pill tone={capability.tone}>{capability.label}</Pill>
-      {account.isPaper && <Pill tone="info">Paper</Pill>}
-      {account.cashOrMargin === "margin" && <Pill>Margin</Pill>}
+      <Badge tone={capability.tone} dot>
+        {capability.label}
+      </Badge>
+      {account.isPaper && <Badge tone="info">Paper</Badge>}
+      {account.cashOrMargin === "margin" && <Badge>Margin</Badge>}
     </span>
+  );
+}
+
+function Notice({ tone, children }: { tone: "info" | "warn" | "error"; children: ReactNode }) {
+  return (
+    <p
+      role={tone === "info" ? "status" : "alert"}
+      className={cn(
+        "rounded-md border px-3 py-2.5 text-xs",
+        tone === "info" && "border-border bg-surface-sunken text-muted-foreground",
+        tone === "warn" && "border-warning-border bg-warning-subtle text-warning-subtle-foreground",
+        tone === "error" && "border-negative-border bg-negative-subtle text-negative-subtle-foreground",
+      )}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -55,31 +57,31 @@ function AccountSelector({
   basePath: string;
 }) {
   return (
-    <nav aria-label="Accounts" className="flex flex-col gap-2">
-      {overview.accounts.map((account) => (
-        <Link
-          key={account.id}
-          href={`${basePath}?account=${encodeURIComponent(account.id)}`}
-          aria-current={account.id === selectedId ? "page" : undefined}
-          className={cn(
-            "flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-muted/60",
-            account.id === selectedId && "border-foreground/30 bg-muted",
-          )}
-        >
-          <span className="flex items-baseline justify-between gap-2">
-            <span className="font-medium">{account.name}</span>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {account.netValue ? formatMoney(account.netValue.amount, account.netValue.currency) : "—"}
+    <nav aria-label="Accounts" className="flex min-w-0 flex-col gap-2">
+      <h2 className="eyebrow text-muted-foreground">Accounts · {overview.accounts.length}</h2>
+      <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+        {overview.accounts.map((account) => (
+          <Link
+            key={account.id}
+            href={`${basePath}?account=${encodeURIComponent(account.id)}`}
+            aria-current={account.id === selectedId ? "page" : undefined}
+            className="flex w-64 shrink-0 snap-start flex-col gap-1.5 rounded-md border border-border bg-card px-3 py-3 text-sm transition-colors outline-none hover:border-border-strong hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:border-foreground aria-[current=page]:shadow-sm lg:w-auto"
+          >
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold">{account.name}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {account.netValue ? formatMoney(account.netValue.amount, account.netValue.currency) : "—"}
+              </span>
             </span>
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {account.institution} · {account.maskedNumber}
-          </span>
-          <AccountBadges account={account} />
-        </Link>
-      ))}
+            <span className="text-xs text-muted-foreground">
+              {account.institution} · <span className="font-mono">{account.maskedNumber}</span>
+            </span>
+            <AccountBadges account={account} />
+          </Link>
+        ))}
+      </div>
       {overview.hiddenAccounts > 0 && (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {overview.hiddenAccounts} non-investment {overview.hiddenAccounts === 1 ? "account" : "accounts"} (deposit,
           credit, or annuity) not shown.
         </p>
@@ -102,9 +104,9 @@ function CashPanel({ result, account }: { result: SnapshotResult; account: Portf
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {balances.map((balance) => (
-              <div key={balance.currency} className="rounded-lg border p-3">
-                <div className="text-xs font-medium text-muted-foreground">{balance.currency}</div>
-                <div className="mt-1 text-lg font-semibold tabular-nums">
+              <div key={balance.currency} className="flex flex-col gap-1 rounded-md bg-surface-sunken p-4">
+                <div className="eyebrow text-muted-foreground">► Cash · {balance.currency}</div>
+                <div className="font-display text-2xl font-semibold tabular-nums sm:text-3xl">
                   {formatMoney(balance.cash, balance.currency)}
                 </div>
                 <div className="text-xs text-muted-foreground tabular-nums">
@@ -124,11 +126,11 @@ function CashPanel({ result, account }: { result: SnapshotResult; account: Portf
   );
 }
 
-const SEGMENT_COLORS = ["bg-sky-700", "bg-sky-600", "bg-sky-500", "bg-sky-400", "bg-sky-300"];
+const SEGMENT_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
 
 function segmentColor(kind: "holding" | "other" | "cash", index: number) {
-  if (kind === "cash") return "bg-emerald-400";
-  if (kind === "other") return "bg-slate-300";
+  if (kind === "cash") return "hatch";
+  if (kind === "other") return "bg-chart-other";
   return SEGMENT_COLORS[index % SEGMENT_COLORS.length];
 }
 
@@ -138,15 +140,15 @@ function ConcentrationBar({ concentration }: { concentration: CurrencyConcentrat
   const topShare = holdings.reduce((sum, segment) => sum + segment.weight, 0);
   const cash = concentration.segments.find((segment) => segment.kind === "cash");
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium">{concentration.currency}</span>
+        <span className="eyebrow text-foreground">{concentration.currency}</span>
         <span className="text-xs text-muted-foreground tabular-nums">
           {formatMoney(concentration.total, concentration.currency)} in holdings and cash
         </span>
       </div>
       <div
-        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+        className="flex h-4 w-full gap-px overflow-hidden rounded-xs bg-chart-track"
         role="img"
         aria-label={`${concentration.currency} concentration: ${concentration.segments
           .map((segment) => `${segment.label} ${formatPercent(segment.weight)}`)
@@ -160,11 +162,11 @@ function ConcentrationBar({ concentration }: { concentration: CurrencyConcentrat
           />
         ))}
       </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
         {concentration.segments.map((segment, index) => (
           <li key={segment.label} className="flex items-center gap-1.5 tabular-nums">
-            <span className={cn("size-2 rounded-full", segmentColor(segment.kind, index))} />
-            {segment.label} {formatPercent(segment.weight)}
+            <span className={cn("size-2.5 rounded-xs", segmentColor(segment.kind, index))} />
+            <span className="font-mono text-foreground">{segment.label}</span> {formatPercent(segment.weight)}
           </li>
         ))}
       </ul>
@@ -196,44 +198,51 @@ function HoldingsTable({
     return <p className="text-sm text-muted-foreground">No positions in this account.</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-sm">
+    <div className="-mx-(--card-spacing) overflow-x-auto px-(--card-spacing)">
+      <table className="w-full text-sm sm:min-w-(--table-min)">
         <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-2 pr-3 font-medium">Symbol</th>
-            <th className="py-2 pr-3 font-medium">Type</th>
-            <th className="py-2 pr-3 text-right font-medium">Units</th>
-            <th className="py-2 pr-3 text-right font-medium">Price</th>
-            <th className="py-2 pr-3 text-right font-medium">Market value</th>
-            <th className="py-2 text-right font-medium">Weight</th>
+          <tr className="eyebrow border-b border-border-strong text-left text-muted-foreground">
+            <th className="py-2.5 pr-3 font-medium">Symbol</th>
+            <th className="hidden py-2.5 pr-3 font-medium sm:table-cell">Type</th>
+            <th className="py-2.5 pr-3 text-right font-medium">Units</th>
+            <th className="hidden py-2.5 pr-3 text-right font-medium sm:table-cell">Price</th>
+            <th className="py-2.5 pr-3 text-right font-medium">Market value</th>
+            <th className="py-2.5 text-right font-medium">Weight</th>
           </tr>
         </thead>
         <tbody>
           {holdings.map((holding, index) => {
             const currency = holding.currency ?? "";
             const weight = weights.get(`${currency}:${holding.symbol}`);
+            const kindBadges = (
+              <>
+                <Badge>{holding.kind.toUpperCase()}</Badge>
+                {holding.cashEquivalent && <Badge tone="info">Counted in cash</Badge>}
+              </>
+            );
             return (
-              <tr key={`${holding.symbol}-${index}`} className="border-b last:border-0">
-                <td className="py-2 pr-3">
-                  <div className="font-medium">{holding.symbol}</div>
+              <tr
+                key={`${holding.symbol}-${index}`}
+                className="border-b transition-colors last:border-0 hover:bg-surface-sunken"
+              >
+                <td className="py-3 pr-3">
+                  <div className="font-mono text-sm font-medium">{holding.symbol}</div>
                   {holding.description && (
                     <div className="text-xs text-muted-foreground">{holding.description}</div>
                   )}
+                  <span className="mt-1.5 flex flex-wrap gap-1 sm:hidden">{kindBadges}</span>
                 </td>
-                <td className="py-2 pr-3">
-                  <span className="flex flex-wrap gap-1">
-                    <Pill>{holding.kind.toUpperCase()}</Pill>
-                    {holding.cashEquivalent && <Pill tone="info">Counted in cash</Pill>}
-                  </span>
+                <td className="hidden py-3 pr-3 sm:table-cell">
+                  <span className="flex flex-wrap gap-1">{kindBadges}</span>
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{formatUnits(holding.units)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">
+                <td className="py-3 pr-3 text-right tabular-nums">{formatUnits(holding.units)}</td>
+                <td className="hidden py-3 pr-3 text-right tabular-nums sm:table-cell">
                   {holding.price == null ? "—" : formatMoney(holding.price, currency)}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums">
+                <td className="py-3 pr-3 text-right font-medium tabular-nums">
                   {formatMoney(holding.marketValue, currency)}
                 </td>
-                <td className="py-2 text-right tabular-nums text-muted-foreground">
+                <td className="py-3 text-right text-muted-foreground tabular-nums">
                   {weight == null ? "—" : formatPercent(weight)}
                 </td>
               </tr>
@@ -266,23 +275,29 @@ export function XRayView({
 }) {
   const concentration = result ? concentrationByCurrency(result.snapshot) : [];
   return (
-    <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
+    <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10">
       <AccountSelector overview={overview} selectedId={selected.id} basePath={basePath} />
 
-      <section className="flex min-w-0 flex-col gap-6" aria-labelledby="account-heading">
+      <section className="flex min-w-0 flex-col gap-5" aria-labelledby="account-heading">
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 id="account-heading" className="text-xl font-semibold tracking-tight">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 id="account-heading" className="font-display text-2xl font-semibold">
               {selected.name}
             </h2>
             <AccountBadges account={selected} />
           </div>
           <p className="text-sm text-muted-foreground">
-            {selected.institution} · {selected.maskedNumber} · {selected.capabilityReason}
+            {selected.institution} · <span className="font-mono">{selected.maskedNumber}</span> ·{" "}
+            {selected.capabilityReason}
             {selected.capability === "disabled" && (
               <>
                 {" "}
-                <a href={SNAPTRADE_DASHBOARD_URL} className="underline underline-offset-4" target="_blank" rel="noreferrer">
+                <a
+                  href={SNAPTRADE_DASHBOARD_URL}
+                  className="font-medium text-brand underline underline-offset-4 hover:text-brand-hover"
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open the SnapTrade Dashboard
                 </a>
               </>
@@ -290,7 +305,7 @@ export function XRayView({
           </p>
           {result && (
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>
+              <span className="tabular-nums">
                 Brokerage data as of {formatTimestamp(result.snapshot.dataAsOf ?? result.snapshot.fetchedAt)}
                 {mode === "live" &&
                   ` · ${result.source === "cache" ? "cached" : "fetched"} ${formatTimestamp(result.snapshot.fetchedAt)}`}
@@ -306,26 +321,14 @@ export function XRayView({
           )}
         </div>
 
-        {notice && (
-          <p
-            role={notice.tone === "warn" ? "alert" : "status"}
-            className={cn(
-              "rounded-md border px-3 py-2 text-xs",
-              notice.tone === "warn" ? "border-amber-200 bg-amber-50 text-amber-900" : "text-muted-foreground",
-            )}
-          >
-            {notice.text}
-          </p>
-        )}
+        {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
         {!result ? (
-          <p role="alert" className="rounded-md border border-destructive/30 px-3 py-2 text-sm text-destructive">
-            {snapshotError ?? "Balances and positions are unavailable right now."}
-          </p>
+          <Notice tone="error">{snapshotError ?? "Balances and positions are unavailable right now."}</Notice>
         ) : (
           <>
             {selected.capability === "disabled" && (
-              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <p className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground">
                 This connection is disabled, so SnapTrade returns the last data it synced. Reconnect it in the
                 SnapTrade Dashboard for current balances and positions.
               </p>
@@ -364,16 +367,16 @@ export function XRayView({
 
 export function XRaySkeleton() {
   return (
-    <div className="grid gap-8 lg:grid-cols-[280px_1fr]" aria-hidden>
-      <div className="flex flex-col gap-2">
+    <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10" aria-hidden>
+      <div className="flex gap-2 overflow-hidden lg:flex-col">
         {[0, 1, 2].map((key) => (
-          <div key={key} className="h-20 animate-pulse rounded-lg bg-muted" />
+          <div key={key} className="h-24 w-64 shrink-0 animate-pulse rounded-md bg-muted lg:w-auto" />
         ))}
       </div>
       <div className="flex flex-col gap-4">
-        <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
-        <div className="h-32 animate-pulse rounded-xl bg-muted" />
-        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <div className="h-8 w-1/3 animate-pulse rounded-sm bg-muted" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted" />
+        <div className="h-48 animate-pulse rounded-lg bg-muted" />
       </div>
     </div>
   );

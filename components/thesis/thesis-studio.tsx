@@ -7,6 +7,7 @@ import { formatMoney } from "@/components/portfolio/format";
 import { BasketComposer, type EditAction } from "@/components/thesis/basket-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
 import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/schema";
@@ -37,12 +38,30 @@ function defaultBudget(cash: number): { budget: number; simulated: boolean } {
   return fifth >= MIN_BUDGET ? { budget: fifth, simulated: false } : { budget: PAPER_BUDGET, simulated: true };
 }
 
-function Field({ label, htmlFor, children, hint }: { label: string; htmlFor?: string; children: ReactNode; hint?: ReactNode }) {
+const INPUT =
+  "rounded-md border border-input bg-card px-3 py-2.5 text-base text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 md:text-sm";
+
+function Field({
+  label,
+  htmlFor,
+  aside,
+  children,
+  hint,
+}: {
+  label: string;
+  htmlFor?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+  hint?: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-end justify-between gap-3">
+        <label htmlFor={htmlFor} className="text-sm font-medium">
+          {label}
+        </label>
+        {aside}
+      </div>
       {children}
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </div>
@@ -61,7 +80,11 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={name} className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-muted p-1">
+    <div
+      role="radiogroup"
+      aria-label={name}
+      className="grid auto-cols-fr grid-flow-col divide-x divide-input overflow-hidden rounded-md border border-input"
+    >
       {options.map((option) => (
         <button
           key={option.value}
@@ -70,8 +93,8 @@ function Segmented<T extends string>({
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-            value === option.value ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+            "h-9 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset",
+            value === option.value ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-secondary",
           )}
         >
           {option.label}
@@ -89,11 +112,15 @@ function Pending({ startedAt }: { startedAt: number }) {
   }, []);
   return (
     <Card aria-busy>
-      <CardContent className="flex flex-col gap-3 py-2">
+      <CardContent className="flex flex-col gap-3">
+        <p className="eyebrow text-muted-foreground">► Building</p>
         <p className="flex items-center gap-2 text-sm font-medium" role="status">
-          <LoaderCircle className="size-4 animate-spin" /> Building your basket… {Math.floor((now - startedAt) / 1000)}s
+          <LoaderCircle className="size-4 animate-spin" /> Building your basket…{" "}
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {String(Math.floor((now - startedAt) / 1000)).padStart(2, "0")}s
+          </span>
         </p>
-        <ol className="list-decimal pl-5 text-xs text-muted-foreground">
+        <ol className="flex list-decimal flex-col gap-1 pl-5 text-xs text-muted-foreground">
           <li>Claude reads your holdings and proposes 6–8 candidates (usually 10–40 seconds).</li>
           <li>SnapTrade checks every ticker and quotes it in one call.</li>
           <li>Names you already hold are trimmed, then whole shares are sized.</li>
@@ -204,7 +231,8 @@ export function ThesisStudio({
     <div className="flex flex-col items-start gap-6 lg:flex-row">
       <Card className="w-full lg:w-96 lg:shrink-0">
         <CardHeader>
-          <CardTitle>Thesis</CardTitle>
+          <p className="eyebrow text-muted-foreground">► Conviction</p>
+          <CardTitle className="font-display text-xl font-semibold">Thesis</CardTitle>
           <CardDescription>
             Claude proposes stocks for your conviction, SnapTrade checks every ticker and price, and the solver sizes
             whole shares around what you already own.
@@ -231,8 +259,10 @@ export function ThesisStudio({
                   <Button
                     key={preset.key}
                     type="button"
-                    variant={isPreset && presetKey === preset.key ? "secondary" : "outline"}
+                    variant={isPreset && presetKey === preset.key ? "default" : "outline"}
+                    aria-pressed={isPreset && presetKey === preset.key}
                     size="sm"
+                    className="rounded-full"
                     onClick={() => {
                       setPrompt(preset.prompt);
                       setPresetKey(preset.key);
@@ -249,7 +279,7 @@ export function ThesisStudio({
                 id="thesis-account"
                 value={accountId}
                 onChange={(event) => selectAccount(event.target.value)}
-                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+                className={INPUT}
               >
                 {accounts.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
@@ -280,6 +310,9 @@ export function ThesisStudio({
             <Field
               label="Capital to deploy"
               htmlFor="thesis-budget"
+              aside={
+                <span className="font-display text-xl font-semibold tabular-nums">{formatMoney(budget, currency)}</span>
+              }
               hint={
                 simulated
                   ? `Simulated ${formatMoney(PAPER_BUDGET, currency)} budget: this account has little or no ${currency} cash, so baskets run in paper mode.`
@@ -288,17 +321,23 @@ export function ThesisStudio({
                     : `Defaults to 20% of this account's ${currency} cash.`
               }
             >
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
+              <div className="flex flex-col gap-1">
+                <Slider
                   aria-label="Capital to deploy"
                   min={MIN_BUDGET}
                   max={maxBudget}
                   step={50}
+                  largeStep={500}
                   value={Math.min(budget, maxBudget)}
-                  onChange={(event) => setBudget(Number(event.target.value))}
-                  className="flex-1 accent-primary"
+                  onValueChange={setBudget}
                 />
+                <div className="eyebrow flex justify-between text-muted-foreground tabular-nums">
+                  <span>{formatMoney(MIN_BUDGET, currency)}</span>
+                  <span>{formatMoney(maxBudget, currency)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Exact amount</span>
                 <input
                   id="thesis-budget"
                   type="number"
@@ -308,7 +347,7 @@ export function ThesisStudio({
                   step="any"
                   value={budget}
                   onChange={(event) => setBudget(Number(event.target.value))}
-                  className="h-8 w-28 rounded-lg border border-input bg-transparent px-2 text-right text-sm tabular-nums"
+                  className={cn(INPUT, "w-32 text-right tabular-nums")}
                 />
               </div>
             </Field>
@@ -342,7 +381,10 @@ export function ThesisStudio({
                 <p className="text-xs text-muted-foreground">Pick one of the presets above to continue.</p>
               )}
               {error && (
-                <p role="alert" className="rounded-md border border-destructive/30 px-3 py-2 text-xs text-destructive">
+                <p
+                  role="alert"
+                  className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground"
+                >
                   {error}
                 </p>
               )}
@@ -358,8 +400,9 @@ export function ThesisStudio({
         ) : (
           pendingSince == null && (
             <Card>
-              <CardContent className="flex flex-col gap-2 py-2 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">Your basket appears here.</p>
+              <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <p className="eyebrow">► Basket</p>
+                <p className="font-display text-xl font-semibold text-foreground">Your basket appears here.</p>
                 <p>
                   Pick a preset or write your own conviction, then generate. Every ticker is checked against SnapTrade
                   and priced before it shows up, and anything you already own is flagged and trimmed.
