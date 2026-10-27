@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { PreflightRequest } from "@/lib/execution/types";
+import { basketIdFromPath } from "@/lib/thesis/studio-cache";
 import type { AllocatedLine } from "@/lib/solver";
 import {
   canAddShare,
@@ -281,11 +282,18 @@ export function BasketComposer({
   payload,
   onEdit,
   preflightEndpoint,
+  executable = true,
+  onSubmitted,
+  onDialogOpenChange,
 }: {
   payload: ComposerPayload;
   onEdit?: (action: EditAction, symbol: string) => void;
   /** Where pre-flight runs; without it the composer is read-only for execution. */
   preflightEndpoint?: string;
+  /** False once this composed basket was confirmed, or after it was invalidated. */
+  executable?: boolean;
+  onSubmitted?: (basketId: string) => void;
+  onDialogOpenChange?: (open: boolean) => void;
 }) {
   const [lines, setLines] = useState(() => initialLines(payload));
   const [preflight, setPreflight] = useState<PreflightRequest | null>(null);
@@ -301,9 +309,10 @@ export function BasketComposer({
   const edited = lines.some((line, i) => line.removed || line.units !== payload.lines[i].units || line.weight !== payload.lines[i].targetWeight);
   const { thesis } = payload;
   const orders = allocation.lines.filter((line) => line.units > 0).length;
-  const canPreflight = Boolean(preflightEndpoint) && orders > 0;
+  const canPreflight = Boolean(preflightEndpoint) && orders > 0 && executable;
 
   const openPreflight = () => {
+    if (!executable) return;
     setPreflight({
       thesisId: thesis.id,
       accountId: payload.account.id,
@@ -325,6 +334,7 @@ export function BasketComposer({
       ),
     });
     setDialogOpen(true);
+    onDialogOpenChange?.(true);
   };
 
   return (
@@ -478,10 +488,17 @@ export function BasketComposer({
       {preflightEndpoint && (
         <PreflightDialog
           open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            onDialogOpenChange?.(open);
+          }}
           endpoint={preflightEndpoint}
           request={preflight}
-          onExecuted={setSavedBasket}
+          onExecuted={(path) => {
+            setSavedBasket(path);
+            const basketId = basketIdFromPath(path);
+            if (basketId) onSubmitted?.(basketId);
+          }}
         />
       )}
     </Card>
