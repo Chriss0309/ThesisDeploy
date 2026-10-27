@@ -126,7 +126,7 @@ Label tracking: `tracking-label` (0.14em) for eyebrows, `tracking-badge` (0.06em
 | `--duration-pace` | 1000 ms | The order-pacing pulse (`animate-pace`) |
 | `ease-standard` / `ease-enter` / `ease-exit` | cubic-bezier(.2,0,0,1) / (0,0,.2,1) / (.4,0,1,1) | Default / entering / leaving |
 
-Under `prefers-reduced-motion: reduce`, CSS animations and transitions collapse to near zero, and the hero coin renders a single still frame.
+Under `prefers-reduced-motion: reduce`, CSS animations and transitions collapse to near zero, and the hero coin and every loader render a single still frame. Loader motion is specified in section 11.
 
 ## 8. Numbers and currency
 
@@ -196,7 +196,7 @@ A 64 px header with a bottom `border`: the wordmark (chamfered ink "TD" tile plu
 ### Drawers and modals (Spec: pre-flight, execution, telemetry)
 Scrim: `overlay` (ink-950 at 45%). Modal: card fill, `rounded-xl`, `shadow-lg`, max-width 40rem, 24 px padding, with the title in display `text-2xl`. Drawer: slides from the right on desktop (28rem) and from the bottom on mobile (90 vh, `rounded-t-xl`) over `duration-slow ease-enter`. **Pre-flight modal:** the order list as a mono table (`BUY 4 VST @ MKT`, est. cost right-aligned), the Live vs Paper segmented control, then the primary action whose label names the mode ("Submit 4 live orders" in brand, or "Run paper simulation" in default). Live is disabled with an inline reason when the market is closed, the connection is read-only, or cash is short. Focus is trapped, Esc closes (except while orders are submitting), and focus returns to the trigger.
 
-### Toasts (Spec)
+### Toasts (Spec; navigation toasts Built, see section 11)
 Bottom-right on desktop, bottom-center on mobile, above safe-area insets. Card fill, `rounded-md`, `shadow-md`, with a 3 px left rule in the tone color (positive, warning, negative, info), a `text-sm` message, and an optional action. Auto-dismiss after 5 s (errors persist until dismissed), with `role="status"` (`alert` for errors). Use them for background results only ("Refreshed from SnapTrade"); anything that needs a decision stays inline.
 
 ### Execution progress stepper (Spec; the hero animation previews it)
@@ -214,3 +214,53 @@ Floating mono data cards (`frame-marks` on `surface-tint`, or a card with `shado
 - `app/fonts.ts`: the only `next/font` loader. `app/globals.css` holds imports, base styles, and the token-only utilities `eyebrow`, `chamfer`, `frame-marks`, and `hatch`.
 - `lib/design/token-usage.test.ts` (runs in `npm test` and CI) scans `app/`, `components/`, and `lib/`, and fails on hex, color functions, `0xRRGGBB` literals, Tailwind palette classes, `font-family` / `fontFamily` / `@font-face`, `next/font` outside `app/fonts.ts`, inline font sizes, arbitrary values (`text-[11px]`, `min-w-[640px]`), and arbitrary properties with raw values. Token references (`grid-cols-(--grid-xray)`, `[--chamfer:var(--chamfer-sm)]`) and variants (`data-[size=sm]:`) are allowed. On the pre-restyle code it reports 105 violations.
 - **Adding a value:** add a primitive and a semantic token in `app/tokens.css`, map it in `@theme inline` if it needs a utility, document it here, then use the class.
+
+## 11. Loading and motion
+
+Every wait in the app uses one shared loader system built on the same engraved line-art language as the hero coin: world-space slice lines that thicken on the shaded side, a reeded coin edge, ink lines on the card surface, and one cobalt accent. A loader is a small three.js scene, never a spinner. (Built: `components/loader/`; every motif is on `/design/loaders`.)
+
+### Motifs
+
+| Variant | Shape | Where it runs |
+|---|---|---|
+| `coin` | The brand coin, spinning on its edge | Generic route waits, button glyphs, the backend "checking" dot |
+| `link` | Two interlocked tori (a link) turning through each other | Sign-in redirect, SnapTrade session check, sign out, disconnect |
+| `scan` | A tower of layered discs with a cobalt plane sweeping down it | Portfolio X-Ray load, account switch, refresh; Studio accounts and holdings load |
+| `orbit` | The hero coin with candidate lots orbiting it and a cobalt marker checking each one; on reveal the lots settle into a row of whole shares | The Studio's Claude generation, symbol grounding, and sizing (the showpiece) |
+| `stacks` | One stack of whole-share lots per order leg on a ruled baseline: queued is a ring, pacing pulses, submitting lifts the cobalt lot, submitted is full ink, failed is a toppled lot in `negative` | The execution queue; indeterminate loop when no progress is passed |
+
+Sizes: `inline` (20 px glyph with text beside it), `panel` (a framed stage in a card), and `showpiece` (the Studio's generation panel, with the step list and elapsed timer under it). Stage sizes are `--loader-*` tokens.
+
+### Behavior rules
+
+- **Delay.** Nothing appears for 300 ms (`--loader-delay`). It is a CSS animation (`animate-loader-appear`), so it holds even before hydration, and a fast response never flashes a loader. A loader that replaces another of the same variant (a handoff) skips the delay.
+- **Minimum visible time.** Once shown, a loader stays for at least 600 ms (`--loader-min-visible`). When the work finishes, the motif settles for 450 ms (`--loader-settle`) before the content is revealed. The `orbit` lots drop into a row, `stacks` finish their last leg.
+- **No layout shift.** Every loader renders into a box with a fixed size from tokens, and `--page-main-min` keeps the page body from collapsing between a route's `loading.tsx` and its content. Measured CLS across the whole flow is below 0.005.
+- **Accessibility.** The wrapper has `role="status"`, `aria-live="polite"`, and `aria-busy="true"`, and always carries readable text ("Building your basket…"). The canvas is `aria-hidden`. Navigation toasts (`PendingLink`, `PendingForm`) announce through the same `role="status"`.
+- **Reduced motion.** `prefers-reduced-motion: reduce` draws one still frame per motif (the settled composition) and never starts the frame loop. The 300 ms delay still applies, and the fade-in is instant.
+- **Pause.** Each loader stops drawing when it is offscreen (IntersectionObserver) or the tab is hidden, and resumes when it returns.
+- **GPU budget.** There is one WebGL renderer and one context for the whole page. Each scene is drawn into a corner of a detached canvas and copied to the loader's own 2D canvas. On constrained devices (narrow viewport, touch, few cores, or low device memory) the cap is 30 fps, device pixel ratio 1.5, 420 k backing pixels per loader, and 750 k pixels drawn per frame, with loaders past the frame budget held on a still frame. Otherwise it is 60 fps, DPR 2, 1.2 M and 3 M pixels.
+- **Failure.** If WebGL is unavailable or the context is lost, the text status stays and the canvas is removed. Nothing blocks.
+- **Colors.** Read at runtime from the computed styles of the loader and its nearest opaque background (`--foreground`, `--brand`, `--negative`), so inverse panels recolor automatically. No colors are defined in the loader code.
+
+### Tokens
+
+`--loader-inline` (1.25 rem), `--loader-dot` (0.875 rem), `--loader-stage` (9 rem), `--loader-stage-width` (16 rem), `--loader-stage-wide` (28 rem), `--loader-panel` (20 rem), `--loader-showpiece-stage-sm` / `--loader-showpiece-stage` / `--loader-showpiece` (13 / 17 / 26 rem), `--page-main-min` (viewport height minus the header), `--loader-delay`, `--loader-min-visible`, `--loader-settle`, and the `animate-loader-appear` animation.
+
+### API
+
+```tsx
+<Loader variant="orbit" size="showpiece" eyebrow="Building" label="Building your basket…" detail={<Steps />} settled={done} onSettled={reveal} />
+<Loader variant="scan" label="Reading your accounts from SnapTrade…" />
+<Loader variant="stacks" size="panel" label="3 of 4 legs submitted · 1 failed" progress={{ legs: [{ symbol: "CCJ", shares: 12, status: "submitted" }, …] }} />
+<LoaderGlyph variant="coin" fallback={<Sparkles />} />   // inline icon-sized loader for buttons
+<PendingLink href="/api/auth/login" variant="link" label="Opening SnapTrade…">Sign in</PendingLink>
+<PendingForm action="/api/…" variant="scan" label="Refreshing…">…</PendingForm>
+<LinkPendingStatus variant="scan" label="Loading TFSA…" />   // inside a next/link, uses useLinkStatus
+```
+
+`Loader` props: `variant`, `label` (required, always visible text), `detail`, `size`, `eyebrow`, `framed`, `delayMs`, `progress` (`stacks` only), `settled` / `onSettled` (hold-then-settle handoff), `className`, `children`. `ExecutionLeg.status` is `queued | pacing | submitting | submitted | failed`. Without `progress`, `stacks` plays an indeterminate 6.5 s loop. For the order queue, map each leg's server state straight to `status` and update `progress` as legs resolve; the stacks animate between states. A failed leg stays visible, matching the stepper's rule that the queue never hides a failure.
+
+### Bundle
+
+three.js is never in an initial chunk. The engine loads only when a loader actually appears (after the 300 ms delay): about 138 KB gzipped for three.js, 5.3 KB for the engine and motifs, and 8.6 KB for the loader client. Initial JS growth from the loader API and pending components is +2.7 KB gzipped on `/`, +2.9 KB on `/portfolio` and `/demo`, and +4.1 KB on `/studio` and `/demo/studio`.

@@ -1,3 +1,5 @@
+import { Loader } from "@/components/loader/loader";
+import { PendingForm, PendingLink } from "@/components/loader/pending";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -78,36 +80,58 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
           <div className="flex flex-wrap gap-2">
             {grant ? (
               <>
-                <a href="/studio" className={buttonVariants({ size: "sm" })}>
+                <PendingLink
+                  href="/studio"
+                  variant="scan"
+                  pendingLabel="Opening Thesis Studio…"
+                  className={buttonVariants({ size: "sm" })}
+                >
                   Open Thesis Studio
-                </a>
-                <a href="/portfolio" className={buttonVariants({ size: "sm", variant: "outline" })}>
+                </PendingLink>
+                <PendingLink
+                  href="/portfolio"
+                  variant="scan"
+                  pendingLabel="Opening Portfolio X-Ray…"
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                >
                   Portfolio X-Ray
-                </a>
+                </PendingLink>
               </>
             ) : (
-              <a href="/api/auth/login" className={buttonVariants({ size: "sm" })}>
+              <PendingLink
+                href="/api/auth/login"
+                pendingLabel="Opening SnapTrade…"
+                className={buttonVariants({ size: "sm" })}
+              >
                 Reconnect SnapTrade
-              </a>
+              </PendingLink>
             )}
-            <form action="/api/auth/logout" method="post">
+            <PendingForm action="/api/auth/logout" method="post" pendingLabel="Signing out…">
               <Button type="submit" variant="outline" size="sm">
                 Sign out
               </Button>
-            </form>
-            <form action="/api/auth/logout?disconnect=1" method="post">
+            </PendingForm>
+            <PendingForm
+              action="/api/auth/logout?disconnect=1"
+              method="post"
+              pendingLabel="Disconnecting SnapTrade…"
+            >
               <Button type="submit" variant="destructive" size="sm">
                 Disconnect SnapTrade
               </Button>
-            </form>
+            </PendingForm>
           </div>
         </>
       ) : (
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
           {configured && !unavailable ? (
-            <a href="/api/auth/login" className={buttonVariants({ size: "lg" })}>
+            <PendingLink
+              href="/api/auth/login"
+              pendingLabel="Opening SnapTrade…"
+              className={buttonVariants({ size: "lg" })}
+            >
               Sign in with SnapTrade
-            </a>
+            </PendingLink>
           ) : (
             <Button size="lg" disabled>
               Sign in with SnapTrade
@@ -127,5 +151,9 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
 }
 
 export function AuthPanelSkeleton() {
-  return <div className="h-11 w-full animate-pulse rounded-md bg-muted" aria-hidden />;
+  return (
+    <div className="flex h-11 w-full items-center">
+      <Loader variant="link" size="inline" label="Checking your SnapTrade session…" />
+    </div>
+  );
 }

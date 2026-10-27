@@ -21,14 +21,18 @@ export function PageShell({
         <div className="mx-auto flex w-full max-w-page items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Wordmark />
           <nav aria-label="Primary" className="flex items-center gap-3 sm:gap-5">
-            <NavLink href="/portfolio">Portfolio X-Ray</NavLink>
-            <NavLink href="/studio">Thesis Studio</NavLink>
+            <NavLink href="/portfolio" pendingLabel="Opening Portfolio X-Ray…">
+              Portfolio X-Ray
+            </NavLink>
+            <NavLink href="/studio" pendingLabel="Opening Thesis Studio…">
+              Thesis Studio
+            </NavLink>
             <NavLink href="/demo">Demo</NavLink>
           </nav>
         </div>
       </header>
       {banner}
-      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 sm:pt-10">
+      <main className="mx-auto flex min-h-(--page-main-min) w-full max-w-page flex-1 flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 sm:pt-10">
         <div className="flex flex-col gap-2">
           <p className="eyebrow text-muted-foreground">► {eyebrow}</p>
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h1>

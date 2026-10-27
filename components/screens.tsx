@@ -1,0 +1,68 @@
+import { Loader } from "@/components/loader/loader";
+import { DemoBanner } from "@/components/portfolio/demo-banner";
+import { PageShell } from "@/components/portfolio/page-shell";
+import { XRaySkeleton } from "@/components/portfolio/xray-view";
+
+// Page headers shared by each page and its loading.tsx, so a route-level loading state
+// hands over to the page's own Suspense fallback without anything moving.
+export const SCREENS = {
+  xray: {
+    eyebrow: "01 · Read from SnapTrade",
+    title: "Portfolio X-Ray",
+    description: "Cash, buying power, positions, and concentration for each connected account.",
+  },
+  xrayDemo: {
+    eyebrow: "01 · Guest demo",
+    title: "Portfolio X-Ray",
+    description: "Cash, buying power, positions, and concentration for each connected account.",
+  },
+  studio: {
+    eyebrow: "02 · Build the basket",
+    title: "Thesis Studio",
+    description: "Turn a one-line conviction into a whole-share basket, checked against what you already hold.",
+  },
+  studioDemo: {
+    eyebrow: "02 · Guest demo",
+    title: "Thesis Studio",
+    description: "Turn a one-line conviction into a whole-share basket, checked against what the portfolio already holds.",
+  },
+} as const;
+
+export const DEMO_XRAY_LOADING = { label: "Loading the demo portfolio…", detail: "Fictional accounts; no SnapTrade calls." };
+
+export function StudioSkeleton({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div className="flex flex-col items-start gap-6 lg:flex-row">
+      <div aria-hidden className="h-(--loader-panel) w-full rounded-lg bg-muted lg:w-96 lg:shrink-0" />
+      <Loader variant="scan" label={label} detail={detail} className="w-full flex-1" />
+    </div>
+  );
+}
+
+export const STUDIO_LOADING = {
+  label: "Loading your accounts and holdings…",
+  detail: "The Studio reads every connected account so it can flag what you already own.",
+};
+export const DEMO_STUDIO_LOADING = { label: "Loading the demo portfolio…", detail: "Fictional accounts; no SnapTrade calls." };
+
+export function XRayLoadingScreen({ demo = false }: { demo?: boolean }) {
+  return (
+    <PageShell
+      {...(demo ? SCREENS.xrayDemo : SCREENS.xray)}
+      banner={demo ? <DemoBanner active="xray" returnTo="/portfolio" /> : undefined}
+    >
+      <XRaySkeleton {...(demo ? DEMO_XRAY_LOADING : {})} />
+    </PageShell>
+  );
+}
+
+export function StudioLoadingScreen({ demo = false }: { demo?: boolean }) {
+  return (
+    <PageShell
+      {...(demo ? SCREENS.studioDemo : SCREENS.studio)}
+      banner={demo ? <DemoBanner active="studio" returnTo="/studio" /> : undefined}
+    >
+      <StudioSkeleton {...(demo ? DEMO_STUDIO_LOADING : STUDIO_LOADING)} />
+    </PageShell>
+  );
+}

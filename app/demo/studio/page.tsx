@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { DemoBanner } from "@/components/portfolio/demo-banner";
 import { PageShell } from "@/components/portfolio/page-shell";
 import { ThesisStudio } from "@/components/thesis/thesis-studio";
+import { DEMO_STUDIO_LOADING, SCREENS, StudioSkeleton } from "@/components/screens";
 import { configuredFeatures, serverEnv } from "@/lib/env";
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
 import { GUEST_GENERATIONS_PER_CLIENT_PER_DAY } from "@/lib/thesis/rate-limit";
@@ -49,13 +50,8 @@ async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/stu
 
 export default function DemoStudioPage({ searchParams }: PageProps<"/demo/studio">) {
   return (
-    <PageShell
-      eyebrow="02 · Guest demo"
-      title="Thesis Studio"
-      description="Turn a one-line conviction into a whole-share basket, checked against what the portfolio already holds."
-      banner={<DemoBanner active="studio" returnTo="/studio" />}
-    >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+    <PageShell {...SCREENS.studioDemo} banner={<DemoBanner active="studio" returnTo="/studio" />}>
+      <Suspense fallback={<StudioSkeleton {...DEMO_STUDIO_LOADING} />}>
         <DemoStudio searchParams={searchParams} />
       </Suspense>
     </PageShell>
