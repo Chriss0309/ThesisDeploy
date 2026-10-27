@@ -1,6 +1,6 @@
 # Paper execution
 
-"Continue to pre-flight" in the Basket Composer opens a pre-flight modal with the exact order list. Confirming it runs the orders through a paced queue, one leg per second per account, and saves the result as a Virtual Basket. Paper mode works at any time: weekends, read-only connections, and $0 cash. It never sends an order: no SnapTrade order endpoint is called anywhere in this release. Live stays disabled behind `LIVE_TRADING_ENABLED`, and its submitter arrives in a later PR.
+"Continue to pre-flight" in the Basket Composer opens a pre-flight modal with the exact order list. Confirming it runs the orders through a paced queue, one leg per second per account, and saves the result as a Virtual Basket. Paper mode works at any time: weekends, read-only connections, and $0 cash. Paper never sends an order. Live, behind `LIVE_TRADING_ENABLED`, uses the same queue with a SnapTrade submitter; see [Live execution](live-execution.md).
 
 `/demo/studio` runs the same flow for guests on the fictional demo portfolio, and their baskets open at `/demo/baskets/:id`. Signed-in baskets open at `/baskets/:id`.
 
@@ -11,11 +11,13 @@
 3. **Prices.** One `getUserAccountQuotes` call for every symbol with shares. It is account-limited, so it is checked against the shared per-account budget first, and a 429 tells the user how long to wait. Guests get the fixture quotes. Buys are priced at the ask while the market is open, otherwise at the last trade. Lines with 0 shares or no price are listed as "Not ordered" with the reason.
 4. **Order list.** `BUY {units} {symbol} @ MKT`, numbered, with the price, its basis (ask or last trade), and the estimated cost, plus the total, the budget, and what stays in cash. Share counts are exactly what the user confirmed: pre-flight re-prices them but doesn't re-solve them.
 5. **Live gating.** Paper is always available. Live lists every reason it's unavailable:
-   - the kill switch is off, or Live submission isn't wired yet (when the switch is on);
+   - the kill switch is off (always, on Vercel previews);
    - the account can't trade, with the X-Ray capability reason;
    - the market is closed (the NYSE/TSX calendar from `lib/market-hours.ts`);
-   - cash in the basket currency is short or unknown (from the cached snapshot, no extra call);
+   - buying power in the basket currency is short or unknown (one fresh balance call, made only when nothing else blocks Live);
    - the demo account is fictional.
+
+   The full gate, the brokerage preview, and Live confirmation are in [Live execution](live-execution.md).
 6. **Disclosures.** The modal says where prices come from ("App estimate from SnapTrade quotes … no brokerage order preview"), that paper fills are simulated at the pre-flight price, and, for Live, that fees aren't available rather than showing them as $0.00.
 7. **Draft basket.** The pre-flight is saved as a `draft` basket with its constituents (target weights renormalized over the ordered names, planned shares, and an empty ledger). Event: `preflight_opened`.
 
@@ -28,7 +30,7 @@ Body `{ basketId, mode, simulateRejectSeq }`, plus an `Idempotency-Key` header. 
 - **Same key:** returns the existing execution (`200`, not `201`). A double click or a retried request can't create a second run.
 - **One deploy per basket:** a second confirmation with a new key returns `409 already_executed`.
 - **One active execution per account:** `executions.active_account_key` equals `account_key` while the execution is queued or running and is NULL otherwise. Its unique index allows one active execution per account (NULLs never collide). A second one gets `409 execution_active` with the active execution's ID. This also covers guests: demo accounts are shared fixtures, so their account key is derived per guest.
-- **Live:** `403 live_disabled` while the kill switch is off. With the switch on, `501 live_unavailable`, because this release has no Live submitter.
+- **Live:** `403 live_disabled` while the kill switch is off; otherwise Live's own rules apply (acknowledgement, passed gate, brokerage preview, open market). See [Live execution](live-execution.md).
 - **Records:** the execution stores the confirmation snapshot (order list, quotes, market status, disclosures shown). Each order becomes a leg (`seq`, `attempt` 1, `client_order_id`, estimated price). Event: `execution_confirmed`.
 
 ## The paced queue (`POST /api/executions/:id/drain`)

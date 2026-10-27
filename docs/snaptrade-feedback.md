@@ -87,3 +87,17 @@ Status key: **docs/SDK** means found by reading the docs, the OpenAPI spec, or t
 - **What we did:** quotes go through our per-account budget and symbol search doesn't, but both are recorded in `api_calls`.
 - **Suggestion:** list the account-scoped endpoints that are *not* account-limited, or mark each endpoint's bucket in the API reference.
 - **Status:** docs/SDK
+
+### Order impact doesn't say how "no preview" looks
+- **Date / source:** 2026-10-27, order impact guide and OpenAPI spec, while building Live execution.
+- **Observation:** the guide says preview support is separate from trading support, and an app must label impact as "not available" when there's no preview. But the API reference doesn't say what `getOrderImpact` returns for a brokerage that has no preview, as opposed to an order the broker would refuse. Both may arrive as 4xx with a `detail` string.
+- **What we did:** HTTP 404, 405, or 501, or a `detail` matching "not supported", is treated as no preview: Live stays available, labeled "Not available". Any other 4xx is a refusal that blocks Live with the broker's message.
+- **Suggestion:** a distinct error code (or a capability flag per connection) for "impact not supported", documented in the reference.
+- **Status:** docs/SDK; to be checked on Alpaca Paper.
+
+### `client_order_id` isn't echoed in order records
+- **Date / source:** 2026-10-27, `AccountOrderRecord` in `snaptrade-typescript-sdk@13.1.11` and the place-order reference.
+- **Observation:** `placeForceOrder` accepts a `client_order_id`, which SnapTrade forwards and the broker may use to deduplicate. But neither recent orders nor order detail returns it. When placement times out or returns a 5xx, the order may or may not exist, and the only way to find it is to match on symbol, side, quantity, and `time_placed`.
+- **What we did:** such a leg is `unknown`, never resent automatically. Reconciliation matches it heuristically; if nothing matches, the user confirms it isn't at the broker before a new attempt (new `client_order_id`) goes out.
+- **Suggestion:** return `client_order_id` on `AccountOrderRecord`, or add a lookup by it.
+- **Status:** docs/SDK
