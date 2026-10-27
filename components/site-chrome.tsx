@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { LinkPendingStatus } from "@/components/loader/pending";
+
 export function Wordmark() {
   return (
     <Link
@@ -21,7 +23,7 @@ export function Wordmark() {
   );
 }
 
-export function NavLink({ href, children }: { href: string; children: ReactNode }) {
+export function NavLink({ href, children, pendingLabel }: { href: string; children: ReactNode; pendingLabel?: string }) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(`${href}/`);
   return (
@@ -31,6 +33,7 @@ export function NavLink({ href, children }: { href: string; children: ReactNode 
       className="eyebrow rounded-sm px-1 py-1 text-muted-foreground underline-offset-6 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:text-foreground aria-[current=page]:underline aria-[current=page]:decoration-brand aria-[current=page]:decoration-2"
     >
       {children}
+      {pendingLabel && <LinkPendingStatus variant="scan" label={pendingLabel} />}
     </Link>
   );
 }

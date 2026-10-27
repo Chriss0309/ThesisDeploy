@@ -1,8 +1,9 @@
 "use client";
 
-import { LoaderCircle, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
+import { Loader, LoaderGlyph } from "@/components/loader/loader";
 import { formatMoney } from "@/components/portfolio/format";
 import { BasketComposer, type EditAction } from "@/components/thesis/basket-composer";
 import { Button } from "@/components/ui/button";
@@ -104,29 +105,49 @@ function Segmented<T extends string>({
   );
 }
 
-function Pending({ startedAt }: { startedAt: number }) {
+const SLOW_SECONDS = 45;
+
+/** The Studio's showpiece: candidates orbit while Claude and SnapTrade work, then drop into lots. */
+function GenerationLoader({
+  startedAt,
+  settled,
+  onSettled,
+}: {
+  startedAt: number;
+  settled: boolean;
+  onSettled: () => void;
+}) {
   const [now, setNow] = useState(startedAt);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(timer);
   }, []);
+  const seconds = Math.floor((now - startedAt) / 1000);
   return (
-    <Card aria-busy>
-      <CardContent className="flex flex-col gap-3">
-        <p className="eyebrow text-muted-foreground">► Building</p>
-        <p className="flex items-center gap-2 text-sm font-medium" role="status">
-          <LoaderCircle className="size-4 animate-spin" /> Building your basket…{" "}
-          <span className="font-mono text-xs text-muted-foreground tabular-nums">
-            {String(Math.floor((now - startedAt) / 1000)).padStart(2, "0")}s
-          </span>
-        </p>
+    <Loader
+      variant="orbit"
+      size="showpiece"
+      eyebrow={settled ? "Basket ready" : "Building"}
+      label={settled ? "Basket ready" : "Building your basket…"}
+      detail={
+        seconds >= SLOW_SECONDS
+          ? "Taking longer than usual: Claude is still working. The request stops after about a minute."
+          : "Usually 10–40 seconds. Cached presets come back almost at once."
+      }
+      settled={settled}
+      onSettled={onSettled}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-1">
         <ol className="flex list-decimal flex-col gap-1 pl-5 text-xs text-muted-foreground">
-          <li>Claude reads your holdings and proposes 6–8 candidates (usually 10–40 seconds).</li>
+          <li>Claude reads your holdings and proposes 6–8 candidates.</li>
           <li>SnapTrade checks every ticker and quotes it in one call.</li>
           <li>Names you already hold are trimmed, then whole shares are sized.</li>
         </ol>
-      </CardContent>
-    </Card>
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          {String(seconds).padStart(2, "0")}s elapsed
+        </span>
+      </div>
+    </Loader>
   );
 }
 
@@ -155,6 +176,7 @@ export function ThesisStudio({
   const [prompt, setPrompt] = useState(initialPreset?.prompt ?? "");
   const [presetKey, setPresetKey] = useState<string | null>(initialPreset?.key ?? null);
   const [pendingSince, setPendingSince] = useState<number | null>(null);
+  const [arrived, setArrived] = useState<ComposerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<ComposerPayload | null>(null);
   const [run, setRun] = useState(0);
@@ -196,16 +218,25 @@ export function ThesisStudio({
       const body = (await response.json().catch(() => null)) as ComposerPayload | ThesisErrorBody | null;
       if (!response.ok || !body || "error" in body) {
         setError(body && "error" in body ? body.error.message : `Request failed (HTTP ${response.status}). Try again.`);
+        setPendingSince(null);
         return;
       }
-      setPayload(body);
-      setRun((count) => count + 1);
+      // The loader plays its settle (skipped if it never appeared), then reveal() shows the basket.
+      setArrived(body);
     } catch {
       setError("Couldn't reach ThesisDeploy. Check your connection and try again.");
-    } finally {
       setPendingSince(null);
     }
   }
+
+  const reveal = () => {
+    if (arrived) {
+      setPayload(arrived);
+      setRun((count) => count + 1);
+    }
+    setArrived(null);
+    setPendingSince(null);
+  };
 
   const thesisId = payload?.thesis.id ?? null;
   const recordEdit = useCallback(
@@ -373,7 +404,7 @@ export function ThesisStudio({
 
             <div className="flex flex-col gap-2">
               <Button type="submit" size="lg" disabled={!canSubmit}>
-                {pendingSince != null ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+                {pendingSince != null ? <LoaderGlyph fallback={<Sparkles />} /> : <Sparkles />}
                 Generate basket
               </Button>
               <p className="text-xs text-muted-foreground">{generation.note}</p>
@@ -394,9 +425,15 @@ export function ThesisStudio({
       </Card>
 
       <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
-        {pendingSince != null && <Pending startedAt={pendingSince} />}
+        {pendingSince != null && (
+          <GenerationLoader startedAt={pendingSince} settled={arrived != null} onSettled={reveal} />
+        )}
         {payload ? (
-          <BasketComposer key={run} payload={payload} onEdit={recordEdit} />
+          // Hidden, not unmounted, while regenerating: the loader takes its place and a
+          // failed request brings the previous basket back untouched.
+          <div hidden={pendingSince != null} className="contents">
+            <BasketComposer key={run} payload={payload} onEdit={recordEdit} />
+          </div>
         ) : (
           pendingSince == null && (
             <Card>

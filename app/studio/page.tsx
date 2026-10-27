@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { PendingLink } from "@/components/loader/pending";
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK, SnapTradeProblem } from "@/components/portfolio/snaptrade-problem";
 import { SNAPTRADE_DASHBOARD_URL } from "@/components/portfolio/xray-view";
 import { ThesisStudio } from "@/components/thesis/thesis-studio";
+import { SCREENS, STUDIO_LOADING, StudioSkeleton } from "@/components/screens";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ReauthRequiredError } from "@/lib/auth/vault";
@@ -45,9 +47,9 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
           The Studio reads your holdings across every connected account so it can flag and trim what you already own.
         </p>
         <p>
-          <a href={SIGN_IN} className={LINK}>
+          <PendingLink href={SIGN_IN} className={LINK} pendingLabel="Opening SnapTrade…">
             Sign in with SnapTrade
-          </a>{" "}
+          </PendingLink>{" "}
           or try the{" "}
           <a href="/demo/studio" className={LINK}>
             demo Studio
@@ -115,12 +117,8 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
 
 export default function StudioPage({ searchParams }: PageProps<"/studio">) {
   return (
-    <PageShell
-      eyebrow="02 · Build the basket"
-      title="Thesis Studio"
-      description="Turn a one-line conviction into a whole-share basket, checked against what you already hold."
-    >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+    <PageShell {...SCREENS.studio}>
+      <Suspense fallback={<StudioSkeleton {...STUDIO_LOADING} />}>
         <LiveStudio searchParams={searchParams} />
       </Suspense>
     </PageShell>
