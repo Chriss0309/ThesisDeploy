@@ -1,5 +1,5 @@
 import { formatMoney, formatPercent } from "@/components/portfolio/format";
-import { Pill } from "@/components/ui/pill";
+import { StatusBadge, type StatusTone } from "@/components/thesis/status-badge";
 import type { ComposerLine } from "@/lib/thesis/types";
 import { cn } from "@/lib/utils";
 
@@ -17,17 +17,17 @@ export function OverlapBadge({ line, currency, budget }: { line: ComposerLine; c
     overlap.heldShare != null ? ` (${formatPercent(overlap.heldShare)} of your ${currency} portfolio)` : ""
   } of ${line.symbol} in ${accounts}.`;
 
-  let tone: "good" | "warn" | "info" | "neutral" = "good";
+  let tone: StatusTone = "positive";
   let label = "New exposure";
   let detail: string | null = null;
   switch (overlap.status) {
     case "adjusted":
-      tone = "warn";
+      tone = "attention";
       label = "Overlap adjusted";
       detail = `${held} Target weight reduced from ${formatPercent(line.llmWeight)} to ${formatPercent(line.targetWeight)}.`;
       break;
     case "fully_held":
-      tone = "warn";
+      tone = "attention";
       label = "Already held at target";
       detail = `${held} That covers this name's ${formatMoney(line.llmWeight * budget, currency)} target, so it starts at 0%. Raise the weight to buy more anyway.`;
       break;
@@ -37,7 +37,7 @@ export function OverlapBadge({ line, currency, budget }: { line: ComposerLine; c
       detail = `${held} Sized as if you held none, because overlap handling is off.`;
       break;
     case "unconverted": {
-      tone = "info";
+      tone = "neutral";
       label = "Held in another currency";
       const other = overlap.holdings
         .map((holding) => `${formatMoney(holding.marketValue, holding.currency)} of ${holding.symbol} in ${holding.accountName}`)
@@ -48,8 +48,8 @@ export function OverlapBadge({ line, currency, budget }: { line: ComposerLine; c
   }
 
   return (
-    <div className={cn("flex flex-col items-start gap-1 text-xs", tone === "warn" ? "text-amber-900" : "text-muted-foreground")}>
-      <Pill tone={tone}>{label}</Pill>
+    <div className={cn("flex flex-col items-start gap-1 text-xs", tone === "attention" ? "text-foreground" : "text-muted-foreground")}>
+      <StatusBadge tone={tone}>{label}</StatusBadge>
       {detail && <p className="text-pretty">{detail}</p>}
     </div>
   );

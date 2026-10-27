@@ -201,8 +201,8 @@ export function ThesisStudio({
   );
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[360px_1fr]">
-      <Card>
+    <div className="flex flex-col items-start gap-6 lg:flex-row">
+      <Card className="w-full lg:w-96 lg:shrink-0">
         <CardHeader>
           <CardTitle>Thesis</CardTitle>
           <CardDescription>
@@ -297,7 +297,7 @@ export function ThesisStudio({
                   step={50}
                   value={Math.min(budget, maxBudget)}
                   onChange={(event) => setBudget(Number(event.target.value))}
-                  className="flex-1 accent-sky-700"
+                  className="flex-1 accent-primary"
                 />
                 <input
                   id="thesis-budget"
@@ -339,7 +339,7 @@ export function ThesisStudio({
               </Button>
               <p className="text-xs text-muted-foreground">{generation.note}</p>
               {!isPreset && generation.presets && !generation.custom && prompt.trim().length > 0 && (
-                <p className="text-xs text-amber-800">Pick one of the presets above to continue.</p>
+                <p className="text-xs text-muted-foreground">Pick one of the presets above to continue.</p>
               )}
               {error && (
                 <p role="alert" className="rounded-md border border-destructive/30 px-3 py-2 text-xs text-destructive">
@@ -351,7 +351,7 @@ export function ThesisStudio({
         </CardContent>
       </Card>
 
-      <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         {pendingSince != null && <Pending startedAt={pendingSince} />}
         {payload ? (
           <BasketComposer key={run} payload={payload} onEdit={recordEdit} />

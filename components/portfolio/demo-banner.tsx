@@ -9,7 +9,7 @@ const TABS = [
 
 export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]["key"]; returnTo: string }) {
   return (
-    <div className="border-y bg-sky-50 px-6 py-2 text-xs text-sky-900">
+    <div className="border-y bg-muted px-6 py-2 text-xs">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <p>
           Guest demo on fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
@@ -26,7 +26,9 @@ export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]
               aria-current={tab.key === active ? "page" : undefined}
               className={cn(
                 "rounded-md px-2 py-1 font-medium",
-                tab.key === active ? "bg-sky-900 text-white" : "hover:bg-sky-100",
+                tab.key === active
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground",
               )}
             >
               {tab.label}

@@ -5,9 +5,9 @@ import { useMemo, useState } from "react";
 
 import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { OverlapBadge } from "@/components/thesis/overlap-badge";
+import { StatusBadge, type StatusTone } from "@/components/thesis/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Pill } from "@/components/ui/pill";
 import type { AllocatedLine } from "@/lib/solver";
 import {
   removeLine,
@@ -23,7 +23,12 @@ import { cn } from "@/lib/utils";
 
 export type EditAction = "remove" | "restore" | "reweight" | "step";
 
-const RISK_TONE = { conservative: "good", moderate: "info", aggressive: "warn", speculative: "bad" } as const;
+const RISK_TONE: Record<ComposerPayload["thesis"]["riskProfile"], StatusTone> = {
+  conservative: "neutral",
+  moderate: "neutral",
+  aggressive: "attention",
+  speculative: "attention",
+};
 
 const DROP_LABEL: Record<ComposerPayload["dropped"][number]["status"], string> = {
   not_found: "Not found",
@@ -34,7 +39,7 @@ const DROP_LABEL: Record<ComposerPayload["dropped"][number]["status"], string> =
   invalid: "Invalid",
 };
 
-const BAR_COLORS = ["bg-sky-700", "bg-sky-600", "bg-sky-500", "bg-sky-400", "bg-sky-300", "bg-indigo-400", "bg-indigo-300", "bg-indigo-200"];
+const BAR_COLORS = ["bg-chart-5", "bg-chart-4", "bg-chart-3", "bg-chart-2", "bg-chart-1"];
 
 const initialLines = (payload: ComposerPayload): EditableLine[] =>
   payload.lines.map((line) => ({
@@ -142,8 +147,8 @@ function LineRow({
   const inputId = `weight-${line.symbol}`;
   return (
     <li className="flex flex-col gap-3 border-b py-4 last:border-0">
-      <div className="grid grid-cols-[1fr_auto] items-start gap-x-4">
-        <div className="flex min-w-0 flex-col">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-semibold">{line.symbol}</span>
             <span className="text-sm text-muted-foreground">
@@ -153,7 +158,7 @@ function LineRow({
           </span>
           <p className="mt-1 text-sm text-pretty">{line.rationale}</p>
         </div>
-        <div className="text-right text-sm tabular-nums">
+        <div className="shrink-0 text-right text-sm tabular-nums">
           <div className="font-medium">{formatMoney(line.price, currency)}</div>
           <div className="text-xs text-muted-foreground">{line.priceBasis === "ask" ? "ask" : "last trade"}</div>
         </div>
@@ -161,8 +166,8 @@ function LineRow({
 
       <OverlapBadge line={line} currency={currency} budget={payload.budget} />
 
-      <div className="grid items-center gap-x-6 gap-y-3 sm:grid-cols-[1fr_auto_auto]">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-x-6 gap-y-3 sm:flex-row sm:items-center">
+        <div className="flex flex-1 flex-col gap-1">
           <label htmlFor={inputId} className="flex justify-between text-xs text-muted-foreground">
             <span>Target weight</span>
             <span className="tabular-nums">
@@ -178,7 +183,7 @@ function LineRow({
             step={1}
             value={weightPct}
             onChange={(event) => onWeight(Number(event.target.value) / 100)}
-            className="w-full accent-sky-700"
+            className="w-full accent-primary"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -209,7 +214,7 @@ function LineRow({
         </div>
       </div>
       {tooPricey && (
-        <p className="text-xs text-amber-800">
+        <p className="text-xs text-muted-foreground">
           One share ({formatMoney(line.price, currency)}) costs more than this {weightPct.toFixed(1)}% slice (
           {formatMoney(slice, currency)}), so it gets none. Raise its weight or add a share manually.
         </p>
@@ -250,10 +255,11 @@ export function BasketComposer({
             <h2 className="text-lg font-semibold tracking-tight">{thesis.title}</h2>
           </div>
           <div className="flex flex-wrap gap-1">
-            <Pill tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</Pill>
-            <Pill tone={payload.account.isPaper ? "info" : "neutral"}>
+            <StatusBadge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</StatusBadge>
+            <StatusBadge>
               {payload.currency} · {payload.account.name}
-            </Pill>
+              {payload.account.isPaper ? " · paper" : ""}
+            </StatusBadge>
           </div>
         </div>
         <p className="text-sm text-pretty">{thesis.summary}</p>
@@ -262,7 +268,7 @@ export function BasketComposer({
 
       <CardContent className="flex flex-col gap-4">
         {payload.notices.map((notice) => (
-          <p key={notice} role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p key={notice} role="status" className="rounded-md border bg-muted px-3 py-2 text-xs">
             {notice}
           </p>
         ))}
@@ -333,7 +339,7 @@ export function BasketComposer({
               {payload.dropped.map((drop) => (
                 <li key={`${drop.ticker}-${drop.status}`} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{drop.ticker}</span>
-                  <Pill tone="bad">{DROP_LABEL[drop.status]}</Pill>
+                  <StatusBadge tone="negative">{DROP_LABEL[drop.status]}</StatusBadge>
                   <span className="text-muted-foreground">
                     {drop.companyName}: {drop.detail}
                   </span>
