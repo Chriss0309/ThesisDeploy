@@ -60,23 +60,27 @@ function Valuation({ card, valuation }: { card: ThesisCardData; valuation: Thesi
           </span>
         </p>
       </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        <Figure label="Holdings" value={formatMoney(valuation.holdingsValue, currency)} />
-        <Figure label="Cost basis" value={formatMoney(valuation.costBasis, currency)} />
-        <Figure
-          label="Unrealized"
-          value={formatMoneyDelta(valuation.unrealized, currency)}
-          tone={deltaTone(valuation.unrealized)}
-        />
-        <Figure
-          label={valuation.cash > 0 || valuation.realized !== 0 ? "Cash · realized" : "Cash"}
-          value={
-            valuation.realized !== 0
-              ? `${formatMoney(valuation.cash, currency)} · ${formatMoneyDelta(valuation.realized, currency)}`
-              : formatMoney(valuation.cash, currency)
-          }
-        />
-      </dl>
+      {closed ? (
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+          <Figure label="Put in" value={formatMoney(valuation.contributed, currency)} />
+          <Figure label="Cash returned" value={formatMoney(valuation.cash, currency)} />
+          <Figure label="Realized" value={formatMoneyDelta(valuation.realized, currency)} tone={deltaTone(valuation.realized)} />
+        </dl>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+          <Figure label="Holdings" value={formatMoney(valuation.holdingsValue, currency)} />
+          <Figure label="Cost basis" value={formatMoney(valuation.costBasis, currency)} />
+          <Figure label="Unrealized" value={formatMoneyDelta(valuation.unrealized, currency)} tone={deltaTone(valuation.unrealized)} />
+          <Figure
+            label={valuation.realized !== 0 ? "Cash · realized" : "Cash"}
+            value={
+              valuation.realized !== 0
+                ? `${formatMoney(valuation.cash, currency)} · ${formatMoneyDelta(valuation.realized, currency)}`
+                : formatMoney(valuation.cash, currency)
+            }
+          />
+        </dl>
+      )}
     </section>
   );
 }

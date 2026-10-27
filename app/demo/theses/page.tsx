@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { after } from "next/server";
+import { after, connection } from "next/server";
 import { Suspense } from "react";
 
 import { DemoBanner } from "@/components/portfolio/demo-banner";
@@ -13,6 +13,9 @@ import { loadTheses, recordDriftViewed } from "@/lib/theses/service";
 
 export const metadata: Metadata = { title: "Demo theses · ThesisDeploy" };
 
+// Valuing a basket reads the clock and the database, so links never prefetch it.
+export const prefetch = "force-disabled";
+
 async function GuestTheses() {
   if (!serverEnv().DATABASE_URL) {
     return (
@@ -21,6 +24,7 @@ async function GuestTheses() {
       </MessageCard>
     );
   }
+  await connection();
   const token = (await cookies()).get(GUEST_COOKIE)?.value;
   const { cards } = token ? await loadTheses({ userId: null, guestKey: guestKeyFor(token) }) : { cards: [] };
   after(() => recordDriftViewed(cards, null).catch((error) => console.error("[theses] telemetry", describeError(error))));
