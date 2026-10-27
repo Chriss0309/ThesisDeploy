@@ -9,11 +9,12 @@ import {
   recoverStaleClaims,
   reservePacingSlot,
   toLegView,
+  type Finalized,
   type OwnedExecution,
 } from "@/lib/execution/store";
-import { liveSubmitter, paperSubmitter, type SubmitResult, type Submitter } from "@/lib/execution/submitters";
+import { liveUnavailable, paperSubmitter, type SubmitResult, type Submitter } from "@/lib/execution/submitters";
 import { summarizeLegs } from "@/lib/execution/summary";
-import { PACE_MS, type DrainEvent } from "@/lib/execution/types";
+import { PACE_MS, type DrainEvent, type ExecutionView } from "@/lib/execution/types";
 import { recordEvent } from "@/lib/telemetry/events";
 
 /** Leaves headroom under the drain route's 60-second maxDuration. */
@@ -24,7 +25,8 @@ export type DrainOptions = {
   budgetMs?: number;
   /** Set when the client disconnects: no new leg is claimed, so nothing runs unattended. */
   signal?: AbortSignal;
-  liveTradingEnabled?: boolean;
+  /** Places Live legs (lib/execution/live-orders.ts); without it, Live legs fail without being sent. */
+  live?: Submitter;
 };
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -58,7 +60,7 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
   const submit: Submitter =
     view.mode === "paper"
       ? paperSubmitter({ simulateRejectSeq: view.simulateRejectSeq })
-      : liveSubmitter({ liveTradingEnabled: options.liveTradingEnabled ?? false });
+      : (options.live ?? liveUnavailable);
 
   let reason: Extract<DrainEvent, { type: "done" }>["reason"] = "finished";
   if (view.status === "queued" || view.status === "running") {
@@ -132,40 +134,31 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
 
   const finalized = await finalizeExecution(view.id);
   const execution = await loadExecutionView(view.id);
-  if (finalized?.activated) {
-    const summary = summarizeLegs(execution.legs);
-    await recordEvent(
-      "basket_deployed",
-      {
-        basketId: execution.basketId,
-        executionId: execution.id,
-        mode: execution.mode,
-        orders: summary.orders,
-        filled: summary.filled,
-        failed: summary.failed,
-        currency: execution.currency,
-        guest,
-      },
-      owned.userId ?? undefined,
-    );
-  }
-  if (finalized?.closed) {
-    const summary = summarizeLegs(execution.legs);
-    await recordEvent(
-      "basket_closed",
-      {
-        basketId: execution.basketId,
-        executionId: execution.id,
-        mode: execution.mode,
-        orders: summary.orders,
-        filled: summary.filled,
-        failed: summary.failed,
-        currency: execution.currency,
-        guest,
-      },
-      owned.userId ?? undefined,
-    );
-  }
+  await recordSettlement(finalized, execution, owned.userId);
   const active = execution.status === "queued" || execution.status === "running";
   yield { type: "done", execution, reason: active ? reason : "finished" };
+}
+
+/** basket_deployed on a deploy's first fill, basket_closed when a close has sold everything. */
+export async function recordSettlement(
+  finalized: Finalized | null,
+  execution: ExecutionView,
+  userId: string | null,
+): Promise<void> {
+  if (!finalized?.activated && !finalized?.closed) return;
+  const summary = summarizeLegs(execution.legs);
+  await recordEvent(
+    finalized.activated ? "basket_deployed" : "basket_closed",
+    {
+      basketId: execution.basketId,
+      executionId: execution.id,
+      mode: execution.mode,
+      orders: summary.orders,
+      filled: summary.filled,
+      failed: summary.failed,
+      currency: execution.currency,
+      guest: userId == null,
+    },
+    userId ?? undefined,
+  );
 }

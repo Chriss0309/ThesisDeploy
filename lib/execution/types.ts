@@ -9,6 +9,8 @@ export const PACE_MS = 1100;
 export const PREFLIGHT_TTL_MS = 5 * 60 * 1000;
 /** Attempts per leg, including the first. */
 export const MAX_LEG_ATTEMPTS = 3;
+/** SnapTrade asks for order-status polling no more often than every 15 seconds per account. */
+export const RECONCILE_INTERVAL_MS = 15_000;
 
 export type ExecutionMode = "paper" | "live";
 /** A deploy buys a new basket; rebalance and close sell and buy against its ledger. */
@@ -55,10 +57,46 @@ export type PreflightPayload = {
   /** Lines in the composer that get no order, with the reason. */
   leftOut: { symbol: string; reason: string }[];
   totals: { estCost: number; unallocated: number; overBudget: boolean; sellProceeds?: number };
-  live: { available: boolean; reasons: string[] };
+  live: ModeGate & {
+    /** Warnings that don't block Live, shown when it's selected. */
+    notes?: string[];
+    /** Buying power in the basket currency from a fresh balance call, when Live was checked. */
+    buyingPower?: number | null;
+  };
+  /** Absent means available. A Live basket is rebalanced and closed only Live, so ledgers never mix. */
+  paper?: ModeGate;
   /** Where the order prices come from; never a brokerage preview in Paper. */
   impactNote: string;
+  /** The brokerage preview, once requested for Live. */
+  impact?: ImpactCheck;
   disclosures: { paper: string[]; live: string[] };
+};
+
+export type ModeGate = { available: boolean; reasons: string[] };
+
+/**
+ * SnapTrade's order impact per leg. `brokerage` means the broker previewed
+ * every leg; `unsupported` means it has no preview for this account;
+ * `unavailable` means the preview failed for at least one leg.
+ */
+export type ImpactCheck = {
+  source: "brokerage" | "unsupported" | "unavailable";
+  checkedAt: string;
+  legs: ImpactLeg[];
+  /** Sum of the legs' estimated commissions, when every leg returned one. */
+  totalCommission: number | null;
+  totalForexFees: number | null;
+  /** The broker's estimate of cash left after the last previewed leg. */
+  remainingCash: number | null;
+};
+
+export type ImpactLeg = {
+  seq: number;
+  status: "ok" | "rejected" | "unavailable";
+  estimatedCommission: number | null;
+  forexFees: number | null;
+  remainingCash: number | null;
+  message: string | null;
 };
 
 export type PreflightLine = {
@@ -92,7 +130,8 @@ export type LegStatus =
 
 export type ActionRequest = { kind: "rebalance" | "close" };
 
-export type ExecutionStatus = "queued" | "running" | "completed" | "partial" | "failed" | "canceled";
+/** `working`: every leg was sent, and Live orders are still open at the broker. */
+export type ExecutionStatus = "queued" | "running" | "working" | "completed" | "partial" | "failed" | "canceled";
 
 export type LegView = {
   id: string;
@@ -104,6 +143,8 @@ export type LegView = {
   estPrice: number;
   status: LegStatus;
   brokerageOrderId: string | null;
+  /** SnapTrade's order status for Live legs (ACCEPTED, EXECUTED, …). */
+  snaptradeStatus?: string | null;
   filledUnits: number | null;
   fillPrice: number | null;
   errorCode: string | null;
@@ -125,6 +166,11 @@ export type ExecutionView = {
   startedAt: string | null;
   finishedAt: string | null;
   simulateRejectSeq: number | null;
+  /** Live on a broker's paper-trading account (e.g. Alpaca Paper). */
+  paperAccount: boolean;
+  institution: string;
+  /** Last order-status check at the broker (Live only). */
+  reconciledAt: string | null;
   /** Every attempt, ordered by seq then attempt. */
   legs: LegView[];
 };

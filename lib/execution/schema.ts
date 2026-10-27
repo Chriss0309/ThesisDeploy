@@ -35,7 +35,16 @@ export const CreateExecutionSchema = z.object({
   preflightId: z.uuid().nullish(),
   /** Paper only: reject the first attempt of this leg, to demo partial failure and retry. */
   simulateRejectSeq: z.number().int().min(1).max(MAX_CANDIDATES).nullable().default(null),
+  /** Live only: the user confirmed these are real market orders. */
+  acknowledgeLive: z.boolean().default(false),
 });
+
+export const ImpactRequestSchema = z.object({
+  kind: z.enum(["deploy", "rebalance", "close"]),
+  preflightId: z.uuid().nullish(),
+});
+
+export const RetryRequestSchema = z.object({ confirmNotPlaced: z.boolean().default(false) }).default({ confirmNotPlaced: false });
 
 export const IdempotencyKeySchema = z.uuid();
 

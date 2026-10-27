@@ -1,4 +1,5 @@
-import { formatMoney } from "@/components/portfolio/format";
+import { liveDisclosures, liveGate, type LiveGateInput } from "@/lib/execution/live-gate";
+import { marketNote } from "@/lib/execution/market-text";
 import type { PreflightLine, PreflightOrder, PreflightPayload } from "@/lib/execution/types";
 import type { MarketStatus } from "@/lib/market-hours";
 import type { Capability } from "@/lib/portfolio/types";
@@ -21,9 +22,9 @@ export type PreflightInput = {
     capability: Capability;
     capabilityReason: string;
   };
-  /** Cash in the basket currency from the cached snapshot; null when unknown. */
-  cash: number | null;
-  liveTradingEnabled: boolean;
+  /** Fresh buying power in the basket currency, fetched only when Live could otherwise run; null when unknown. */
+  buyingPower: number | null;
+  killSwitch: LiveGateInput["killSwitch"];
   guest: boolean;
   priceSource: "snaptrade" | "demo";
 };
@@ -42,52 +43,7 @@ export function buyPrice(quote: Quote, marketOpen: boolean): { price: number; ba
   return null;
 }
 
-const CLOSED_REASON: Record<string, string> = {
-  weekend: "weekend",
-  pre_open: "before the open",
-  after_close: "after the close",
-  no_calendar: "no trading calendar for this date",
-};
-
-const eastern = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/New_York",
-});
-
-export function marketNote(market: MarketStatus): string {
-  if (market.open) return `${market.market} is open: buys are priced at the ask.`;
-  const why = market.reason === "holiday" ? (market.holiday ?? "holiday") : CLOSED_REASON[market.reason];
-  const next = market.nextOpen ? ` Opens ${eastern.format(market.nextOpen)} ET.` : "";
-  return `${market.market} is closed (${why}): prices are the last trade.${next}`;
-}
-
-export function liveReasons(input: PreflightInput, estCost: number): string[] {
-  const reasons: string[] = [];
-  if (input.guest) reasons.push("Demo accounts are fictional. Sign in with SnapTrade to trade your own account.");
-  reasons.push(
-    input.liveTradingEnabled
-      ? "Live order submission ships in a later release. Paper runs the same paced queue without sending orders."
-      : "Live trading is switched off on this deployment.",
-  );
-  if (!input.guest && input.account.capability !== "trade") reasons.push(input.account.capabilityReason);
-  if (!input.market.open) {
-    reasons.push(`${input.market.market} is closed, and Live market orders are blocked outside the regular session.`);
-  }
-  if (!input.guest) {
-    if (input.cash == null) {
-      reasons.push(`This account's ${input.currency} cash couldn't be confirmed.`);
-    } else if (estCost > input.cash + EPSILON) {
-      reasons.push(
-        `The orders need about ${formatMoney(estCost, input.currency)}; the account has ${formatMoney(input.cash, input.currency)} in cash.`,
-      );
-    }
-  }
-  return reasons;
-}
+export { marketNote };
 
 export function buildPreflight(
   input: PreflightInput,
@@ -125,8 +81,21 @@ export function buildPreflight(
     estCost: line.units * line.price,
   }));
   const estCost = orders.reduce((sum, order) => sum + order.estCost, 0);
-  const reasons = liveReasons(input, estCost);
   const { institution } = input.account;
+  const gate = liveGate({
+    kind: "deploy",
+    guest: input.guest,
+    killSwitch: input.killSwitch,
+    institution,
+    account: input.account,
+    basketMode: null,
+    market: input.market,
+    currency: input.currency,
+    buyCost: estCost,
+    sellProceeds: 0,
+    buyingPower: input.buyingPower,
+    shortfalls: [],
+  });
 
   return {
     account: { id: input.account.id, name: input.account.name, institution, isPaper: input.account.isPaper },
@@ -137,7 +106,7 @@ export function buildPreflight(
     orders,
     leftOut,
     totals: { estCost, unallocated: input.budget - estCost, overBudget: estCost > input.budget + EPSILON },
-    live: { available: reasons.length === 0, reasons },
+    live: { available: gate.available, reasons: gate.reasons, notes: gate.notes, buyingPower: input.buyingPower },
     impactNote:
       input.priceSource === "demo"
         ? "App estimate from fictional demo quotes. Paper fills have no commission."
@@ -147,11 +116,7 @@ export function buildPreflight(
         `Paper simulation: nothing is sent to ${institution}. Each leg fills in full at its pre-flight price; real market orders can fill higher or lower, partly, or not at all.`,
         "Legs are paced at one per second per account, exactly like live orders, and the result is saved as a Paper basket kept apart from your real holdings.",
       ],
-      live: [
-        "Market orders fill at the next available price, which can differ from these quotes.",
-        "Commissions and fees: not available. No brokerage preview was requested, so they are not shown as zero.",
-        "Orders go to your brokerage through SnapTrade and can't be undone here. Not investment advice.",
-      ],
+      live: liveDisclosures(institution),
     },
   };
 }

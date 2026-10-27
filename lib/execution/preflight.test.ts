@@ -28,8 +28,8 @@ const input = (overrides: Partial<PreflightInput> = {}): PreflightInput => ({
     capability: "trade",
     capabilityReason: "Trading enabled",
   },
-  cash: 10_000,
-  liveTradingEnabled: false,
+  buyingPower: 10_000,
+  killSwitch: { on: false, preview: false },
   guest: false,
   priceSource: "snaptrade",
   ...overrides,
@@ -60,31 +60,44 @@ describe("buildPreflight", () => {
   });
 
   it("keeps Live unavailable with a reason for each blocker, while Paper always works", () => {
-    const result = buildPreflight(input({ market: WEEKEND, cash: 100, account: { ...input().account, capability: "read_only", capabilityReason: "Read-only connection" } }));
-    expect(result.live).toEqual({
+    const result = buildPreflight(
+      input({ market: WEEKEND, account: { ...input().account, capability: "read_only", capabilityReason: "Read-only connection" } }),
+    );
+    expect(result.live).toMatchObject({
       available: false,
       reasons: [
         "Live trading is switched off on this deployment.",
         "Read-only connection",
-        "NYSE is closed, and Live market orders are blocked outside the regular session.",
-        "The orders need about $1,280.00 USD; the account has $100.00 USD in cash.",
+        "NYSE is closed (weekend), and Live market orders are blocked outside the regular session. Opens Mon, Oct 26, 9:30 AM ET.",
       ],
     });
     expect(result.orders[0].priceBasis).toBe("last");
   });
 
-  it("says Live ships later when the kill switch is on, and that demo accounts are fictional", () => {
-    expect(buildPreflight(input({ liveTradingEnabled: true })).live.reasons).toEqual([
-      "Live order submission ships in a later release. Paper runs the same paced queue without sending orders.",
+  it("opens Live when every gate passes, and checks buying power only then", () => {
+    const on = { killSwitch: { on: true, preview: false } };
+    expect(buildPreflight(input(on)).live).toMatchObject({ available: true, reasons: [] });
+    expect(buildPreflight(input({ ...on, buyingPower: 100 })).live.reasons).toEqual([
+      "The orders need about $1,282.40 USD; the account has $100.00 USD of buying power.",
     ]);
+    expect(buildPreflight(input({ ...on, buyingPower: null })).live.reasons).toEqual([
+      "This account's USD buying power couldn't be confirmed.",
+    ]);
+    expect(buildPreflight(input({ killSwitch: { on: false, preview: true } })).live.reasons).toEqual([
+      "Live trading is always off on preview deployments.",
+    ]);
+  });
+
+  it("says demo accounts are fictional", () => {
     const demo = buildPreflight(input({ guest: true, priceSource: "demo", quotes: new Map() }));
     expect(demo.live.reasons[0]).toContain("Demo accounts are fictional");
     expect(demo.leftOut.map((line) => line.reason)).toContain("No demo quote");
   });
 
-  it("never shows unknown fees as zero", () => {
+  it("uses SnapTrade's estimate disclaimer for Live", () => {
     const result = buildPreflight(input());
-    expect(result.disclosures.live.join(" ")).toContain("not shown as zero");
+    expect(result.disclosures.live[0]).toMatch(/^Estimated results\. The amounts shown are estimates only/);
+    expect(result.disclosures.live.join(" ")).toContain("including when estimated commissions are $0.00");
     expect(result.impactNote).toContain("no brokerage order preview");
   });
 });

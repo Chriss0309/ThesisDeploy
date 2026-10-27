@@ -59,10 +59,20 @@ export class SnapTradeError extends Error {
     readonly status: number | null = null,
     readonly retryAfterSeconds: number | null = null,
     readonly requestId: string | null = null,
-    options?: { cause: unknown },
+    options?: { cause?: unknown; detail?: string | null },
   ) {
     super(`SnapTrade ${operation} failed: ${code}${status ? ` (HTTP ${status})` : ""}`, options);
+    this.detail = options?.detail ?? null;
   }
+
+  /** SnapTrade's `detail` message from the error body, e.g. a broker's reason for rejecting an order. */
+  readonly detail: string | null;
+}
+
+function errorDetail(data: unknown): string | null {
+  const body = data as { detail?: unknown; message?: unknown } | undefined;
+  const detail = typeof body?.detail === "string" ? body.detail : typeof body?.message === "string" ? body.message : null;
+  return detail ? detail.slice(0, 300) : null;
 }
 
 type HeaderSource = Pick<AxiosResponse, "headers"> | undefined;
@@ -190,8 +200,10 @@ export async function callSnapTrade<T>(
       throw new ReauthRequiredError("SnapTrade rejected a freshly refreshed access token");
     }
     if (response.status === 429) {
-      throw new SnapTradeError("rate_limited", operation, 429, retryAfterSeconds(response), requestId);
+      throw new SnapTradeError("rate_limited", operation, 429, retryAfterSeconds(response), requestId, {
+        detail: errorDetail(response.data),
+      });
     }
-    throw new SnapTradeError("upstream", operation, response.status, null, requestId);
+    throw new SnapTradeError("upstream", operation, response.status, null, requestId, { detail: errorDetail(response.data) });
   }
 }
