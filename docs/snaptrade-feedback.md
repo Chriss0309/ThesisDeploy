@@ -26,6 +26,13 @@ Status key: **docs/SDK** means found by reading the docs, the OpenAPI spec, or t
 - **Suggestion:** a short "Commercial vs. OAuth" table at the top of the OAuth guide listing which parameters and endpoints do not apply.
 - **Status:** docs/SDK
 
+### The discovery document advertises more than the guide documents
+- **Date / source:** 2026-10-26, live `GET /.well-known/openid-configuration` (the only live SnapTrade call made so far) compared with the OAuth apps guide.
+- **Observation:** the live metadata lists `trade`, `webhook`, and an undocumented `workspaces:read` in `scopes_supported`, while the guide's sample shows only `openid profile email read`. It also sets `authorization_response_iss_parameter_supported: true` (RFC 9207), but the guide's callback examples show only `code` and `state`, so it is unclear whether `iss` is always sent, including on error redirects.
+- **What we did:** validate the metadata at runtime (issuer match, `S256`, `RS256`, every requested scope supported). A callback `iss` that names another issuer is rejected; a missing one is accepted, since the app trusts a single issuer.
+- **Suggestion:** document `workspaces:read` (or drop it from the metadata) and show `iss` in the callback examples.
+- **Status:** confirmed (metadata); `iss` behavior not yet seen on a real redirect
+
 ### The Test OAuth app is capped at 5 users
 - **Date / source:** 2026-10-26, OAuth apps guide.
 - **Observation:** a hosted take-home or demo shared with a review panel can exceed 5 users, and a Production OAuth app requires KYC.

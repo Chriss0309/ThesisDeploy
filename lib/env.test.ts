@@ -44,6 +44,21 @@ describe("parseServerEnv", () => {
     ).toBe(true);
   });
 
+  it("requires https for the issuer and redirect URI unless the host is loopback", () => {
+    expect(
+      parseServerEnv({
+        SNAPTRADE_ISSUER: "http://api.snaptrade.com",
+        SNAPTRADE_OAUTH_REDIRECT_URI: "http://thesisdeploy.vercel.app/api/auth/callback",
+      }),
+    ).toEqual({ ok: false, invalid: ["SNAPTRADE_ISSUER", "SNAPTRADE_OAUTH_REDIRECT_URI"] });
+    expect(
+      parseServerEnv({
+        SNAPTRADE_ISSUER: "http://127.0.0.1:4010",
+        SNAPTRADE_OAUTH_REDIRECT_URI: "http://127.0.0.1:3000/api/auth/callback",
+      }).ok,
+    ).toBe(true);
+  });
+
   it("rejects base64 keys that are not 32 bytes", () => {
     const result = parseServerEnv({ SESSION_SECRET: Buffer.alloc(16).toString("base64") });
     expect(result).toEqual({ ok: false, invalid: ["SESSION_SECRET"] });
@@ -51,15 +66,20 @@ describe("parseServerEnv", () => {
 });
 
 describe("configuredFeatures", () => {
-  it("requires every OAuth and session variable before enabling sign-in", () => {
+  it("requires every OAuth, session, and database variable before enabling sign-in", () => {
     const base = {
       SNAPTRADE_OAUTH_CLIENT_ID: "client",
       SNAPTRADE_OAUTH_CLIENT_SECRET: "secret",
       SNAPTRADE_OAUTH_REDIRECT_URI: "http://127.0.0.1:3000/api/auth/callback",
       SESSION_SECRET: key32,
+      TOKEN_ENCRYPTION_KEY: key32,
     };
     const partial = parseServerEnv(base);
-    const full = parseServerEnv({ ...base, TOKEN_ENCRYPTION_KEY: key32, LIVE_TRADING_ENABLED: "true" });
+    const full = parseServerEnv({
+      ...base,
+      DATABASE_URL: "postgresql://u:p@host:6543/postgres",
+      LIVE_TRADING_ENABLED: "true",
+    });
     if (!partial.ok || !full.ok) throw new Error("expected valid env");
 
     expect(configuredFeatures(partial.env).snaptradeOAuth).toBe(false);
