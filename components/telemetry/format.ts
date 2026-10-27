@@ -21,3 +21,10 @@ const DROP_REASONS: Record<string, string> = {
 };
 
 export const dropReason = (reason: string) => DROP_REASONS[reason] ?? reason.replaceAll("_", " ");
+
+/** "6 deploy · 4 rebalance · 3 close", leaving out kinds with no orders. */
+export const kindBreakdown = (byKind: Record<"deploy" | "rebalance" | "close", number>) =>
+  (["deploy", "rebalance", "close"] as const)
+    .filter((kind) => byKind[kind] > 0)
+    .map((kind) => `${formatCount(byKind[kind])} ${kind}`)
+    .join(" · ");

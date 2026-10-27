@@ -11,21 +11,37 @@ export const PREFLIGHT_TTL_MS = 5 * 60 * 1000;
 export const MAX_LEG_ATTEMPTS = 3;
 
 export type ExecutionMode = "paper" | "live";
+/** A deploy buys a new basket; rebalance and close sell and buy against its ledger. */
+export type ExecutionKind = "deploy" | "rebalance" | "close";
 
 export type PreflightOrder = {
   seq: number;
-  action: "BUY";
+  action: "BUY" | "SELL";
   symbol: string;
   companyName: string;
   universalSymbolId: string | null;
   units: number;
   targetWeight: number;
   price: number;
-  priceBasis: "ask" | "last";
+  priceBasis: "ask" | "bid" | "last";
+  /** units × price: the cost of a buy, the proceeds of a sell. */
   estCost: number;
 };
 
+/** What a rebalance moves, for the pre-flight summary. Weights are fractions. */
+export type RebalanceSummary = {
+  maxDriftBefore: number;
+  maxDriftAfter: number;
+  sellProceeds: number;
+  buyCost: number;
+};
+
 export type PreflightPayload = {
+  /** Absent on payloads saved before My Theses, which are all deploys. */
+  kind?: ExecutionKind;
+  /** Rebalance and close only: each pre-flight can be confirmed once. */
+  preflightId?: string;
+  rebalance?: RebalanceSummary;
   basketId: string;
   preparedAt: string;
   expiresAt: string;
@@ -38,7 +54,7 @@ export type PreflightPayload = {
   orders: PreflightOrder[];
   /** Lines in the composer that get no order, with the reason. */
   leftOut: { symbol: string; reason: string }[];
-  totals: { estCost: number; unallocated: number; overBudget: boolean };
+  totals: { estCost: number; unallocated: number; overBudget: boolean; sellProceeds?: number };
   live: { available: boolean; reasons: string[] };
   /** Where the order prices come from; never a brokerage preview in Paper. */
   impactNote: string;
@@ -74,6 +90,8 @@ export type LegStatus =
   | "unknown"
   | "skipped";
 
+export type ActionRequest = { kind: "rebalance" | "close" };
+
 export type ExecutionStatus = "queued" | "running" | "completed" | "partial" | "failed" | "canceled";
 
 export type LegView = {
@@ -98,7 +116,7 @@ export type ExecutionView = {
   id: string;
   basketId: string;
   basketPath: string;
-  kind: "deploy";
+  kind: ExecutionKind;
   mode: ExecutionMode;
   status: ExecutionStatus;
   currency: string;
@@ -117,7 +135,9 @@ export type BasketConstituentView = {
   targetWeight: number;
   plannedUnits: number;
   ledgerUnits: number;
+  /** Cost basis of the shares still held. */
   costTotal: number;
+  realizedTotal: number;
 };
 
 export type BasketView = {
@@ -133,6 +153,10 @@ export type BasketView = {
   priceSource: "snaptrade" | "demo";
   createdAt: string;
   deployedAt: string | null;
+  closedAt: string | null;
+  /** What the deploy put in; proceeds of later sells less rebalance buys sit in `cash`. */
+  contributed: number;
+  cash: number;
   constituents: BasketConstituentView[];
   execution: ExecutionView | null;
 };

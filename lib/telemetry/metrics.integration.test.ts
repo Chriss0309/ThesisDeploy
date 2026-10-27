@@ -53,7 +53,9 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
     const A = { userId: a.id };
     const edit = (ref: string, action: string, symbol: string) =>
       event("basket_edited", A, { thesisId: ref, action, symbol });
-    const leg = (status: string) => event("leg_result", A, { status, mode: "paper", brokerage: "ALPACA-PAPER" });
+    // Legs recorded before My Theses carry no kind and count as deploys.
+    const leg = (status: string, kind?: string) =>
+      event("leg_result", A, { status, mode: "paper", brokerage: "ALPACA-PAPER", ...(kind && { kind }) });
     await db.event.createMany({
       data: [
         event("oauth_connected", A),
@@ -75,15 +77,27 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
         leg("rejected"),
         leg("executed"),
         leg("pending"),
+        // My Theses: A rebalances (two fills) and closes (one rejected leg).
+        event("drift_viewed", A),
+        event("drift_viewed", A),
+        event("rebalance_confirmed", A),
+        leg("executed", "rebalance"),
+        leg("executed", "rebalance"),
+        leg("rejected", "close"),
+        event("basket_closed", A),
         event("oauth_connected", { userId: b.id }),
-        // Connected before the window: outside the signed-in funnel.
+        // Connected before the window: outside the signed-in funnel, along with what C did next.
         event("oauth_connected", { userId: c.id }, {}, OLD),
         event("thesis_generated", { userId: c.id }),
+        event("rebalance_confirmed", { userId: c.id }),
         event("thesis_generated", { guestKey: "guest-1" }),
         event("symbols_resolved", { guestKey: "guest-1" }, { guest: true, proposed: 6, resolved: 6, dropped: {} }),
         event("basket_deployed", { guestKey: "guest-1" }),
+        event("drift_viewed", { guestKey: "guest-1" }),
         event("thesis_generated", { guestKey: "guest-2" }),
         event("basket_deployed", { guestKey: "guest-2" }, {}, OLD),
+        // guest-2 deployed before the window, so their drift view isn't after a deploy we counted.
+        event("drift_viewed", { guestKey: "guest-2" }),
         // Rows from before guest keys existed can't be attributed to anyone.
         event("thesis_generated", {}, { guest: true }),
       ],
@@ -111,8 +125,20 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
     await seed();
     const all = await telemetrySnapshot(null, NOW);
 
-    expect(all.funnel.signedIn).toEqual({ connected: 2, generated: 1, deployed: 1, baskets: { generated: 2, deployed: 1 } });
-    expect(all.funnel.guest).toEqual({ connected: null, generated: 2, deployed: 1, baskets: { generated: 2, deployed: 1 } });
+    expect(all.funnel.signedIn).toEqual({
+      connected: 2,
+      generated: 1,
+      deployed: 1,
+      baskets: { generated: 2, deployed: 1 },
+      afterDeploy: { viewedDrift: 1, rebalanced: 1, closed: 1 },
+    });
+    expect(all.funnel.guest).toEqual({
+      connected: null,
+      generated: 2,
+      deployed: 1,
+      baskets: { generated: 2, deployed: 1 },
+      afterDeploy: { viewedDrift: 1, rebalanced: 0, closed: 0 },
+    });
 
     expect(all.edits).toEqual({ suggested: 19, edited: 3, removed: 1, resized: 2 });
 
@@ -129,7 +155,15 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
       { source: "demo", proposed: 6, resolved: 6, dropped: [] },
     ]);
 
-    expect(all.orders).toEqual([{ brokerage: "ALPACA-PAPER", mode: "paper", orders: 4, succeeded: 3 }]);
+    expect(all.orders).toEqual([
+      {
+        brokerage: "ALPACA-PAPER",
+        mode: "paper",
+        orders: 7,
+        succeeded: 5,
+        byKind: { deploy: 4, rebalance: 2, close: 1 },
+      },
+    ]);
 
     expect(all.latency).toEqual([
       { operation: "getUserAccountQuotes", calls: 11, errors: 1, rateLimited: 1, p50Ms: 500, p95Ms: 950 },
@@ -231,12 +265,20 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
 
     const mine = await telemetrySnapshot({ userId: null, guestKey }, new Date());
     const orders = preflight.orders.length;
-    expect(mine.funnel.guest).toEqual({ connected: null, generated: 1, deployed: 1, baskets: { generated: 1, deployed: 1 } });
+    expect(mine.funnel.guest).toEqual({
+      connected: null,
+      generated: 1,
+      deployed: 1,
+      baskets: { generated: 1, deployed: 1 },
+      afterDeploy: { viewedDrift: 0, rebalanced: 0, closed: 0 },
+    });
     expect(mine.edits).toEqual({ suggested: payload.lines.length, edited: 1, removed: 0, resized: 1 });
     expect(mine.resolution).toEqual([
       expect.objectContaining({ source: "demo", resolved: payload.lines.length }),
     ]);
-    expect(mine.orders).toEqual([{ brokerage: "demo", mode: "paper", orders: orders + 1, succeeded: orders }]);
+    expect(mine.orders).toEqual([
+      { brokerage: "demo", mode: "paper", orders: orders + 1, succeeded: orders, byKind: { deploy: orders + 1, rebalance: 0, close: 0 } },
+    ]);
     expect(mine.latency).toEqual([]);
     expect((await telemetrySnapshot({ userId: null, guestKey: "another-guest" }, new Date())).funnel.guest.generated).toBe(0);
   }, 30_000);

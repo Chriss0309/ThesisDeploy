@@ -35,12 +35,16 @@ type FunnelRow = {
   deployed: number;
   baskets_generated: number;
   baskets_deployed: number;
+  viewed_drift: number;
+  rebalanced: number;
+  closed: number;
 };
 
 /**
  * Distinct people per step. A signed-in person enters by connecting within the
  * window; a guest enters with their first basket. Later steps count only
- * people who reached the earlier ones, so the funnel never widens.
+ * people who reached the earlier ones, so the funnel never widens. My Theses
+ * activity is counted among the people who deployed.
  */
 async function funnel(since: Date, scope: TelemetryScope): Promise<TelemetrySnapshot["funnel"]> {
   const rows = await getDb().$queryRaw<FunnelRow[]>`
@@ -48,22 +52,29 @@ async function funnel(since: Date, scope: TelemetryScope): Promise<TelemetrySnap
       select user_id is null as guest,
              bool_or(name = 'oauth_connected') as connected,
              count(*) filter (where name = 'thesis_generated') as generated,
-             count(*) filter (where name = 'basket_deployed') as deployed
+             count(*) filter (where name = 'basket_deployed') as deployed,
+             bool_or(name = 'drift_viewed') as viewed_drift,
+             bool_or(name = 'rebalance_confirmed') as rebalanced,
+             bool_or(name = 'basket_closed') as closed
       from events
-      where name in ('oauth_connected', 'thesis_generated', 'basket_deployed')
+      where name in ('oauth_connected', 'thesis_generated', 'basket_deployed', 'drift_viewed', 'rebalance_confirmed', 'basket_closed')
         and created_at >= ${since}
         and (user_id is not null or guest_key is not null)
         ${eventFilter(scope)}
       group by user_id, guest_key
+    ), entered as (
+      select *, generated > 0 and deployed > 0 as reached_deploy from actors where connected or guest
     )
     select guest,
            count(*) filter (where connected)::int as connected,
            count(*) filter (where generated > 0)::int as generated,
-           count(*) filter (where generated > 0 and deployed > 0)::int as deployed,
+           count(*) filter (where reached_deploy)::int as deployed,
            coalesce(sum(generated), 0)::int as baskets_generated,
-           coalesce(sum(deployed), 0)::int as baskets_deployed
-    from actors
-    where connected or guest
+           coalesce(sum(deployed), 0)::int as baskets_deployed,
+           count(*) filter (where reached_deploy and viewed_drift)::int as viewed_drift,
+           count(*) filter (where reached_deploy and rebalanced)::int as rebalanced,
+           count(*) filter (where reached_deploy and closed)::int as closed
+    from entered
     group by guest`;
   const cohort = (guest: boolean): FunnelCohort => {
     const row = rows.find((candidate) => candidate.guest === guest);
@@ -72,6 +83,11 @@ async function funnel(since: Date, scope: TelemetryScope): Promise<TelemetrySnap
       generated: row?.generated ?? 0,
       deployed: row?.deployed ?? 0,
       baskets: { generated: row?.baskets_generated ?? 0, deployed: row?.baskets_deployed ?? 0 },
+      afterDeploy: {
+        viewedDrift: row?.viewed_drift ?? 0,
+        rebalanced: row?.rebalanced ?? 0,
+        closed: row?.closed ?? 0,
+      },
     };
   };
   return { signedIn: cohort(false), guest: cohort(true) };
@@ -141,23 +157,31 @@ async function edits(since: Date, scope: TelemetryScope): Promise<TelemetrySnaps
   return { suggested: shown?.suggested ?? 0, ...(edited ?? { edited: 0, removed: 0, resized: 0 }) };
 }
 
+type OrderRow = Omit<BrokerageOrders, "byKind"> & { deploy: number; rebalance: number; close: number };
+
 /**
- * Leg attempts by brokerage and mode; `pending` results (a 429 put the leg
- * back) aren't orders yet. Guest legs run on fictional demo accounts, so they
- * count as `demo` whatever brokerage the fixture names.
+ * Leg attempts by brokerage and mode, across deploy, rebalance, and close
+ * runs; `pending` results (a 429 put the leg back) aren't orders yet. Guest
+ * legs run on fictional demo accounts, so they count as `demo` whatever
+ * brokerage the fixture names. Legs recorded without a kind predate My Theses,
+ * when every run was a deploy.
  */
 async function orders(since: Date, scope: TelemetryScope): Promise<BrokerageOrders[]> {
-  return getDb().$queryRaw<BrokerageOrders[]>`
+  const rows = await getDb().$queryRaw<OrderRow[]>`
     select case when (props->>'guest')::boolean then 'demo' else coalesce(props->>'brokerage', 'unknown') end as brokerage,
            case when props->>'mode' = 'live' then 'live' else 'paper' end as mode,
            count(*)::int as orders,
-           count(*) filter (where props->>'status' = any(${SUCCEEDED}))::int as succeeded
+           count(*) filter (where props->>'status' = any(${SUCCEEDED}))::int as succeeded,
+           count(*) filter (where coalesce(props->>'kind', 'deploy') = 'deploy')::int as deploy,
+           count(*) filter (where props->>'kind' = 'rebalance')::int as rebalance,
+           count(*) filter (where props->>'kind' = 'close')::int as close
     from events
     where name = 'leg_result' and created_at >= ${since}
       and props->>'status' is distinct from 'pending'
       ${eventFilter(scope)}
     group by 1, 2
     order by orders desc, brokerage`;
+  return rows.map(({ deploy, rebalance, close, ...row }) => ({ ...row, byKind: { deploy, rebalance, close } }));
 }
 
 type LatencyRow = OperationLatency & { last_429_at: Date | null };

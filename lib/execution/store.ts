@@ -3,6 +3,7 @@ import type { SubmitResult } from "@/lib/execution/submitters";
 import { deriveStatus, isRetryable } from "@/lib/execution/summary";
 import type {
   BasketView,
+  ExecutionKind,
   ExecutionMode,
   ExecutionStatus,
   ExecutionView,
@@ -31,7 +32,7 @@ export class ExecutionError extends Error {
 }
 
 /** Baskets are visible only to their owner; an actor without identity sees nothing. */
-function ownedBy(actor: Actor): Prisma.BasketWhereInput {
+export function ownedBy(actor: Actor): Prisma.BasketWhereInput {
   const owners: Prisma.BasketWhereInput[] = [];
   if (actor.userId) owners.push({ userId: actor.userId });
   if (actor.guestKey) owners.push({ userId: null, guestKey: actor.guestKey });
@@ -76,7 +77,7 @@ function toExecutionView(row: ExecutionRow): ExecutionView {
     id: row.id,
     basketId: row.basketId,
     basketPath: basketPath(row.basket),
-    kind: "deploy",
+    kind: row.kind as ExecutionKind,
     mode: row.mode as ExecutionMode,
     status: row.status as ExecutionStatus,
     currency: row.basket.currency,
@@ -145,6 +146,9 @@ export async function findBasketView(basketId: string, actor: Actor): Promise<Ba
     priceSource: preflight.priceSource ?? "snaptrade",
     createdAt: basket.createdAt.toISOString(),
     deployedAt: iso(basket.deployedAt),
+    closedAt: iso(basket.closedAt),
+    contributed: basket.contributed.toNumber(),
+    cash: basket.cash.toNumber(),
     constituents: basket.constituents
       .map((row) => ({
         symbol: row.symbol,
@@ -153,6 +157,7 @@ export async function findBasketView(basketId: string, actor: Actor): Promise<Ba
         plannedUnits: row.plannedUnits,
         ledgerUnits: row.ledgerUnits,
         costTotal: row.costTotal.toNumber(),
+        realizedTotal: row.realizedTotal.toNumber(),
       }))
       .sort((a, b) => (order.get(a.symbol) ?? 99) - (order.get(b.symbol) ?? 99)),
     execution: basket.executions[0] ? toExecutionView(basket.executions[0]) : null,
@@ -257,6 +262,9 @@ function activeConflict(executionId: string | null): ExecutionError {
 export type NewExecution = {
   basketId: string;
   accountKey: string;
+  kind: ExecutionKind;
+  /** Rebalance and close: the pre-flight being confirmed; it can be confirmed once. */
+  preflightId: string | null;
   mode: ExecutionMode;
   idempotencyKey: string;
   confirmation: Prisma.InputJsonObject;
@@ -266,8 +274,9 @@ export type NewExecution = {
 
 /**
  * Creates the execution and its legs. A repeated key returns the existing
- * execution; a basket gets one deploy execution; an account gets one active
- * execution at a time (the unique `active_account_key`).
+ * execution; a basket gets one deploy execution, and rebalance and close need
+ * an active basket that still holds the shares they sell; an account gets one
+ * active execution at a time (the unique `active_account_key`).
  */
 export async function insertExecution(input: NewExecution): Promise<{ executionId: string; created: boolean }> {
   const db = getDb();
@@ -288,16 +297,31 @@ export async function insertExecution(input: NewExecution): Promise<{ executionI
   try {
     const executionId = await db.$transaction(async (tx) => {
       await tx.$queryRaw`select id from baskets where id = ${input.basketId}::uuid for update`;
-      const prior = await tx.execution.findFirst({ where: { basketId: input.basketId }, select: { id: true } });
-      if (prior) {
-        throw new ExecutionError("already_executed", 409, "This basket was already executed.", { executionId: prior.id });
+      if (input.kind === "deploy") {
+        const prior = await tx.execution.findFirst({ where: { basketId: input.basketId }, select: { id: true } });
+        if (prior) {
+          throw new ExecutionError("already_executed", 409, "This basket was already executed.", { executionId: prior.id });
+        }
+      } else {
+        const basket = await tx.basket.findUniqueOrThrow({
+          where: { id: input.basketId },
+          select: { status: true, constituents: { select: { symbol: true, ledgerUnits: true } } },
+        });
+        if (basket.status !== "active") {
+          throw new ExecutionError("not_active", 409, "Only an active basket can be rebalanced or closed.");
+        }
+        const held = new Map(basket.constituents.map((row) => [row.symbol, row.ledgerUnits]));
+        if (input.orders.some((order) => order.action === "SELL" && order.units > (held.get(order.symbol) ?? 0))) {
+          throw new ExecutionError("preflight_stale", 409, "The basket changed since this pre-flight. Refresh pre-flight.");
+        }
       }
       const execution = await tx.execution.create({
         data: {
           basketId: input.basketId,
           accountKey: input.accountKey,
           activeAccountKey: input.accountKey,
-          kind: "deploy",
+          kind: input.kind,
+          preflightId: input.preflightId,
           mode: input.mode,
           status: "queued",
           idempotencyKey: input.idempotencyKey,
@@ -316,7 +340,9 @@ export async function insertExecution(input: NewExecution): Promise<{ executionI
         },
         select: { id: true },
       });
-      await tx.basket.update({ where: { id: input.basketId }, data: { status: "deploying", mode: input.mode } });
+      if (input.kind === "deploy") {
+        await tx.basket.update({ where: { id: input.basketId }, data: { status: "deploying", mode: input.mode } });
+      }
       return execution.id;
     });
     return { executionId, created: true };
@@ -325,6 +351,9 @@ export async function insertExecution(input: NewExecution): Promise<{ executionI
     // A concurrent request won one of the unique indexes; report which.
     const raced = await existing();
     if (raced) return { executionId: raced, created: false };
+    if (input.preflightId && (await db.execution.findUnique({ where: { preflightId: input.preflightId } }))) {
+      throw new ExecutionError("preflight_used", 409, "This pre-flight was already confirmed. Run pre-flight again.");
+    }
     throw activeConflict(await activeExecutionId(input.accountKey));
   }
 }
@@ -449,39 +478,97 @@ export async function recordLegResult(leg: ExecutionLeg, basketId: string, resul
       data: resultData(result),
     });
     if (count === 1 && result.kind === "filled" && result.filledUnits > 0) {
-      await tx.basketConstituent.update({
-        where: { basketId_symbol: { basketId, symbol: leg.symbol } },
-        data: {
-          ledgerUnits: { increment: result.filledUnits },
-          costTotal: { increment: new Prisma.Decimal(result.fillPrice).times(result.filledUnits) },
-        },
-      });
+      const execution = await tx.execution.findUniqueOrThrow({ where: { id: leg.executionId }, select: { kind: true } });
+      await applyFill(tx, basketId, leg.symbol, leg.action as "BUY" | "SELL", result, execution.kind as ExecutionKind);
     }
     return tx.executionLeg.findUniqueOrThrow({ where: { id: leg.id } });
   });
 }
 
+/**
+ * The ledger moves only with a fill. A buy adds shares at its price; a sell
+ * removes them at the average cost, banks the difference as realized, and
+ * puts the proceeds in the basket's cash. Deploy fills are the capital put in.
+ */
+async function applyFill(
+  tx: Tx,
+  basketId: string,
+  symbol: string,
+  action: "BUY" | "SELL",
+  fill: { filledUnits: number; fillPrice: number },
+  kind: ExecutionKind,
+) {
+  const where = { basketId_symbol: { basketId, symbol } };
+  const amount = new Prisma.Decimal(fill.fillPrice).times(fill.filledUnits);
+  if (action === "BUY") {
+    await tx.basketConstituent.update({
+      where,
+      data: { ledgerUnits: { increment: fill.filledUnits }, costTotal: { increment: amount } },
+    });
+    await tx.basket.update({
+      where: { id: basketId },
+      data: kind === "deploy" ? { contributed: { increment: amount } } : { cash: { decrement: amount } },
+    });
+    return;
+  }
+  const row = await tx.basketConstituent.findUniqueOrThrow({ where });
+  const units = Math.min(fill.filledUnits, row.ledgerUnits);
+  if (units <= 0) return;
+  const proceeds = new Prisma.Decimal(fill.fillPrice).times(units);
+  const cost = row.costTotal.times(units).dividedBy(row.ledgerUnits).toDecimalPlaces(4);
+  await tx.basketConstituent.update({
+    where,
+    data: {
+      ledgerUnits: { decrement: units },
+      costTotal: { decrement: cost },
+      realizedTotal: { increment: proceeds.minus(cost) },
+    },
+  });
+  await tx.basket.update({ where: { id: basketId }, data: { cash: { increment: proceeds } } });
+}
+
 async function lockExecution(tx: Tx, executionId: string) {
-  const [row] = await tx.$queryRaw<{ status: string; basket_id: string; account_key: string }[]>`
-    select status, basket_id, account_key from executions where id = ${executionId}::uuid for update`;
+  const [row] = await tx.$queryRaw<{ status: string; basket_id: string; account_key: string; kind: string }[]>`
+    select status, basket_id, account_key, kind from executions where id = ${executionId}::uuid for update`;
   return row ?? null;
 }
 
-/** A basket with fills is active; without any it falls back to a draft. Returns true on first activation. */
-async function settleBasket(tx: Tx, basketId: string): Promise<boolean> {
-  const filled = await tx.basketConstituent.count({ where: { basketId, ledgerUnits: { gt: 0 } } });
-  if (filled > 0) {
-    const { count } = await tx.basket.updateMany({
-      where: { id: basketId, status: { not: "active" } },
-      data: { status: "active", deployedAt: new Date() },
-    });
-    return count === 1;
+type Settled = { activated: boolean; closed: boolean };
+
+/**
+ * A deploy with fills activates the basket, and without any it falls back to
+ * a draft. A close that has sold every share closes the basket.
+ */
+async function settleBasket(tx: Tx, basketId: string, kind: ExecutionKind): Promise<Settled> {
+  const held = await tx.basketConstituent.count({ where: { basketId, ledgerUnits: { gt: 0 } } });
+  if (kind === "deploy") {
+    if (held > 0) {
+      const { count } = await tx.basket.updateMany({
+        where: { id: basketId, status: { in: ["draft", "deploying"] } },
+        data: { status: "active", deployedAt: new Date() },
+      });
+      return { activated: count === 1, closed: false };
+    }
+    await tx.basket.updateMany({ where: { id: basketId, status: "deploying" }, data: { status: "draft" } });
+    return { activated: false, closed: false };
   }
-  await tx.basket.updateMany({ where: { id: basketId, status: "deploying" }, data: { status: "draft" } });
-  return false;
+  if (kind === "close" && held === 0) {
+    const { count } = await tx.basket.updateMany({
+      where: { id: basketId, status: "active" },
+      data: { status: "closed", closedAt: new Date() },
+    });
+    return { activated: false, closed: count === 1 };
+  }
+  return { activated: false, closed: false };
 }
 
-export type Finalized = { status: ExecutionStatus; finished: boolean; activated: boolean; basketId: string };
+export type Finalized = {
+  status: ExecutionStatus;
+  finished: boolean;
+  activated: boolean;
+  closed: boolean;
+  basketId: string;
+};
 
 /** Closes the execution once no leg is pending or claimed; always re-settles the basket. */
 export async function finalizeExecution(executionId: string): Promise<Finalized | null> {
@@ -505,8 +592,8 @@ export async function finalizeExecution(executionId: string): Promise<Finalized 
         finished = true;
       }
     }
-    const activated = await settleBasket(tx, locked.basket_id);
-    return { status, finished, activated, basketId: locked.basket_id };
+    const settled = await settleBasket(tx, locked.basket_id, locked.kind as ExecutionKind);
+    return { status, finished, ...settled, basketId: locked.basket_id };
   });
 }
 
@@ -575,7 +662,39 @@ export async function cancelPending(executionId: string): Promise<number> {
       where: { id: executionId },
       data: { status: "canceled", finishedAt: new Date(), activeAccountKey: null },
     });
-    await settleBasket(tx, locked.basket_id);
+    await settleBasket(tx, locked.basket_id, locked.kind as ExecutionKind);
     return count;
   });
+}
+
+export type BasketRow = Prisma.BasketGetPayload<{ include: { constituents: true } }>;
+
+/** Saved baskets (not drafts), newest first, each with its latest execution. */
+export async function listBaskets(actor: Actor): Promise<{ row: BasketRow; execution: ExecutionView | null }[]> {
+  const rows = await getDb().basket.findMany({
+    where: { status: { in: ["deploying", "active", "closed"] }, ...ownedBy(actor) },
+    orderBy: { createdAt: "desc" },
+    include: {
+      constituents: true,
+      executions: { orderBy: { createdAt: "desc" }, take: 1, include: executionInclude },
+    },
+  });
+  return rows.map(({ executions, ...row }) => ({
+    row: { ...row, constituents: sortConstituents(row) },
+    execution: executions[0] ? toExecutionView(executions[0]) : null,
+  }));
+}
+
+function sortConstituents(row: BasketRow) {
+  const preflight = row.preflight as { orders?: PreflightOrder[] };
+  const order = new Map((preflight.orders ?? []).map((entry) => [entry.symbol, entry.seq]));
+  return [...row.constituents].sort((a, b) => (order.get(a.symbol) ?? 99) - (order.get(b.symbol) ?? 99));
+}
+
+export async function findActiveExecutionId(basketId: string): Promise<string | null> {
+  const row = await getDb().execution.findFirst({
+    where: { basketId, status: { in: ["queued", "running"] } },
+    select: { id: true },
+  });
+  return row?.id ?? null;
 }

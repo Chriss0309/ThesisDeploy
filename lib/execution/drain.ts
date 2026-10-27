@@ -117,7 +117,9 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
         "leg_result",
         {
           executionId: view.id,
+          kind: view.kind,
           mode: view.mode,
+          action: recorded.action,
           status: recorded.status,
           attempt: recorded.attempt,
           brokerage: owned.brokerageSlug ?? (guest ? "demo" : null),
@@ -137,6 +139,23 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
     const summary = summarizeLegs(execution.legs);
     await recordEvent(
       "basket_deployed",
+      {
+        basketId: execution.basketId,
+        executionId: execution.id,
+        mode: execution.mode,
+        orders: summary.orders,
+        filled: summary.filled,
+        failed: summary.failed,
+        currency: execution.currency,
+        guest,
+      },
+      owner,
+    );
+  }
+  if (finalized?.closed) {
+    const summary = summarizeLegs(execution.legs);
+    await recordEvent(
+      "basket_closed",
       {
         basketId: execution.basketId,
         executionId: execution.id,

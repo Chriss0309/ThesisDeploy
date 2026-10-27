@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Loader } from "@/components/loader/loader";
 import { formatTimestamp } from "@/components/portfolio/format";
-import { dropReason, formatCount, formatMs, formatRate, rate } from "@/components/telemetry/format";
+import { dropReason, formatCount, formatMs, formatRate, kindBreakdown, rate } from "@/components/telemetry/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
@@ -274,7 +274,7 @@ function Metrics({ snapshot, scope, viewer }: { snapshot: TelemetrySnapshot; sco
 
       <Section
         title="Order success by brokerage"
-        note="Every leg attempt is an order, so a retried leg counts twice. Paper fills are simulated at the pre-flight price; demo accounts are fictional."
+        note="Every leg attempt is an order, from deploys and from My Theses rebalances and closes, so a retried leg counts twice. Paper fills are simulated at the pre-flight price; demo accounts are fictional."
       >
         {orders.length === 0 ? (
           <Empty>No orders yet. Run a paper execution from a basket&apos;s pre-flight.</Empty>
@@ -311,9 +311,10 @@ function Metrics({ snapshot, scope, viewer }: { snapshot: TelemetrySnapshot; sco
                         <Badge tone="info">Paper</Badge>
                       )}
                     </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">{kindBreakdown(row.byKind)}</span>
                   </td>
-                  <td className="py-2.5 text-right tabular-nums">{formatCount(row.orders)}</td>
-                  <td className="py-2.5 text-right font-medium tabular-nums">
+                  <td className="py-2.5 text-right align-top tabular-nums">{formatCount(row.orders)}</td>
+                  <td className="py-2.5 text-right align-top font-medium tabular-nums">
                     {formatRate(rate(row.succeeded, row.orders))}
                   </td>
                 </tr>
@@ -444,6 +445,14 @@ function Cohort({ label, cohort, note }: { label: string; cohort: FunnelCohort; 
           );
         })}
       </ul>
+      {cohort.deployed > 0 && (
+        <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+          <dt className="eyebrow self-center">Then in My Theses</dt>
+          <dd>{formatCount(cohort.afterDeploy.viewedDrift)} viewed drift</dd>
+          <dd>{formatCount(cohort.afterDeploy.rebalanced)} rebalanced</dd>
+          <dd>{formatCount(cohort.afterDeploy.closed)} closed</dd>
+        </dl>
+      )}
       <p className="text-xs text-muted-foreground tabular-nums">
         {formatCount(cohort.baskets.generated)} {cohort.baskets.generated === 1 ? "basket" : "baskets"} generated ·{" "}
         {formatCount(cohort.baskets.deployed)} deployed{note ? `. ${note}` : ""}

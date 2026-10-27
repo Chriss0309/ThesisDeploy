@@ -8,7 +8,11 @@ export type FunnelCohort = {
   deployed: number;
   /** Baskets served and deployed (events, not people). */
   baskets: { generated: number; deployed: number };
+  /** My Theses, among the people who deployed: opened drift, confirmed a rebalance, closed a basket. */
+  afterDeploy: { viewedDrift: number; rebalanced: number; closed: number };
 };
+
+export type ExecutionKind = "deploy" | "rebalance" | "close";
 
 export type ResolutionSource = {
   /** `snaptrade` for signed-in baskets, `demo` for the guest demo's fixture price feed. */
@@ -25,6 +29,8 @@ export type BrokerageOrders = {
   /** Leg attempts with a result; a retry is a second order. */
   orders: number;
   succeeded: number;
+  /** The same orders by the execution they belong to. */
+  byKind: Record<ExecutionKind, number>;
 };
 
 export type OperationLatency = {

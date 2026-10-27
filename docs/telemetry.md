@@ -11,10 +11,10 @@
 
 | Metric | Computed from | Definition |
 |---|---|---|
-| Activation funnel | `oauth_connected`, `thesis_generated`, `basket_deployed` | Distinct people per step. A signed-in person enters by connecting within the window; a guest enters with their first basket, because guests never sign in. A later step counts only people who reached the earlier one, so the funnel never widens. Each step shows its conversion from the previous step, and each cohort shows its end-to-end rate and basket counts. |
+| Activation funnel | `oauth_connected`, `thesis_generated`, `basket_deployed`, then `drift_viewed`, `rebalance_confirmed`, `basket_closed` | Distinct people per step. A signed-in person enters by connecting within the window; a guest enters with their first basket, because guests never sign in. A later step counts only people who reached the earlier one, so the funnel never widens. Each step shows its conversion from the previous step, and each cohort shows its end-to-end rate and basket counts. Under it, "Then in My Theses" counts the people who deployed and went on to view drift, rebalance, or close. |
 | Basket edit rate | `basket_edited`, `symbols_resolved.resolved` | Suggested tickers removed or resized (weight slider or share stepper) in the Basket Composer before pre-flight, divided by tickers shown. A ticker counts once per basket, and one removed and then restored doesn't count. |
 | Symbol resolution hit rate | `symbols_resolved` | Tickers Claude proposed that grounding resolved to a tradeable, priced listing in the basket currency, per basket shown, with the drop reasons. Signed-in baskets are grounded against SnapTrade and demo baskets against the fixture price feed, so they're reported separately. |
-| Order success by brokerage | `leg_result` | Leg attempts that were executed, accepted, or partially filled, divided by every attempt with a result, per brokerage slug and mode. A retry is a second order. A `pending` result (a 429 put the leg back) isn't counted yet. Guest legs run on fictional accounts, so they're grouped as "Demo accounts" whatever brokerage the fixture names. |
+| Order success by brokerage | `leg_result` | Leg attempts that were executed, accepted, or partially filled, divided by every attempt with a result, per brokerage slug and mode, across deploys, rebalances, and closes, with the split by kind. Legs recorded without a kind predate My Theses and count as deploys. A retry is a second order. A `pending` result (a 429 put the leg back) isn't counted yet. Guest legs run on fictional accounts, so they're grouped as "Demo accounts" whatever brokerage the fixture names. |
 | SnapTrade latency | `api_calls` | p50 and p95 (`percentile_cont`) of `latency_ms` per operation, over every call made through the Bearer client, including failures and timeouts. Calls and failures are shown per operation. |
 | Rate limits | `api_calls.http_status = 429` | SnapTrade 429 responses, out of all calls, with the most recent one. The client budgets account-scoped calls below SnapTrade's 10 per minute per account and never retries a 429 automatically, so any 429 here is worth a look. |
 
@@ -29,7 +29,10 @@ Emitted server-side unless noted. Guest events carry `guest_key`, the keyed hash
 | `thesis_generated` | **Once per basket shown**, signed in or guest | `source` (`generated`, `cached`, or `sample`), `ref`, `guest`, preset, model; latency and tokens only when `source` is `generated` |
 | `symbols_resolved` | With every `thesis_generated` | `source`, `ref`, proposed, resolved, dropped by reason |
 | `basket_edited` | Composer edits (browser, debounced) | `thesisId` (signed in) or `ref` (guest), action (`remove`, `restore`, `reweight`, `step`), symbol |
-| `preflight_opened`, `execution_confirmed`, `leg_result`, `basket_deployed`, `execution_canceled` | Paper execution (see [`paper-execution.md`](paper-execution.md)) | mode, status, brokerage slug, error code, guest |
+| `preflight_opened`, `execution_confirmed`, `leg_result`, `basket_deployed`, `execution_canceled` | Paper execution (see [`paper-execution.md`](paper-execution.md)) and My Theses rebalances and closes | kind (`deploy`, `rebalance`, `close`), mode, `leg_result` action, status, brokerage slug, error code, guest |
+| `drift_viewed` | My Theses opened with at least one priced, active basket (`/theses` or `/demo/theses`) | baskets, flagged, max drift in points |
+| `rebalance_confirmed` | A rebalance pre-flight confirmed | sells, buys, drift before and after, proceeds, cost |
+| `basket_closed` | A close run sells the last share | orders, filled, failed |
 
 This PR filled three gaps that skewed the drawer:
 
@@ -37,7 +40,7 @@ This PR filled three gaps that skewed the drawer:
 - **Guest events had no owner.** The demo cookie is now issued with the first demo basket (it used to come in that response, after the events were written), and every guest event records its hash in `events.guest_key`.
 - **Guest composer edits weren't recorded.** `POST /api/demo/edits` takes `{ ref, action, symbol }`. It accepts a `ref` only if `thesis_generated` served that basket to the same cookie in the last day. The signed-in route is unchanged.
 
-Not yet emitted: `drift_viewed`, `rebalance_confirmed`, and `basket_closed`. They belong to My Theses (drift and rebalancing), which ships separately.
+My Theses events follow the same ownership rule: on `/demo/theses`, `drift_viewed`, the rebalance and close pre-flights, confirmations, legs, and `basket_closed` all carry the demo cookie's hash, so a guest's whole lifecycle shows up in "You".
 
 ## Privacy
 
@@ -56,5 +59,5 @@ Each view is six small aggregate queries run in parallel, or five for a guest-on
 
 ## Tests
 
-- `lib/telemetry/metrics.integration.test.ts` runs against Postgres (`TEST_DATABASE_URL`). It checks every metric against a seeded scenario with known answers: funnel monotonicity and the window, the remove-then-restore rule, hit rate by source, `pending` excluded from orders, exact percentiles, and 429s. It also checks scoping to one user or one cookie, and the one-minute cache. It then runs a whole guest demo (sample basket, edit, pre-flight, paper run with a rejected leg and its retry) and asserts every event is attributed to the cookie.
+- `lib/telemetry/metrics.integration.test.ts` runs against Postgres (`TEST_DATABASE_URL`). It checks every metric against a seeded scenario with known answers: funnel monotonicity and the window, My Theses activity counted only after a deploy, rebalance and close legs split by kind, the remove-then-restore rule, hit rate by source, `pending` excluded from orders, exact percentiles, and 429s. It also checks scoping to one user or one cookie, and the one-minute cache. It then runs a whole guest demo (sample basket, edit, pre-flight, paper run with a rejected leg and its retry) and asserts every event is attributed to the cookie.
 - `components/telemetry/format.test.ts`: rate and number formatting.

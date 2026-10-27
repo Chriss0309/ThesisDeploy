@@ -1,8 +1,13 @@
+import Link from "next/link";
+
 import { BasketExecution } from "@/components/execution/basket-execution";
-import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfolio/format";
+import { LinkPendingStatus } from "@/components/loader/pending";
+import { formatMoney, formatMoneyDelta, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BasketView } from "@/lib/execution/types";
+import { cn } from "@/lib/utils";
 
 const STATUS: Record<BasketView["status"], { tone: "neutral" | "warning" | "positive"; label: string }> = {
   draft: { tone: "neutral", label: "Draft" },
@@ -12,9 +17,18 @@ const STATUS: Record<BasketView["status"], { tone: "neutral" | "warning" | "posi
 };
 
 /** The Virtual Basket record: what was confirmed, what filled, and the execution that filled it. */
-export function BasketRecord({ basket, studioPath }: { basket: BasketView; studioPath: string }) {
+export function BasketRecord({
+  basket,
+  studioPath,
+  thesesPath,
+}: {
+  basket: BasketView;
+  studioPath: string;
+  thesesPath: string;
+}) {
   const { currency } = basket;
-  const invested = basket.constituents.reduce((sum, row) => sum + row.costTotal, 0);
+  const held = basket.constituents.reduce((sum, row) => sum + row.costTotal, 0);
+  const realized = basket.constituents.reduce((sum, row) => sum + row.realizedTotal, 0);
   const filledNames = basket.constituents.filter((row) => row.ledgerUnits > 0).length;
   const status = STATUS[basket.status];
 
@@ -46,7 +60,8 @@ export function BasketRecord({ basket, studioPath }: { basket: BasketView; studi
           <CardDescription className="max-w-prose text-pretty text-foreground">{basket.summary}</CardDescription>
           <p className="text-xs text-muted-foreground">
             {basket.account.institution} · created {formatTimestamp(basket.createdAt)}
-            {basket.deployedAt && <> · first fill {formatTimestamp(basket.deployedAt)}</>}. Paper fills use the
+            {basket.deployedAt && <> · first fill {formatTimestamp(basket.deployedAt)}</>}
+            {basket.closedAt && <> · closed {formatTimestamp(basket.closedAt)}</>}. Paper fills use the
             pre-flight {basket.priceSource === "demo" ? "fictional demo quotes" : "SnapTrade quotes"}; the shares don&apos;t
             exist at the brokerage and are kept apart from real holdings.
           </p>
@@ -56,15 +71,18 @@ export function BasketRecord({ basket, studioPath }: { basket: BasketView; studi
           <section aria-label="Ledger" className="flex flex-col gap-2 rounded-md bg-surface-sunken p-4">
             <p className="eyebrow text-muted-foreground">► Ledger · {currency}</p>
             <p className="font-display text-2xl font-semibold tabular-nums">
-              {formatMoney(invested, currency)} invested · {filledNames} of {basket.constituents.length} names filled
+              {formatMoney(held, currency)} held at cost · {filledNames} of {basket.constituents.length} names held
             </p>
             <p className="text-xs text-muted-foreground">
-              Of a {formatMoney(basket.budget, currency)} budget. The ledger changes only when a leg fills.
+              {formatMoney(basket.contributed, currency)} put in from a {formatMoney(basket.budget, currency)} budget
+              {basket.cash !== 0 && <> · {formatMoney(basket.cash, currency)} cash from sales</>}
+              {realized !== 0 && <> · {formatMoneyDelta(realized, currency)} realized</>}. The ledger changes only when a leg
+              fills.
             </p>
           </section>
 
           <table className="w-full text-sm">
-            <caption className="sr-only">Constituents and fills</caption>
+            <caption className="sr-only">Constituents and holdings</caption>
             <thead>
               <tr className="border-b border-border-strong text-left">
                 <th scope="col" className="eyebrow py-2 font-medium text-muted-foreground">
@@ -77,10 +95,10 @@ export function BasketRecord({ basket, studioPath }: { basket: BasketView; studi
                   Planned
                 </th>
                 <th scope="col" className="eyebrow py-2 text-right font-medium text-muted-foreground">
-                  Filled
+                  Held
                 </th>
                 <th scope="col" className="eyebrow hidden py-2 text-right font-medium text-muted-foreground sm:table-cell">
-                  Avg fill
+                  Avg cost
                 </th>
                 <th scope="col" className="eyebrow py-2 text-right font-medium text-muted-foreground">
                   Cost
@@ -124,7 +142,14 @@ export function BasketRecord({ basket, studioPath }: { basket: BasketView; studi
           </CardContent>
         </Card>
       )}
-      <p className="text-xs text-muted-foreground">Valuation, drift, and rebalancing for saved baskets come next.</p>
+      <p className="text-xs text-muted-foreground">
+        See this basket&apos;s value, drift, and rebalance options in{" "}
+        <Link href={thesesPath} className={cn(buttonVariants({ variant: "link", size: "xs" }), "px-0")}>
+          My Theses
+          <LinkPendingStatus variant="scan" label="Opening My Theses…" />
+        </Link>
+        .
+      </p>
     </div>
   );
 }
