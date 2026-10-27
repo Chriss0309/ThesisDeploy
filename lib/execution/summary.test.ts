@@ -27,7 +27,7 @@ describe("leg summaries", () => {
   it("count each order once, by its latest attempt", () => {
     const legs = [leg(1, "executed"), leg(2, "rejected"), leg(2, "executed", 2), leg(3, "pending")];
     expect(latestAttempts(legs).map((l) => l.id)).toEqual(["1-1", "2-2", "3-1"]);
-    expect(summarizeLegs(legs)).toEqual({ orders: 3, filled: 2, failed: 0, pending: 1, skipped: 0, open: 0 });
+    expect(summarizeLegs(legs)).toEqual({ orders: 3, filled: 2, failed: 0, pending: 1, skipped: 0, open: 0, working: 0, unknown: 0 });
     expect(summaryLine(summarizeLegs(legs))).toBe("2 of 3 legs filled · 1 to go");
   });
 
@@ -38,6 +38,17 @@ describe("leg summaries", () => {
     expect(deriveStatus([leg(1, "rejected"), leg(2, "failed")])).toBe("failed");
     expect(deriveStatus([leg(1, "skipped"), leg(2, "skipped")])).toBe("canceled");
     expect(summaryLine(summarizeLegs([leg(1, "executed"), leg(2, "rejected")]))).toBe("1 of 2 legs filled · 1 failed");
+  });
+
+  it("hold Live runs in `working` while the broker has open orders, and `partial` while one is unconfirmed", () => {
+    expect(deriveStatus([leg(1, "executed"), leg(2, "accepted")])).toBe("working");
+    expect(deriveStatus([leg(1, "partial"), leg(2, "executed")])).toBe("working");
+    expect(deriveStatus([leg(1, "executed"), leg(2, "unknown")])).toBe("partial");
+    expect(deriveStatus([leg(1, "accepted"), leg(2, "pending")])).toBe("running");
+    expect(summaryLine(summarizeLegs([leg(1, "executed"), leg(2, "accepted"), leg(3, "unknown")]))).toBe(
+      "1 of 3 legs filled · 1 open at the broker · 1 unconfirmed",
+    );
+    expect(isRetryable(leg(1, "unknown"), [leg(1, "unknown")])).toBe(false);
   });
 
   it("allow retrying only the latest rejected or failed attempt, up to three attempts", () => {

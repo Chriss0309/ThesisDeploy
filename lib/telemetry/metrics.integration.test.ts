@@ -188,6 +188,51 @@ describe.skipIf(!TEST_DATABASE_URL)("telemetry aggregates against Postgres", () 
     expect(guest.rateLimits).toEqual({ count: 0, calls: 0, lastAt: null });
   });
 
+  it("counts each Live attempt once, at its latest broker status, next to Paper, and times the trading calls", async () => {
+    const db = getDb();
+    const { id: userId } = await db.appUser.create({ data: { snaptradeUserId: "sub-live" }, select: { id: true } });
+    const [filled, found, refused, retried] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const leg = (legId: string, status: string, source: string, kind = "deploy") => ({
+      name: "leg_result",
+      userId,
+      props: { legId, kind, mode: "live", brokerage: "ALPACA-PAPER", status, source, guest: false },
+      createdAt: RECENT,
+    });
+    await db.event.createMany({
+      data: [
+        leg(filled, "accepted", "submit"),
+        leg(found, "unknown", "submit"),
+        leg(refused, "rejected", "submit", "rebalance"),
+        leg(filled, "partial", "reconcile"),
+        leg(found, "accepted", "reconcile"),
+        leg(filled, "executed", "reconcile"),
+        leg(found, "executed", "reconcile"),
+        leg(retried, "accepted", "submit", "rebalance"),
+        { name: "leg_result", userId, props: { legId: randomUUID(), kind: "close", mode: "paper", brokerage: "ALPACA-PAPER", status: "executed" }, createdAt: RECENT },
+      ],
+    });
+    const call = (operation: string, latencyMs: number, httpStatus = 200) => ({ userId, operation, latencyMs, httpStatus, createdAt: RECENT, accountHash: "hash" });
+    await db.apiCall.createMany({
+      data: [
+        call("getOrderImpact", 200),
+        call("placeForceOrder", 400),
+        call("placeForceOrder", 600, 422),
+        call("getUserAccountRecentOrders", 300),
+      ],
+    });
+
+    const you = await telemetrySnapshot({ userId, guestKey: null }, NOW);
+    expect(you.orders).toEqual([
+      { brokerage: "ALPACA-PAPER", mode: "live", orders: 4, succeeded: 3, byKind: { deploy: 2, rebalance: 2, close: 0 } },
+      { brokerage: "ALPACA-PAPER", mode: "paper", orders: 1, succeeded: 1, byKind: { deploy: 0, rebalance: 0, close: 1 } },
+    ]);
+    expect(you.latency).toEqual([
+      { operation: "placeForceOrder", calls: 2, errors: 1, rateLimited: 0, p50Ms: 500, p95Ms: 590 },
+      { operation: "getOrderImpact", calls: 1, errors: 0, rateLimited: 0, p50Ms: 200, p95Ms: 200 },
+      { operation: "getUserAccountRecentOrders", calls: 1, errors: 0, rateLimited: 0, p50Ms: 300, p95Ms: 300 },
+    ]);
+  });
+
   it("caches everyone's aggregates for a minute", async () => {
     await seed();
     const first = await globalTelemetry(NOW.getTime());

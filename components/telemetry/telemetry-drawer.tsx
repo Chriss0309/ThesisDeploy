@@ -274,7 +274,7 @@ function Metrics({ snapshot, scope, viewer }: { snapshot: TelemetrySnapshot; sco
 
       <Section
         title="Order success by brokerage"
-        note="Every leg attempt is an order, from deploys and from My Theses rebalances and closes, so a retried leg counts twice. Paper fills are simulated at the pre-flight price; demo accounts are fictional."
+        note="Every leg attempt is an order, from deploys and from My Theses rebalances and closes, so a retried leg counts twice. A Live order counts once, at its latest status at the broker. Paper fills are simulated at the pre-flight price; demo accounts are fictional."
       >
         {orders.length === 0 ? (
           <Empty>No orders yet. Run a paper execution from a basket&apos;s pre-flight.</Empty>

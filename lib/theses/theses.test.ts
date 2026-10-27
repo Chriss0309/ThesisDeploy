@@ -97,7 +97,11 @@ describe("buildActionPreflight", () => {
     marks: marks({ AAA: [150, 149.5, 150.5], BBB: [100, 99.5, 100.5] }),
     market: OPEN,
     guest: false,
-    liveTradingEnabled: false,
+    killSwitch: { on: false, preview: false },
+    basketMode: "paper" as const,
+    capability: null,
+    buyingPower: null,
+    held: null,
     ...overrides,
   });
 
@@ -124,6 +128,46 @@ describe("buildActionPreflight", () => {
     ]);
     expect(plan.totals).toMatchObject({ estCost: 0 });
     expect(plan.totals.sellProceeds).toBeCloseTo(20 * 149.5 + 10 * 99.5, 6);
+  });
+
+  it("keeps a Paper basket on Paper and a Live basket on Live", () => {
+    const paper = buildActionPreflight(input({ killSwitch: { on: true, preview: false } }));
+    expect(paper.paper).toEqual({ available: true, reasons: [] });
+    expect(paper.live.reasons).toEqual([expect.stringContaining("This is a Paper basket")]);
+
+    const live = buildActionPreflight(
+      input({
+        killSwitch: { on: true, preview: false },
+        basketMode: "live",
+        capability: { capability: "trade", capabilityReason: "Trading enabled" },
+        buyingPower: 0,
+        held: new Map([["AAA", 20], ["BBB", 10]]),
+      }),
+    );
+    expect(live.paper?.available).toBe(false);
+    expect(live.live.available).toBe(true);
+    // The buys are covered by today's sells, which some brokers don't release until settlement.
+    expect(live.live.notes).toEqual([expect.stringContaining("rely on")]);
+  });
+
+  it("sells only what the broker holds on a Live close, and blocks a Live rebalance that would oversell", () => {
+    const live = {
+      killSwitch: { on: true, preview: false },
+      basketMode: "live" as const,
+      capability: { capability: "trade" as const, capabilityReason: "Trading enabled" },
+      buyingPower: 10_000,
+      held: new Map([["AAA", 12], ["BBB", 10]]),
+    };
+    const close = buildActionPreflight(input({ ...live, kind: "close" }));
+    expect(close.orders.map((order) => [order.symbol, order.units])).toEqual([
+      ["AAA", 12],
+      ["BBB", 10],
+    ]);
+    expect(close.live).toMatchObject({ available: true, notes: [expect.stringContaining("shows 12 AAA")] });
+
+    const rebalance = buildActionPreflight(input({ ...live, held: new Map([["AAA", 1], ["BBB", 10]]) }));
+    expect(rebalance.live.available).toBe(false);
+    expect(rebalance.live.reasons[0]).toContain("fewer than the");
   });
 
   it("explains why it can't plan", () => {

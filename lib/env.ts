@@ -39,6 +39,8 @@ const serverEnvSchema = z.object({
   // Claude calls guests can trigger per rolling 24 hours, across all visitors; 0 turns guest generation off.
   GUEST_GENERATIONS_PER_DAY: z.coerce.number().int().min(0).default(40),
   LIVE_TRADING_ENABLED: z.stringbool().default(false),
+  /** Set by Vercel on every deployment; Live trading is always off on previews. */
+  VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -73,6 +75,11 @@ export function serverEnv(): ServerEnv {
   return result.env;
 }
 
+/** The kill switch for real orders: on only when set, and never on a Vercel preview deployment. */
+export function liveTradingEnabled(env: ServerEnv = serverEnv()): boolean {
+  return env.LIVE_TRADING_ENABLED && env.VERCEL_ENV !== "preview";
+}
+
 export function configuredFeatures(env: ServerEnv) {
   return {
     snaptradeOAuth: Boolean(
@@ -84,6 +91,6 @@ export function configuredFeatures(env: ServerEnv) {
         env.DATABASE_URL,
     ),
     anthropic: Boolean(env.ANTHROPIC_API_KEY),
-    liveTrading: env.LIVE_TRADING_ENABLED,
+    liveTrading: liveTradingEnabled(env),
   };
 }

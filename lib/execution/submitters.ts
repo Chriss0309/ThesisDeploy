@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-// A submitter turns one claimed leg into an outcome. Paper is the only one
-// that fills in this release; Live never reaches SnapTrade yet.
+// A submitter turns one claimed leg into an outcome. Paper fills on the spot;
+// Live (lib/execution/live-orders.ts) places a SnapTrade market order.
 
 export type SubmitLeg = {
   seq: number;
@@ -21,11 +21,34 @@ export type SubmitResult =
       filledUnits: number;
       fillPrice: number;
       latencyMs: number;
+      requestId?: string | null;
+      /** Set when the broker filled part of the order and closed the rest. */
+      note?: string | null;
     }
-  /** The broker refused the order; nothing was bought. */
-  | { kind: "rejected"; code: string; message: string; requestId: string | null; latencyMs: number }
+  /** Live: the broker has the order and it is still open, possibly partly filled. */
+  | {
+      kind: "working";
+      brokerageOrderId: string;
+      snaptradeStatus: string;
+      filledUnits: number;
+      fillPrice: number | null;
+      latencyMs: number;
+      requestId: string | null;
+    }
+  /** The broker refused the order; nothing was bought or sold. */
+  | {
+      kind: "rejected";
+      code: string;
+      message: string;
+      requestId: string | null;
+      latencyMs: number;
+      brokerageOrderId?: string | null;
+      snaptradeStatus?: string | null;
+    }
   /** The order never left the app. */
   | { kind: "failed"; code: string; message: string }
+  /** Live: no answer (timeout or 5xx). The order may have reached the broker, so it is never resubmitted automatically. */
+  | { kind: "unknown"; code: string; message: string; requestId: string | null; latencyMs: number }
   /** Rate limited before processing: the leg goes back to pending. */
   | { kind: "retry_later"; retryAfterSeconds: number };
 
@@ -57,10 +80,9 @@ export function paperSubmitter({ simulateRejectSeq }: { simulateRejectSeq: numbe
   };
 }
 
-/** Checked on every leg. Real submission (placeForceOrder) is not wired in this release. */
-export function liveSubmitter({ liveTradingEnabled }: { liveTradingEnabled: boolean }): Submitter {
-  return async () =>
-    liveTradingEnabled
-      ? { kind: "failed", code: "live_unavailable", message: "Live order submission isn't available in this release." }
-      : { kind: "failed", code: "live_disabled", message: "Live trading is switched off on this deployment." };
-}
+/** Live legs when no Live submitter is configured, e.g. a drain without a signed-in user. */
+export const liveUnavailable: Submitter = async () => ({
+  kind: "failed",
+  code: "live_unavailable",
+  message: "Live orders need a signed-in SnapTrade session. Sign in again, then retry the leg.",
+});

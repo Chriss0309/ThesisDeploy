@@ -161,13 +161,24 @@ type OrderRow = Omit<BrokerageOrders, "byKind"> & { deploy: number; rebalance: n
 
 /**
  * Leg attempts by brokerage and mode, across deploy, rebalance, and close
- * runs; `pending` results (a 429 put the leg back) aren't orders yet. Guest
- * legs run on fictional demo accounts, so they count as `demo` whatever
- * brokerage the fixture names. Legs recorded without a kind predate My Theses,
- * when every run was a deploy.
+ * runs; `pending` results (a 429 put the leg back) aren't orders yet. Each
+ * attempt is its own leg row, and a Live one can report again when its broker
+ * status is checked, so an attempt counts once, with its latest result; legs
+ * recorded without a `legId` predate Live and count per event. Guest legs run
+ * on fictional demo accounts, so they count as `demo` whatever brokerage the
+ * fixture names. Legs recorded without a kind predate My Theses, when every
+ * run was a deploy.
  */
 async function orders(since: Date, scope: TelemetryScope): Promise<BrokerageOrders[]> {
   const rows = await getDb().$queryRaw<OrderRow[]>`
+    with results as (
+      select distinct on (coalesce(props->>'legId', id::text)) props
+      from events
+      where name = 'leg_result' and created_at >= ${since}
+        and props->>'status' is distinct from 'pending'
+        ${eventFilter(scope)}
+      order by coalesce(props->>'legId', id::text), id desc
+    )
     select case when (props->>'guest')::boolean then 'demo' else coalesce(props->>'brokerage', 'unknown') end as brokerage,
            case when props->>'mode' = 'live' then 'live' else 'paper' end as mode,
            count(*)::int as orders,
@@ -175,10 +186,7 @@ async function orders(since: Date, scope: TelemetryScope): Promise<BrokerageOrde
            count(*) filter (where coalesce(props->>'kind', 'deploy') = 'deploy')::int as deploy,
            count(*) filter (where props->>'kind' = 'rebalance')::int as rebalance,
            count(*) filter (where props->>'kind' = 'close')::int as close
-    from events
-    where name = 'leg_result' and created_at >= ${since}
-      and props->>'status' is distinct from 'pending'
-      ${eventFilter(scope)}
+    from results
     group by 1, 2
     order by orders desc, brokerage`;
   return rows.map(({ deploy, rebalance, close, ...row }) => ({ ...row, byKind: { deploy, rebalance, close } }));

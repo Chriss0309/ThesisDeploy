@@ -1,7 +1,9 @@
 import { formatMoney } from "@/components/portfolio/format";
 import { computeDrift, planClose, planRebalance, type BasketPosition, type TradeLeg } from "@/lib/drift";
-import type { PreflightOrder, PreflightPayload } from "@/lib/execution/types";
-import { marketNote } from "@/lib/execution/preflight";
+import { liveDisclosures, liveGate, paperGate, type LiveGateInput } from "@/lib/execution/live-gate";
+import { marketNote } from "@/lib/execution/market-text";
+import type { ExecutionMode, PreflightOrder, PreflightPayload } from "@/lib/execution/types";
+import type { Capability } from "@/lib/portfolio/types";
 import type { MarketStatus } from "@/lib/market-hours";
 import { EPSILON } from "@/lib/solver";
 import type { Marks, PriceMark } from "@/lib/theses/types";
@@ -18,7 +20,13 @@ export type ActionPreflightInput = {
   marks: Marks;
   market: MarketStatus;
   guest: boolean;
-  liveTradingEnabled: boolean;
+  killSwitch: LiveGateInput["killSwitch"];
+  basketMode: ExecutionMode | null;
+  /** Re-read from SnapTrade for Live baskets; null otherwise. */
+  capability: { capability: Capability; capabilityReason: string } | null;
+  buyingPower: number | null;
+  /** Live baskets: whole shares the broker holds per symbol; null when not checked. */
+  held: ReadonlyMap<string, number> | null;
 };
 
 export class ActionPlanError extends Error {
@@ -67,6 +75,21 @@ export function buildActionPreflight(
           const legs = planClose(positions, { marketOpen });
           return { legs, sellProceeds: legs.reduce((sum, leg) => sum + leg.estValue, 0), buyCost: 0 };
         })();
+  // A Live close sells only what the broker actually holds; a rebalance that would oversell is blocked below.
+  const shortfalls = input.held
+    ? plan.legs.flatMap((leg) => {
+        const held = Math.max(0, Math.floor(input.held!.get(leg.symbol) ?? 0));
+        return leg.action === "SELL" && leg.units > held ? [{ symbol: leg.symbol, selling: leg.units, held }] : [];
+      })
+    : [];
+  if (input.kind === "close" && shortfalls.length > 0) {
+    const cap = new Map(shortfalls.map((short) => [short.symbol, short.held]));
+    plan.legs = plan.legs.flatMap((leg) => {
+      const units = Math.min(leg.units, cap.get(leg.symbol) ?? leg.units);
+      return units > 0 ? [{ ...leg, units, estValue: units * leg.estPrice }] : [];
+    });
+    plan.sellProceeds = plan.legs.reduce((sum, leg) => sum + leg.estValue, 0);
+  }
   if (plan.legs.length === 0) {
     throw new ActionPlanError(
       "nothing_to_order",
@@ -97,15 +120,22 @@ export function buildActionPreflight(
 
   const { institution } = input.account;
   const after = computeDrift(afterUnits(positions, plan.legs));
-  const liveReasons = [
-    ...(input.guest ? ["Demo accounts are fictional. Sign in with SnapTrade to trade your own account."] : []),
-    input.liveTradingEnabled
-      ? "Live order submission ships in a later release. Paper runs the same paced queue without sending orders."
-      : "Live trading is switched off on this deployment.",
-    ...(input.market.open ? [] : [`${input.market.market} is closed, and Live market orders are blocked outside the regular session.`]),
-  ];
   const sellProceeds = plan.sellProceeds;
   const buyCost = plan.buyCost;
+  const gate = liveGate({
+    kind: input.kind,
+    guest: input.guest,
+    killSwitch: input.killSwitch,
+    institution,
+    account: input.capability,
+    basketMode: input.basketMode,
+    market: input.market,
+    currency: input.currency,
+    buyCost,
+    sellProceeds,
+    buyingPower: input.buyingPower,
+    shortfalls,
+  });
   const unit = input.kind === "close" ? "close" : "rebalance";
 
   return {
@@ -119,7 +149,8 @@ export function buildActionPreflight(
     leftOut: [],
     totals: { estCost: buyCost, sellProceeds, unallocated: sellProceeds - buyCost, overBudget: buyCost > sellProceeds + EPSILON },
     rebalance: { maxDriftBefore: before.maxAbsDrift, maxDriftAfter: after.maxAbsDrift, sellProceeds, buyCost },
-    live: { available: false, reasons: liveReasons },
+    live: { available: gate.available, reasons: gate.reasons, notes: gate.notes, buyingPower: input.buyingPower },
+    paper: paperGate(input.kind, input.basketMode, institution),
     impactNote:
       input.marks.source === "demo"
         ? "App estimate from fictional demo quotes. Sells are priced at the bid and buys at the ask while the market is open. Paper fills have no commission."
@@ -132,9 +163,10 @@ export function buildActionPreflight(
           : "Sells run before buys, one leg per second per account, so the basket stays roughly cash-neutral. The Paper basket is kept apart from your real holdings.",
       ],
       live: [
-        "Market orders fill at the next available price, which can differ from these quotes.",
-        "Commissions and fees: not available. No brokerage preview was requested, so they are not shown as zero.",
-        "Orders go to your brokerage through SnapTrade and can't be undone here. Not investment advice.",
+        ...liveDisclosures(institution),
+        input.kind === "close"
+          ? "Sells run one second apart. The basket closes once every share has filled at the broker."
+          : "Sells run before buys, one second apart. Buys wait for nothing: if a sell hasn't filled yet, the buy still goes out.",
       ],
     },
   };
