@@ -116,7 +116,7 @@ The landing hero is an original three.js scene: an engraved coin with a bull emb
 
 ## Telemetry
 
-**► Product telemetry** in every footer opens a drawer built from first-party events and `api_calls`, for everyone and for "you" (your sign-in or demo cookie), over 30 days:
+**► Product telemetry** in every footer opens a drawer of how people move from signing in, to a basket, to an order, and how SnapTrade responds, for everyone and for "you" (your sign-in or demo cookie), over 30 days:
 
 - **Activation funnel:** connected → generated → deployed, then drift viewed, rebalanced, closed. Tells whether people drop at generation or at pre-flight.
 - **Basket edit rate:** suggested tickers removed or resized before pre-flight. A proxy for whether people trust the basket as suggested, and what to change in the prompt or the overlap rule.
