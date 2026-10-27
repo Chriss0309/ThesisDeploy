@@ -2,7 +2,10 @@
 
 import type { VariantProps } from "class-variance-authority";
 import { Minus, Plus, Trash2, Undo2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
+
+import { PreflightDialog } from "@/components/execution/preflight-dialog";
 
 import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { OverlapBadge } from "@/components/thesis/overlap-badge";
@@ -11,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
+import type { PreflightRequest } from "@/lib/execution/types";
 import type { AllocatedLine } from "@/lib/solver";
 import {
   canAddShare,
@@ -275,11 +279,17 @@ function LineRow({
 export function BasketComposer({
   payload,
   onEdit,
+  preflightEndpoint,
 }: {
   payload: ComposerPayload;
   onEdit?: (action: EditAction, symbol: string) => void;
+  /** Where pre-flight runs; without it the composer is read-only for execution. */
+  preflightEndpoint?: string;
 }) {
   const [lines, setLines] = useState(() => initialLines(payload));
+  const [preflight, setPreflight] = useState<PreflightRequest | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [savedBasket, setSavedBasket] = useState<string | null>(null);
   const settings: BasketSettings = { budget: payload.budget, slippageBuffer: payload.slippageBuffer };
   const allocation = useMemo(
     () => summarize(lines, { budget: payload.budget, slippageBuffer: payload.slippageBuffer }),
@@ -289,6 +299,32 @@ export function BasketComposer({
   const removed = payload.lines.filter((line) => lines.find((l) => l.symbol === line.symbol)?.removed);
   const edited = lines.some((line, i) => line.removed || line.units !== payload.lines[i].units || line.weight !== payload.lines[i].targetWeight);
   const { thesis } = payload;
+  const orders = allocation.lines.filter((line) => line.units > 0).length;
+  const canPreflight = Boolean(preflightEndpoint) && orders > 0;
+
+  const openPreflight = () => {
+    setPreflight({
+      thesisId: thesis.id,
+      accountId: payload.account.id,
+      currency: payload.currency,
+      budget: payload.budget,
+      thesis: { title: thesis.title, summary: thesis.summary, riskProfile: thesis.riskProfile },
+      lines: payload.lines.flatMap((line, i) =>
+        lines[i].removed
+          ? []
+          : [
+              {
+                symbol: line.symbol,
+                companyName: line.companyName,
+                universalSymbolId: line.universalSymbolId,
+                targetWeight: lines[i].weight,
+                units: lines[i].units,
+              },
+            ],
+      ),
+    });
+    setDialogOpen(true);
+  };
 
   return (
     <Card>
@@ -415,17 +451,35 @@ export function BasketComposer({
 
       <CardFooter className="flex-wrap justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          Pre-flight checks and paper or live execution come next. Nothing has been ordered.
+          {savedBasket ? (
+            <>
+              Saved as a Paper basket.{" "}
+              <Link href={savedBasket} className="font-medium text-brand underline-offset-4 hover:underline">
+                View saved basket
+              </Link>
+            </>
+          ) : (
+            "Nothing is ordered until you confirm in pre-flight."
+          )}
         </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled={!edited} onClick={() => setLines(initialLines(payload))}>
             Reset edits
           </Button>
-          <Button variant="brand" size="sm" disabled>
+          <Button variant="brand" size="sm" disabled={!canPreflight} onClick={openPreflight}>
             Continue to pre-flight
           </Button>
         </div>
       </CardFooter>
+      {preflightEndpoint && (
+        <PreflightDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          endpoint={preflightEndpoint}
+          request={preflight}
+          onExecuted={setSavedBasket}
+        />
+      )}
     </Card>
   );
 }

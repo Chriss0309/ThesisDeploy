@@ -12,6 +12,11 @@ export const APP_TABLES = [
   "account_snapshots",
   "theses",
   "thesis_candidates",
+  "baskets",
+  "basket_constituents",
+  "executions",
+  "execution_legs",
+  "account_pacing",
 ] as const;
 
 class TimeoutError extends Error {

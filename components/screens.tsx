@@ -26,6 +26,16 @@ export const SCREENS = {
     title: "Thesis Studio",
     description: "Turn a one-line conviction into a whole-share basket, checked against what the portfolio already holds.",
   },
+  basket: {
+    eyebrow: "03 · Saved basket",
+    title: "Virtual basket",
+    description: "The orders you confirmed, the fills they produced, and the execution that placed them.",
+  },
+  basketDemo: {
+    eyebrow: "03 · Guest demo",
+    title: "Virtual basket",
+    description: "The orders you confirmed, the fills they produced, and the execution that placed them.",
+  },
 } as const;
 
 export const DEMO_XRAY_LOADING = { label: "Loading the demo portfolio…", detail: "Fictional accounts; no SnapTrade calls." };
@@ -63,6 +73,21 @@ export function StudioLoadingScreen({ demo = false }: { demo?: boolean }) {
       banner={demo ? <DemoBanner active="studio" returnTo="/studio" /> : undefined}
     >
       <StudioSkeleton {...(demo ? DEMO_STUDIO_LOADING : STUDIO_LOADING)} />
+    </PageShell>
+  );
+}
+
+export function BasketSkeleton() {
+  return <Loader variant="stacks" label="Loading the saved basket…" className="w-full" />;
+}
+
+export function BasketLoadingScreen({ demo = false }: { demo?: boolean }) {
+  return (
+    <PageShell
+      {...(demo ? SCREENS.basketDemo : SCREENS.basket)}
+      banner={demo ? <DemoBanner active="studio" returnTo="/studio" /> : undefined}
+    >
+      <BasketSkeleton />
     </PageShell>
   );
 }

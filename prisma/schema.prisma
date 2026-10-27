@@ -28,6 +28,7 @@ model AppUser {
   apiCalls  ApiCall[]
   snapshots AccountSnapshot[]
   theses    Thesis[]
+  baskets   Basket[]
 
   @@map("app_users")
 }
@@ -155,6 +156,7 @@ model Thesis {
 
   user       AppUser?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   candidates ThesisCandidate[]
+  baskets    Basket[]
 
   @@index([userId, createdAt])
   @@index([promptHash, createdAt])
@@ -187,4 +189,146 @@ model ThesisCandidate {
 
   @@id([thesisId, seq])
   @@map("thesis_candidates")
+}
+
+/// A Virtual Basket: the constituents a user confirmed at pre-flight and the
+/// shares this app filled for them. The ledger changes only from fills, and
+/// paper and live baskets are never mixed. Guest demo baskets have no user;
+/// the demo cookie owns them.
+model Basket {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String?   @map("user_id") @db.Uuid
+  /// Keyed hash of the guest demo cookie; null for signed-in baskets.
+  guestKey      String?   @map("guest_key")
+  /// Keyed hash of a guest's IP, for the demo's daily limits.
+  guestClient   String?   @map("guest_client")
+  thesisId      String?   @map("thesis_id") @db.Uuid
+  accountId     String    @map("account_id")
+  accountName   String    @map("account_name")
+  institution   String
+  brokerageSlug String?   @map("brokerage_slug")
+  /// Hashed account ID (per guest for demo accounts): the pacing and one-active-execution key.
+  accountKey    String    @map("account_key")
+  /// paper or live; null until an execution is confirmed.
+  mode          String?
+  /// draft, deploying, active, or closed
+  status        String    @default("draft")
+  currency      String
+  budget        Decimal   @db.Decimal(14, 2)
+  title         String
+  summary       String
+  riskProfile   String    @map("risk_profile")
+  /// The latest pre-flight: order list, quotes, market status, and Live gating.
+  preflight     Json
+  preflightAt   DateTime  @map("preflight_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deployedAt    DateTime? @map("deployed_at") @db.Timestamptz(6)
+
+  user         AppUser?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thesis       Thesis?             @relation(fields: [thesisId], references: [id], onDelete: SetNull)
+  constituents BasketConstituent[]
+  executions   Execution[]
+
+  @@index([userId, createdAt])
+  @@index([guestKey, createdAt])
+  @@index([guestClient, createdAt])
+  @@map("baskets")
+}
+
+model BasketConstituent {
+  basketId          String  @map("basket_id") @db.Uuid
+  symbol            String
+  universalSymbolId String? @map("universal_symbol_id")
+  companyName       String  @map("company_name")
+  /// Renormalized over the names that have orders.
+  targetWeight      Float   @map("target_weight")
+  /// Whole shares the user confirmed at pre-flight.
+  plannedUnits      Int     @map("planned_units")
+  /// Filled shares; written only together with a filled leg.
+  ledgerUnits       Int     @default(0) @map("ledger_units")
+  costTotal         Decimal @default(0) @map("cost_total") @db.Decimal(16, 4)
+
+  basket Basket @relation(fields: [basketId], references: [id], onDelete: Cascade)
+
+  @@id([basketId, symbol])
+  @@map("basket_constituents")
+}
+
+/// One confirmed run of orders for a basket. Legs are drained at most one per
+/// 1.1 seconds per account by `POST /api/executions/:id/drain`.
+model Execution {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  basketId          String    @map("basket_id") @db.Uuid
+  accountKey        String    @map("account_key")
+  /// Equals account_key while queued or running and is null otherwise, so the
+  /// unique index allows one active execution per account (NULLs never collide).
+  activeAccountKey  String?   @unique @map("active_account_key")
+  /// deploy (rebalance and close arrive with My Theses)
+  kind              String
+  /// paper or live
+  mode              String
+  /// queued, running, completed, partial, failed, or canceled
+  status            String
+  /// Client-generated per confirmation; a repeated POST returns the same execution.
+  idempotencyKey    String    @unique @map("idempotency_key")
+  /// What the user confirmed: order list, quotes, market status, disclosures.
+  confirmation      Json
+  /// Paper only: the leg whose first attempt is rejected (reviewer failure injection).
+  simulateRejectSeq Int?      @map("simulate_reject_seq")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt         DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt        DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  basket Basket         @relation(fields: [basketId], references: [id], onDelete: Cascade)
+  legs   ExecutionLeg[]
+
+  @@index([basketId, createdAt])
+  @@map("executions")
+}
+
+/// One order attempt. A retry is a new row with the same seq, the next
+/// attempt number, and a new client_order_id.
+model ExecutionLeg {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  executionId       String    @map("execution_id") @db.Uuid
+  /// 1-based position in the confirmed order list.
+  seq               Int
+  attempt           Int       @default(1)
+  /// BUY or SELL
+  action            String
+  symbol            String
+  universalSymbolId String?   @map("universal_symbol_id")
+  units             Int
+  /// The pre-flight quote; paper legs fill here.
+  estPrice          Decimal   @map("est_price") @db.Decimal(18, 4)
+  clientOrderId     String    @default(dbgenerated("gen_random_uuid()")) @map("client_order_id") @db.Uuid
+  /// pending, claimed, executed, accepted, partial, rejected, failed, unknown, or skipped
+  status            String    @default("pending")
+  /// A rate-limited leg waits until then.
+  notBefore         DateTime? @map("not_before") @db.Timestamptz(6)
+  brokerageOrderId  String?   @map("brokerage_order_id")
+  snaptradeStatus   String?   @map("snaptrade_status")
+  filledUnits       Int?      @map("filled_units")
+  fillPrice         Decimal?  @map("fill_price") @db.Decimal(18, 4)
+  errorCode         String?   @map("error_code")
+  errorMessage      String?   @map("error_message")
+  requestId         String?   @map("request_id")
+  latencyMs         Int?      @map("latency_ms")
+  claimedAt         DateTime? @map("claimed_at") @db.Timestamptz(6)
+  submittedAt       DateTime? @map("submitted_at") @db.Timestamptz(6)
+
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, seq, attempt])
+  @@index([executionId, status])
+  @@map("execution_legs")
+}
+
+/// Last order submission per account, shared by every serverless instance:
+/// a leg is submitted only after reserving a slot 1.1 seconds past this.
+model AccountPacing {
+  accountKey   String   @id @map("account_key")
+  lastSubmitAt DateTime @map("last_submit_at") @db.Timestamptz(6)
+
+  @@map("account_pacing")
 }

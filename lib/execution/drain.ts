@@ -1,0 +1,154 @@
+import { describeError } from "@/lib/errors";
+import {
+  claimNextLeg,
+  finalizeExecution,
+  loadExecutionView,
+  markRunning,
+  nextPendingWaitMs,
+  recordLegResult,
+  recoverStaleClaims,
+  reservePacingSlot,
+  toLegView,
+  type OwnedExecution,
+} from "@/lib/execution/store";
+import { liveSubmitter, paperSubmitter, type SubmitResult, type Submitter } from "@/lib/execution/submitters";
+import { summarizeLegs } from "@/lib/execution/summary";
+import { PACE_MS, type DrainEvent } from "@/lib/execution/types";
+import { recordEvent } from "@/lib/telemetry/events";
+
+/** Leaves headroom under the drain route's 60-second maxDuration. */
+export const DRAIN_BUDGET_MS = 45_000;
+
+export type DrainOptions = {
+  paceMs?: number;
+  budgetMs?: number;
+  /** Set when the client disconnects: no new leg is claimed, so nothing runs unattended. */
+  signal?: AbortSignal;
+  liveTradingEnabled?: boolean;
+};
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Submits pending legs in order, at most one per `paceMs` per account, until
+ * none is pending, the time budget runs out, or the client goes away. Failed
+ * legs are recorded and the queue moves on. Safe to run concurrently and to
+ * re-run: only pending legs can be claimed, and each claim is exclusive.
+ */
+export async function* drainExecution(owned: OwnedExecution, options: DrainOptions = {}): AsyncGenerator<DrainEvent> {
+  const { view, accountKey } = owned;
+  const paceMs = options.paceMs ?? PACE_MS;
+  const budgetMs = options.budgetMs ?? DRAIN_BUDGET_MS;
+  const { signal } = options;
+  const startedAt = Date.now();
+  const guest = owned.userId == null;
+  const submit: Submitter =
+    view.mode === "paper"
+      ? paperSubmitter({ simulateRejectSeq: view.simulateRejectSeq })
+      : liveSubmitter({ liveTradingEnabled: options.liveTradingEnabled ?? false });
+
+  let reason: Extract<DrainEvent, { type: "done" }>["reason"] = "finished";
+  if (view.status === "queued" || view.status === "running") {
+    await recoverStaleClaims(view.id);
+    await markRunning(view.id);
+
+    for (;;) {
+      if (signal?.aborted) {
+        reason = "aborted";
+        break;
+      }
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= budgetMs) {
+        reason = "time_budget";
+        break;
+      }
+      const wait = await nextPendingWaitMs(view.id);
+      if (wait == null) break;
+      if (wait > 0) {
+        if (elapsed + wait >= budgetMs) {
+          reason = "waiting";
+          break;
+        }
+        await sleep(wait, signal);
+        continue;
+      }
+
+      const pacing = await reservePacingSlot(accountKey, paceMs);
+      if (pacing > 0) {
+        yield { type: "pacing", waitMs: pacing };
+        await sleep(pacing, signal);
+        continue;
+      }
+      const leg = await claimNextLeg(view.id);
+      if (!leg) continue;
+      yield { type: "leg", leg: toLegView(leg) };
+
+      let result: SubmitResult;
+      try {
+        result = await submit({
+          seq: leg.seq,
+          attempt: leg.attempt,
+          action: leg.action as "BUY" | "SELL",
+          symbol: leg.symbol,
+          units: leg.units,
+          estPrice: leg.estPrice.toNumber(),
+          clientOrderId: leg.clientOrderId,
+        });
+      } catch (error) {
+        console.error("[execution] submitter threw", describeError(error));
+        result = { kind: "failed", code: "submit_error", message: "The order couldn't be sent. Retry the leg." };
+      }
+      const recorded = await recordLegResult(leg, view.basketId, result);
+      await recordEvent(
+        "leg_result",
+        {
+          executionId: view.id,
+          mode: view.mode,
+          status: recorded.status,
+          attempt: recorded.attempt,
+          brokerage: owned.brokerageSlug ?? (guest ? "demo" : null),
+          errorCode: recorded.errorCode,
+          latencyMs: recorded.latencyMs,
+          guest,
+        },
+        owned.userId ?? undefined,
+      );
+      yield { type: "leg", leg: toLegView(recorded) };
+    }
+  }
+
+  const finalized = await finalizeExecution(view.id);
+  const execution = await loadExecutionView(view.id);
+  if (finalized?.activated) {
+    const summary = summarizeLegs(execution.legs);
+    await recordEvent(
+      "basket_deployed",
+      {
+        basketId: execution.basketId,
+        executionId: execution.id,
+        mode: execution.mode,
+        orders: summary.orders,
+        filled: summary.filled,
+        failed: summary.failed,
+        currency: execution.currency,
+        guest,
+      },
+      owned.userId ?? undefined,
+    );
+  }
+  const active = execution.status === "queued" || execution.status === "running";
+  yield { type: "done", execution, reason: active ? reason : "finished" };
+}
