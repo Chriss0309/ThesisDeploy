@@ -15,7 +15,8 @@ import {
 import { liveUnavailable, paperSubmitter, type SubmitResult, type Submitter } from "@/lib/execution/submitters";
 import { summarizeLegs } from "@/lib/execution/summary";
 import { PACE_MS, type DrainEvent, type ExecutionView } from "@/lib/execution/types";
-import { recordEvent } from "@/lib/telemetry/events";
+import type { ExecutionLeg } from "@/lib/generated/prisma/client";
+import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 
 /** Leaves headroom under the drain route's 60-second maxDuration. */
 export const DRAIN_BUDGET_MS = 45_000;
@@ -56,7 +57,7 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
   const budgetMs = options.budgetMs ?? DRAIN_BUDGET_MS;
   const { signal } = options;
   const startedAt = Date.now();
-  const guest = owned.userId == null;
+  const owner = { userId: owned.userId, guestKey: owned.guestKey };
   const submit: Submitter =
     view.mode === "paper"
       ? paperSubmitter({ simulateRejectSeq: view.simulateRejectSeq })
@@ -114,36 +115,54 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
         result = { kind: "failed", code: "submit_error", message: "The order couldn't be sent. Retry the leg." };
       }
       const recorded = await recordLegResult(leg, view.basketId, result);
-      await recordEvent(
-        "leg_result",
-        {
-          executionId: view.id,
-          mode: view.mode,
-          status: recorded.status,
-          attempt: recorded.attempt,
-          brokerage: owned.brokerageSlug ?? (guest ? "demo" : null),
-          errorCode: recorded.errorCode,
-          latencyMs: recorded.latencyMs,
-          guest,
-        },
-        owned.userId ?? undefined,
-      );
+      await emitLegResult(recorded, view, { brokerageSlug: owned.brokerageSlug, owner, source: "submit" });
       yield { type: "leg", leg: toLegView(recorded) };
     }
   }
 
   const finalized = await finalizeExecution(view.id);
   const execution = await loadExecutionView(view.id);
-  await recordSettlement(finalized, execution, owned.userId);
+  await recordSettlement(finalized, execution, owner);
   const active = execution.status === "queued" || execution.status === "running";
   yield { type: "done", execution, reason: active ? reason : "finished" };
+}
+
+/**
+ * `leg_result` for one attempt, from the drain or from reconciliation. The
+ * telemetry drawer counts one order per `legId`, using its latest result, so a
+ * Live order that is accepted and later filled is one successful order.
+ */
+export async function emitLegResult(
+  leg: ExecutionLeg,
+  execution: Pick<ExecutionView, "id" | "kind" | "mode">,
+  context: { brokerageSlug: string | null; owner: EventOwner; source: "submit" | "reconcile" },
+): Promise<void> {
+  const guest = context.owner.userId == null;
+  await recordEvent(
+    "leg_result",
+    {
+      executionId: execution.id,
+      legId: leg.id,
+      kind: execution.kind,
+      mode: execution.mode,
+      action: leg.action,
+      status: leg.status,
+      attempt: leg.attempt,
+      brokerage: context.brokerageSlug ?? (guest ? "demo" : null),
+      errorCode: leg.errorCode,
+      latencyMs: leg.latencyMs,
+      source: context.source,
+      guest,
+    },
+    context.owner,
+  );
 }
 
 /** basket_deployed on a deploy's first fill, basket_closed when a close has sold everything. */
 export async function recordSettlement(
   finalized: Finalized | null,
   execution: ExecutionView,
-  userId: string | null,
+  owner: EventOwner,
 ): Promise<void> {
   if (!finalized?.activated && !finalized?.closed) return;
   const summary = summarizeLegs(execution.legs);
@@ -152,13 +171,14 @@ export async function recordSettlement(
     {
       basketId: execution.basketId,
       executionId: execution.id,
+      kind: execution.kind,
       mode: execution.mode,
       orders: summary.orders,
       filled: summary.filled,
       failed: summary.failed,
       currency: execution.currency,
-      guest: userId == null,
+      guest: owner.userId == null,
     },
-    userId ?? undefined,
+    owner,
   );
 }

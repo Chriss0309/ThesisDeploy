@@ -161,13 +161,15 @@ export async function checkImpact(
     {
       basketId: basket.id,
       kind: request.kind,
+      mode: "live",
       brokerage: basket.brokerageSlug,
       legs: legs.length,
       source: impact.source,
       rejected: rejections.length,
       latencyMs: Math.round(performance.now() - startedAt),
+      guest: false,
     },
-    basket.userId,
+    { userId: basket.userId, guestKey: basket.guestKey },
   );
   return updated;
 }

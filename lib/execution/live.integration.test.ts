@@ -15,6 +15,7 @@ import { summarizeLegs } from "@/lib/execution/summary";
 import type { DrainEvent, PreflightPayload, PreflightRequest } from "@/lib/execution/types";
 import { THESIS_PRESETS } from "@/lib/presets";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
+import { telemetrySnapshot } from "@/lib/telemetry/metrics";
 import { actionPreflight } from "@/lib/theses/service";
 import type { ThesisRequest } from "@/lib/thesis/schema";
 import { createThesis } from "@/lib/thesis/service";
@@ -229,6 +230,27 @@ describe.skipIf(!TEST_DATABASE_URL)("Live execution against stubs and Postgres",
     }
     expect(await events("basket_deployed")).toHaveLength(1);
 
+    // The same telemetry as Paper: each leg reports when sent and again when a check finds it filled.
+    const { brokerageSlug } = await getDb().basket.findUniqueOrThrow({ where: { id: preflight.basketId } });
+    expect(brokerageSlug).toBeTruthy();
+    const liveProps = { kind: "deploy", mode: "live", brokerage: brokerageSlug, guest: false };
+    const results = (await events("leg_result")).map((event) => event.props);
+    expect(results).toEqual([
+      ...legs.map((leg) => expect.objectContaining({ ...liveProps, legId: leg.id, status: "accepted", source: "submit" })),
+      ...legs.map((leg) => expect.objectContaining({ ...liveProps, legId: leg.id, status: "executed", source: "reconcile" })),
+    ]);
+    expect((await events("impact_checked")).map((event) => event.props)).toEqual([
+      expect.objectContaining({ ...liveProps, legs: legs.length, source: "brokerage", rejected: 0 }),
+    ]);
+    expect((await events("basket_deployed"))[0].props).toMatchObject({ kind: "deploy", mode: "live" });
+    // The drawer counts each order once, at its latest status, and times the trading calls.
+    const drawer = await telemetrySnapshot(user);
+    expect(drawer.orders).toEqual([
+      { brokerage: brokerageSlug, mode: "live", orders: legs.length, succeeded: legs.length, byKind: { deploy: legs.length, rebalance: 0, close: 0 } },
+    ]);
+    const timed = Object.fromEntries(drawer.latency.map((row) => [row.operation, row.calls]));
+    expect(timed).toMatchObject({ getOrderImpact: legs.length, placeForceOrder: legs.length, getUserAccountRecentOrders: 1 });
+
     // At most one order-status call per 15 seconds per execution.
     const recentCalls = calls(`/accounts/${ACCOUNT}/recentOrders`);
     expect(recentCalls).toBe(1);
@@ -273,6 +295,10 @@ describe.skipIf(!TEST_DATABASE_URL)("Live execution against stubs and Postgres",
     );
     expect(new Set(clientIds).size).toBe(2);
     expect(api.stats.orderRequests.at(-1)).toMatchObject({ client_order_id: clientIds.find((id) => id !== clientIds[0]) ?? clientIds[1] });
+
+    // The refused attempt and its retry are two orders; the unconfirmed one counts once, as filled.
+    const [orders] = (await telemetrySnapshot(user)).orders;
+    expect(orders).toMatchObject({ mode: "live", orders: sent.legs.length + 1, succeeded: sent.legs.length });
   });
 
   it("never resubmits an unknown order unless reconciliation missed it and the user confirms", async () => {

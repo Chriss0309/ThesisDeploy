@@ -2,7 +2,7 @@ import type { AccountOrderRecord } from "snaptrade-typescript-sdk";
 
 import { getDb } from "@/lib/db/client";
 import { describeError } from "@/lib/errors";
-import { recordSettlement } from "@/lib/execution/drain";
+import { emitLegResult, recordSettlement } from "@/lib/execution/drain";
 import { orderOutcome } from "@/lib/execution/live-orders";
 import {
   ExecutionError,
@@ -17,7 +17,6 @@ import { requireExecution } from "@/lib/execution/service";
 import { RECONCILE_INTERVAL_MS, type ExecutionView } from "@/lib/execution/types";
 import type { ExecutionLeg } from "@/lib/generated/prisma/client";
 import { SnapTradeError, callSnapTrade, snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
-import { recordEvent } from "@/lib/telemetry/events";
 
 /** Brokers without recent orders answer with these; order detail is the fallback, a few legs per pass. */
 const NO_RECENT_ORDERS = new Set([404, 405, 501]);
@@ -105,11 +104,12 @@ export async function reconcileExecution(
   if (owned.view.mode !== "live" || !owned.userId) {
     throw new ExecutionError("not_live", 400, "Only Live executions have orders to check at the broker.");
   }
+  const owner = { userId: owned.userId, guestKey: owned.guestKey };
   const open = await openLiveLegs(executionId);
   if (open.length === 0) {
     const finalized = await finalizeExecution(executionId);
     const execution = await loadExecutionView(executionId);
-    await recordSettlement(finalized, execution, owned.userId);
+    await recordSettlement(finalized, execution, owner);
     return { execution, checked: false, nextCheckAt: null };
   }
   const slot = await claimReconcile(executionId, RECONCILE_INTERVAL_MS);
@@ -163,24 +163,11 @@ export async function reconcileExecution(
       outcome.filledUnits === (leg.filledUnits ?? 0);
     if (unchanged) continue;
     const recorded = await recordOpenLegResult(leg, owned.view.basketId, outcome);
-    await recordEvent(
-      "leg_result",
-      {
-        executionId,
-        mode: "live",
-        status: recorded.status,
-        attempt: recorded.attempt,
-        brokerage: owned.brokerageSlug,
-        errorCode: recorded.errorCode,
-        source: "reconcile",
-        guest: false,
-      },
-      owned.userId,
-    );
+    await emitLegResult(recorded, owned.view, { brokerageSlug: owned.brokerageSlug, owner, source: "reconcile" });
   }
 
   const finalized = await finalizeExecution(executionId);
   const execution = await loadExecutionView(executionId);
-  await recordSettlement(finalized, execution, owned.userId);
+  await recordSettlement(finalized, execution, owner);
   return { execution, checked: true, nextCheckAt: new Date(now.getTime() + RECONCILE_INTERVAL_MS).toISOString() };
 }

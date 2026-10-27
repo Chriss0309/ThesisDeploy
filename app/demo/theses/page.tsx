@@ -27,8 +27,11 @@ async function GuestTheses() {
   }
   await connection();
   const token = (await cookies()).get(GUEST_COOKIE)?.value;
-  const { cards } = token ? await loadTheses({ userId: null, guestKey: guestKeyFor(token) }) : { cards: [] };
-  after(() => recordDriftViewed(cards, null).catch((error) => console.error("[theses] telemetry", describeError(error))));
+  const guestKey = token ? guestKeyFor(token) : null;
+  const { cards } = guestKey ? await loadTheses({ userId: null, guestKey }) : { cards: [] };
+  after(() =>
+    recordDriftViewed(cards, { guestKey }).catch((error) => console.error("[theses] telemetry", describeError(error))),
+  );
   return <ThesesView cards={cards} demo />;
 }
 

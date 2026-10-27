@@ -107,6 +107,7 @@ export type OwnedExecution = {
   accountId: string;
   brokerageSlug: string | null;
   userId: string | null;
+  guestKey: string | null;
 };
 
 export async function findExecutionForActor(executionId: string, actor: Actor): Promise<OwnedExecution | null> {
@@ -114,7 +115,7 @@ export async function findExecutionForActor(executionId: string, actor: Actor): 
     where: { id: executionId, basket: ownedBy(actor) },
     include: {
       ...executionInclude,
-      basket: { select: { ...executionInclude.basket.select, brokerageSlug: true, accountId: true } },
+      basket: { select: { ...executionInclude.basket.select, brokerageSlug: true, accountId: true, guestKey: true } },
     },
   });
   if (!row) return null;
@@ -124,6 +125,7 @@ export async function findExecutionForActor(executionId: string, actor: Actor): 
     accountId: row.basket.accountId,
     brokerageSlug: row.basket.brokerageSlug,
     userId: row.basket.userId,
+    guestKey: row.basket.guestKey,
   };
 }
 

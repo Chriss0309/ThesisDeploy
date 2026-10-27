@@ -19,7 +19,7 @@ import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { loadOverview } from "@/lib/portfolio/service";
 import type { PortfolioAccount } from "@/lib/portfolio/types";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
-import { recordEvent } from "@/lib/telemetry/events";
+import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 import { ActionPlanError, buildActionPreflight } from "@/lib/theses/action-preflight";
 import {
   demoMarks,
@@ -112,7 +112,7 @@ export async function loadTheses(
 }
 
 /** Telemetry for the dashboard being opened with at least one priced, active basket. */
-export async function recordDriftViewed(cards: readonly ThesisCard[], userId: string | null): Promise<void> {
+export async function recordDriftViewed(cards: readonly ThesisCard[], owner: EventOwner): Promise<void> {
   const priced = cards.filter((card) => card.status === "active" && card.valuation);
   if (priced.length === 0) return;
   const maxAbsDrift = Math.max(...priced.map((card) => card.valuation!.maxAbsDrift));
@@ -122,9 +122,9 @@ export async function recordDriftViewed(cards: readonly ThesisCard[], userId: st
       baskets: priced.length,
       flagged: priced.filter((card) => card.valuation!.rebalanceRecommended).length,
       maxAbsDriftPoints: Math.round(maxAbsDrift * 1000) / 10,
-      guest: userId == null,
+      guest: owner.userId == null,
     },
-    userId ?? undefined,
+    owner,
   );
 }
 
@@ -267,7 +267,7 @@ export async function actionPreflight(
       mode: row.mode,
       liveAvailable: payload.live.available,
     },
-    row.userId ?? undefined,
+    { userId: row.userId, guestKey: row.guestKey },
   );
   return payload;
 }

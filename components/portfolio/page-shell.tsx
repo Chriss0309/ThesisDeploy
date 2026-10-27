@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
+import { TelemetryToggle } from "@/components/telemetry/telemetry-drawer";
 
 const NAV = [
   { href: "/portfolio", children: "Portfolio X-Ray", pendingLabel: "Opening Portfolio X-Ray…" },
@@ -50,10 +51,13 @@ export function PageShell({
         {children}
       </main>
       <footer className="border-t">
-        <p className="mx-auto w-full max-w-page px-4 py-6 text-xs text-muted-foreground sm:px-6">
-          Not investment advice. ThesisDeploy reads your accounts through SnapTrade and never trades without your
-          confirmation.
-        </p>
+        <div className="mx-auto flex w-full max-w-page flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-xs text-muted-foreground">
+            Not investment advice. ThesisDeploy reads your accounts through SnapTrade and never trades without your
+            confirmation.
+          </p>
+          <TelemetryToggle />
+        </div>
       </footer>
     </div>
   );

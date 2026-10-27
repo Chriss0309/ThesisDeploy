@@ -87,8 +87,8 @@ Every table has row-level security enabled with no policies, like the rest of th
 |---|---|
 | `preflight_opened` | basket, thesis, orders, lines left out, currency, market open, Live available, guest |
 | `execution_confirmed` | execution, basket, mode, kind, orders, market open, failure injection on, guest |
-| `leg_result` | execution, mode, status, attempt, brokerage slug (`demo` for guests), error code, latency, guest |
-| `basket_deployed` | basket, execution, mode, orders, filled, failed, currency, guest (once per basket) |
+| `leg_result` | execution, leg, kind, mode, action, status, attempt, brokerage slug (`demo` for guests), error code, latency, `source` (`submit`, or `reconcile` for Live status checks), guest |
+| `basket_deployed` | basket, execution, kind, mode, orders, filled, failed, currency, guest (once per basket) |
 | `execution_canceled` | execution, mode, legs skipped, guest |
 
 ## SnapTrade calls

@@ -107,7 +107,7 @@ An `unknown` leg that isn't found stays `unknown` with "Not in Alpaca Paper's or
 
 - **Migration.** `20261027071708_live_execution` adds `executions.reconciled_at`, a column on an existing table, so no RLS change. No other schema change.
 - **Leg columns.** Existing columns hold the Live details: `client_order_id`, `brokerage_order_id`, `snaptrade_status`, `filled_units`, `fill_price`, `request_id`, and `latency_ms`.
-- **New event.** `impact_checked`, with the brokerage, number of legs, source, rejections, and latency.
+- **Telemetry.** Live emits the same events as Paper, with `mode: "live"`, the execution kind, and the brokerage slug. Reconciliation emits `leg_result` with `source: "reconcile"`, and the drawer counts each attempt once, at its latest status. One new event: `impact_checked`, with the kind, mode, brokerage, number of legs, source, rejections, and latency. The new SnapTrade operations (`getOrderImpact`, `placeForceOrder`, `getUserAccountRecentOrders`, `getUserAccountOrderDetail`) are recorded in `api_calls` like every other call, so they appear in the drawer's latency table.
 
 ## Tests
 
