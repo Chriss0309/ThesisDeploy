@@ -1,3 +1,4 @@
+import { PendingLink } from "@/components/loader/pending";
 import { MessageCard } from "@/components/portfolio/page-shell";
 import { ReauthRequiredError } from "@/lib/auth/vault";
 import { SnapTradeError } from "@/lib/snaptrade/client";
@@ -14,9 +15,13 @@ export function SnapTradeProblem({ error, returnTo }: { error: unknown; returnTo
       <MessageCard title="Reconnect SnapTrade">
         <p>ThesisDeploy&apos;s access to SnapTrade expired or was revoked.</p>
         <p>
-          <a href={`/api/auth/login?returnTo=${returnTo}`} className={LINK}>
+          <PendingLink
+            href={`/api/auth/login?returnTo=${returnTo}`}
+            className={LINK}
+            pendingLabel="Opening SnapTrade…"
+          >
             Sign in with SnapTrade again
-          </a>{" "}
+          </PendingLink>{" "}
           to continue.
         </p>
       </MessageCard>

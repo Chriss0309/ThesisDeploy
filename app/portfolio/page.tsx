@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { PendingLink } from "@/components/loader/pending";
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { formatTimestamp } from "@/components/portfolio/format";
 import { LINK, SnapTradeProblem, waitText } from "@/components/portfolio/snaptrade-problem";
+import { SCREENS } from "@/components/screens";
 import {
   SNAPTRADE_DASHBOARD_URL,
   XRaySkeleton,
@@ -78,9 +80,9 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
           trades without your confirmation.
         </p>
         <p>
-          <a href={SIGN_IN} className={LINK}>
+          <PendingLink href={SIGN_IN} className={LINK} pendingLabel="Opening SnapTrade…">
             Sign in with SnapTrade
-          </a>{" "}
+          </PendingLink>{" "}
           or try the{" "}
           <a href="/demo" className={LINK}>
             demo portfolio
@@ -144,11 +146,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
 
 export default function PortfolioPage({ searchParams }: PageProps<"/portfolio">) {
   return (
-    <PageShell
-      eyebrow="01 · Read from SnapTrade"
-      title="Portfolio X-Ray"
-      description="Cash, buying power, positions, and concentration for each connected account."
-    >
+    <PageShell {...SCREENS.xray}>
       <Suspense fallback={<XRaySkeleton />}>
         <LiveXRay searchParams={searchParams} />
       </Suspense>

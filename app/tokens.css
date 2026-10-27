@@ -158,12 +158,32 @@
   --coin-stage-sm: 18rem;
   --coin-stage: 32rem;
 
+  /* Loaders (components/loader). Ink and paper come from the surrounding text and
+     surface; accent from --brand and failures from --negative. */
+  --loader-inline: 1.25rem;
+  --loader-dot: 0.875rem;
+  --loader-stage: 9rem;
+  --loader-stage-width: 16rem;
+  --loader-stage-wide: 28rem;
+  --loader-panel: 20rem;
+  --loader-showpiece-stage-sm: 13rem;
+  --loader-showpiece-stage: 17rem;
+  --loader-showpiece: 26rem;
+  /* Page bodies fill the viewport, so the footer starts below the fold and a loader
+     handing over to taller content never moves anything in view. */
+  --page-main-min: calc(100svh - 4.25rem);
+
   /* Motion. */
   --duration-instant: 80ms;
   --duration-fast: 140ms;
   --duration-base: 220ms;
   --duration-slow: 360ms;
   --duration-pace: 1000ms;
+  /* Loaders appear only after --loader-delay, then stay at least --loader-min-visible
+     and play --loader-settle before revealing results, so fast loads never flash. */
+  --loader-delay: 300ms;
+  --loader-min-visible: 600ms;
+  --loader-settle: 450ms;
 }
 
 /* Inverse theme: ink panels on the light page (add `dark` to any container). */
@@ -267,6 +287,17 @@
   --default-transition-timing-function: var(--ease-standard);
 
   --animate-pace: pace var(--duration-pace) var(--ease-standard) infinite;
+  /* CSS, not a timer, so server-rendered fallbacks appear on time before hydration. */
+  --animate-loader-appear: loader-appear var(--duration-base) var(--ease-enter) var(--loader-delay) both;
+
+  @keyframes loader-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 
   @keyframes pace {
     0%,
