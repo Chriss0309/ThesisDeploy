@@ -21,15 +21,23 @@ export function Wordmark() {
   );
 }
 
+const NAV_LINK =
+  "eyebrow rounded-sm px-1 py-1 text-muted-foreground underline-offset-6 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:text-foreground aria-[current=page]:underline aria-[current=page]:decoration-brand aria-[current=page]:decoration-2";
+
 export function NavLink({ href, children }: { href: string; children: ReactNode }) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(`${href}/`);
   return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className="eyebrow rounded-sm px-1 py-1 text-muted-foreground underline-offset-6 transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:text-foreground aria-[current=page]:underline aria-[current=page]:decoration-brand aria-[current=page]:decoration-2"
-    >
+    <Link href={href} aria-current={active ? "page" : undefined} className={NAV_LINK}>
+      {children}
+    </Link>
+  );
+}
+
+/** The same link without the active state, for prerendering routes whose path is only known at request time. */
+export function NavLinkFallback({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className={NAV_LINK}>
       {children}
     </Link>
   );

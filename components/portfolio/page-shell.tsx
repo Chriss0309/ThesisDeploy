@@ -1,6 +1,12 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
-import { NavLink, Wordmark } from "@/components/site-chrome";
+import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
+
+const NAV = [
+  { href: "/portfolio", label: "Portfolio X-Ray" },
+  { href: "/studio", label: "Thesis Studio" },
+  { href: "/demo", label: "Demo" },
+];
 
 export function PageShell({
   eyebrow,
@@ -21,9 +27,19 @@ export function PageShell({
         <div className="mx-auto flex w-full max-w-page items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Wordmark />
           <nav aria-label="Primary" className="flex items-center gap-3 sm:gap-5">
-            <NavLink href="/portfolio">Portfolio X-Ray</NavLink>
-            <NavLink href="/studio">Thesis Studio</NavLink>
-            <NavLink href="/demo">Demo</NavLink>
+            <Suspense
+              fallback={NAV.map((link) => (
+                <NavLinkFallback key={link.href} href={link.href}>
+                  {link.label}
+                </NavLinkFallback>
+              ))}
+            >
+              {NAV.map((link) => (
+                <NavLink key={link.href} href={link.href}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </Suspense>
           </nav>
         </div>
       </header>

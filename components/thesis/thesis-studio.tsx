@@ -7,6 +7,7 @@ import { formatMoney } from "@/components/portfolio/format";
 import { BasketComposer, type EditAction } from "@/components/thesis/basket-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
@@ -64,42 +65,6 @@ function Field({
       </div>
       {children}
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
-    </div>
-  );
-}
-
-function Segmented<T extends string>({
-  name,
-  value,
-  options,
-  onChange,
-}: {
-  name: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={name}
-      className="grid auto-cols-fr grid-flow-col divide-x divide-input overflow-hidden rounded-md border border-input"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "h-9 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset",
-            value === option.value ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-secondary",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
     </div>
   );
 }
@@ -396,7 +361,12 @@ export function ThesisStudio({
       <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         {pendingSince != null && <Pending startedAt={pendingSince} />}
         {payload ? (
-          <BasketComposer key={run} payload={payload} onEdit={recordEdit} />
+          <BasketComposer
+            key={run}
+            payload={payload}
+            onEdit={recordEdit}
+            preflightEndpoint={mode === "live" ? "/api/preflight" : "/api/demo/preflight"}
+          />
         ) : (
           pendingSince == null && (
             <Card>

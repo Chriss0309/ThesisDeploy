@@ -152,7 +152,9 @@
   --grid-hero: minmax(0, 1fr) minmax(0, 1fr);
   --grid-xray: 17.5rem minmax(0, 1fr);
   --grid-steps: repeat(3, minmax(0, 1fr));
+  --grid-log: 3.75rem minmax(0, 1fr) auto;
   --table-min: 40rem;
+  --sheet-max-height: 90dvh;
   --coin-stage-sm: 18rem;
   --coin-stage: 32rem;
 
@@ -239,6 +241,7 @@
   --tracking-badge: 0.06em;
 
   --container-prose: 36rem;
+  --container-modal: 40rem;
   --container-page: 76rem;
 
   --radius-xs: 0.125rem;
