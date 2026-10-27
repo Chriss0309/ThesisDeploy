@@ -116,6 +116,7 @@ Label tracking: `tracking-label` (0.14em) for eyebrows, `tracking-badge` (0.06em
 | `rounded-full` | — | Preset chips, status dots |
 | `--chamfer-sm` / `--chamfer` / `--chamfer-lg` | 6 / 12 / 20 px | `chamfer` utility on filled surfaces only (wordmark, hero, and inverse panels) |
 | `--frame-mark-size` / `--frame-mark-weight` | 12 px / 1.5 px | `frame-marks` utility: registration marks on featured frames |
+| `--slider-thumb-border` | 1.5 px | Slider thumb ring (`border-(length:--slider-thumb-border)`) |
 | Borders | 1 px `border` (dividers), `border-strong` (table header rule, neutral badge), `input` (fields) | Cards use a 1 px ring in `border` |
 | `shadow-xs` | 1 px hairline | Cards at rest |
 | `shadow-sm` | soft 2 px | Selected account tile, message cards |
@@ -161,11 +162,11 @@ Focus: 3 px `ring/30` plus `ring` border. Disabled: 50% opacity, no pointer even
 ### Inputs (Textarea Built; text input, select, and toggle Spec)
 `rounded-md`, 1 px `input` border, card fill, `px-3 py-2.5`, `text-base` on mobile and `text-sm` from `md`. Placeholder uses `placeholder`. Focus: `ring` border plus `ring/25` glow. Invalid: `destructive` border plus helper text below in `negative-subtle-foreground`. Labels sit above as `text-sm font-medium`; helper text is `text-xs muted-foreground`. Toggles (Overlap mode, Live vs Paper) are a segmented control: two outline buttons in one rounded group, with the selected one in ink fill.
 
-### Capital slider and weight sliders (Spec)
+### Capital slider and weight sliders (Built: `components/ui/slider.tsx`, Base UI)
 Track: 4 px `chart-track`, `rounded-full`; fill: `brand`; thumb: 18 px paper-0 circle, 1.5 px ink border, `shadow-sm`, with a 3 px `ring/30` focus ring. The value is shown above the right end in `font-display text-xl tabular-nums` (`$2,500 USD`), with min and max in `eyebrow` under the ends. Keyboard: arrows step $50 (1% for weights), Page Up/Down step $500 (5%). The weight slider sits inline in the constituent row, at 120 px on desktop and full width on mobile.
 
-### Whole-share stepper (Spec)
-`[−] 12 [+]` in one 32 px `outline` group: icon buttons `icon-sm`, a mono `tabular-nums` count field 48 px wide, centered. `−` is disabled at 0; `+` is disabled when the next share costs more than the unallocated cash, with a tooltip saying why ("Needs $98.40 USD, $86.00 left"). Changes recalculate cost and remainder immediately.
+### Whole-share stepper (Built in the Basket Composer)
+`[−] 12 [+]` in one 32 px `outline` group: icon buttons `icon-sm`, a mono `tabular-nums` count field 48 px wide, centered. `−` is disabled at 0; `+` is disabled when the next share costs more than the cash left under the solver's spend cap (the budget less the slippage reserve), so a basket can never go over budget. The disabled `+` stays focusable (`focusableWhenDisabled`), puts the reason in its accessible name, and shows it in a tooltip (Built: `components/ui/tooltip.tsx`; `primary` fill, `text-xs`, `rounded-md`, `shadow-md`) on hover and keyboard focus: "Needs $98.40 USD, $86.00 USD left after the slippage reserve". Changes recalculate cost and remainder immediately.
 
 ### Badges (Built: `components/ui/badge.tsx`)
 20 px tall, `rounded-sm`, 1 px border, mono `text-2xs` uppercase, `tracking-badge`. An optional `dot` adds a 6 px status dot.

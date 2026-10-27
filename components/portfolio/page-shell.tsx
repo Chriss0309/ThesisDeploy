@@ -22,6 +22,7 @@ export function PageShell({
           <Wordmark />
           <nav aria-label="Primary" className="flex items-center gap-3 sm:gap-5">
             <NavLink href="/portfolio">Portfolio X-Ray</NavLink>
+            <NavLink href="/studio">Thesis Studio</NavLink>
             <NavLink href="/demo">Demo</NavLink>
           </nav>
         </div>

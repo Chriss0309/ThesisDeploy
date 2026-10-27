@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { DemoBanner } from "@/components/portfolio/demo-banner";
 import { PageShell } from "@/components/portfolio/page-shell";
 import { XRaySkeleton, XRayView } from "@/components/portfolio/xray-view";
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
@@ -33,19 +34,7 @@ export default function DemoPage({ searchParams }: PageProps<"/demo">) {
       eyebrow="01 · Guest demo"
       title="Portfolio X-Ray"
       description="Cash, buying power, positions, and concentration for each connected account."
-      banner={
-        <div className="border-b border-info-border bg-info-subtle px-4 py-2.5 text-center text-xs text-info-subtle-foreground sm:px-6">
-          <span className="eyebrow mr-2">Demo</span>
-          Fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
-          <a
-            href="/api/auth/login?returnTo=/portfolio"
-            className="font-medium underline underline-offset-4 hover:text-foreground"
-          >
-            Sign in with SnapTrade
-          </a>{" "}
-          to see your own accounts.
-        </div>
-      }
+      banner={<DemoBanner active="xray" returnTo="/portfolio" />}
     >
       <Suspense fallback={<XRaySkeleton />}>
         <DemoXRay searchParams={searchParams} />

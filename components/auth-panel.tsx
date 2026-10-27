@@ -77,9 +77,14 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
           </div>
           <div className="flex flex-wrap gap-2">
             {grant ? (
-              <a href="/portfolio" className={buttonVariants({ size: "sm" })}>
-                Open Portfolio X-Ray
-              </a>
+              <>
+                <a href="/studio" className={buttonVariants({ size: "sm" })}>
+                  Open Thesis Studio
+                </a>
+                <a href="/portfolio" className={buttonVariants({ size: "sm", variant: "outline" })}>
+                  Portfolio X-Ray
+                </a>
+              </>
             ) : (
               <a href="/api/auth/login" className={buttonVariants({ size: "sm" })}>
                 Reconnect SnapTrade

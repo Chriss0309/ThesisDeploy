@@ -12,9 +12,10 @@ Early scaffold. What works today:
 - `GET /api/health`: liveness, environment validation, and a database check. It returns `200` when every check passes and `503` when one fails. It reports which features are configured (booleans only), the names of malformed variables, and whether the database is reachable, migrated, and has RLS on every app table. It never returns values.
 - Supabase schema for users, sessions, OAuth login attempts, OAuth grants, events, and API-call telemetry.
 - Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
+- Thesis Studio (`/studio`): Claude proposes a basket from a one-line conviction and the user's holdings across every account. SnapTrade grounds and prices every ticker in one quotes call, the top-up rule trims what the user already holds, and a whole-share solver sizes it. The Basket Composer has overlap badges, weight sliders, share steppers, and remove, with live cost and leftover cash. The guest demo is at `/demo/studio`, with cached presets and strict generation limits. See [`docs/thesis-studio.md`](docs/thesis-studio.md).
 - Design system: every color, font, type size, radius, shadow, and motion value lives in `app/tokens.css`, and a test fails the build on hardcoded values anywhere else. The landing page has a three.js engraved-coin animation of paced, whole-share execution. See [`docs/design-system.md`](docs/design-system.md).
 
-Sign in with SnapTrade, Portfolio X-Ray, Thesis Studio, and paced execution land in later PRs.
+Paced execution (paper and live) and drift tracking land in later PRs.
 
 ## Stack
 
@@ -22,7 +23,8 @@ Sign in with SnapTrade, Portfolio X-Ray, Thesis Studio, and paced execution land
 - TypeScript, Tailwind CSS 4, shadcn/ui (Base UI), three.js (landing illustration only, lazy-loaded)
 - Zod for environment validation, Vitest for unit tests, ESLint
 - Supabase Postgres via Prisma ORM 7 and the `pg` driver adapter (server-only; no Supabase Auth or supabase-js)
-- Planned: SnapTrade OAuth + OIDC, Anthropic
+- SnapTrade OAuth + OIDC and the SnapTrade TypeScript SDK (Bearer-only)
+- Anthropic TypeScript SDK with structured outputs
 
 ## Local development
 
@@ -47,6 +49,7 @@ Use `127.0.0.1` rather than `localhost`: the SnapTrade OAuth redirect URI regist
 | `npm run db:migrate:dev -- --create-only --name <name>` | Create a migration from `prisma/schema.prisma` against a dev database |
 | `npm run db:migrate` | Apply pending migrations (`prisma migrate deploy`) to `DIRECT_URL` |
 | `npm run db:drift` | Fail if `prisma/schema.prisma` has changes with no migration |
+| `npm run dev:oauth-stub`, `dev:api-stub`, `dev:anthropic-stub` | Local stand-ins for SnapTrade sign-in, the SnapTrade API, and the Anthropic Messages API |
 
 CI (GitHub Actions) runs lint, typecheck, and tests. It then applies the migrations to a fresh Postgres, runs the drift check, and builds, on every PR.
 
@@ -66,7 +69,8 @@ All variables are optional at build time so Preview deployments build without se
 | `SNAPTRADE_ISSUER` | Default `https://api.snaptrade.com` |
 | `SNAPTRADE_API_BASE_URL` | Default `https://api.snaptrade.com`; point at `npm run dev:api-stub` for local testing |
 | `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`) |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5` |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5`. Without a key, Thesis Studio generation is off and the demo shows sample baskets. |
+| `GUEST_GENERATIONS_PER_DAY` | Claude calls the guest demo may make per rolling 24 hours across all visitors; default 40, `0` turns them off |
 | `LIVE_TRADING_ENABLED` | Kill switch for real orders; default `false` |
 
 Secrets live only in Vercel environment variables and `.env.local`, never in the repo. All SnapTrade calls go through the backend.

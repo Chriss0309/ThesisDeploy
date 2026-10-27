@@ -76,5 +76,14 @@ Status key: **docs/SDK** means found by reading the docs, the OpenAPI spec, or t
 ### Quote behavior for unknown tickers is unspecified
 - **Date / source:** 2026-10-26, `getUserAccountQuotes` reference.
 - **Observation:** the reference does not say whether an invalid ticker in a `use_ticker=true` batch is omitted from the response or fails the whole call. This matters when grounding LLM-proposed tickers.
+- **What we did:** Thesis Studio handles both. Tickers missing from the response go to `symbolSearchUserAccount`; if the batch fails with 400, 404, or 422, every candidate is searched and the confirmed tickers are quoted once more, which costs a second call against the account's 10/minute limit.
 - **Next step:** verify against a live account and update this entry.
+- **Suggestion:** document the behavior, and ideally return a per-symbol error list so one bad ticker can't sink the batch.
+- **Status:** docs/SDK
+
+### Symbol search and quotes sit in different rate-limit buckets
+- **Date / source:** 2026-10-27, rate-limiting docs.
+- **Observation:** `getUserAccountQuotes` is on the list of account-limited endpoints, but `symbolSearchUserAccount` (also `/accounts/{accountId}/...`) is not. An app grounding tickers would naturally treat both the same way; knowing which one is free changes the design.
+- **What we did:** quotes go through our per-account budget and symbol search doesn't, but both are recorded in `api_calls`.
+- **Suggestion:** list the account-scoped endpoints that are *not* account-limited, or mark each endpoint's bucket in the API reference.
 - **Status:** docs/SDK

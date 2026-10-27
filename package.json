@@ -15,9 +15,11 @@
     "db:migrate": "prisma migrate deploy",
     "dev:oauth-stub": "node scripts/oauth-stub.mjs",
     "dev:api-stub": "node scripts/snaptrade-api-stub.mjs",
+    "dev:anthropic-stub": "node scripts/anthropic-stub.mjs",
     "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@base-ui/react": "^1.9.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",

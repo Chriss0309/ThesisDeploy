@@ -144,6 +144,7 @@
   --frame-mark-size: 0.75rem;
   --frame-mark-weight: 1.5px;
   --frame-mark-color: var(--td-ink-900);
+  --slider-thumb-border: 1.5px;
   --hatch-line: 1px;
   --hatch-gap: 4px;
   --grid-card-header: 1fr auto;

@@ -2,7 +2,9 @@ import axios, { type AxiosResponse } from "axios";
 import {
   AccountInformationApi,
   ConnectionsApi,
+  ReferenceDataApi,
   SnaptradeError,
+  TradingApi,
   type PersonalApiKeyAuth,
 } from "snaptrade-typescript-sdk";
 
@@ -17,6 +19,8 @@ import { decideBudget, readBudgetWindow } from "@/lib/snaptrade/rate-budget";
 export type SnapTradeApis = {
   accounts: AccountInformationApi<PersonalApiKeyAuth>;
   connections: ConnectionsApi<PersonalApiKeyAuth>;
+  referenceData: ReferenceDataApi<PersonalApiKeyAuth>;
+  trading: TradingApi<PersonalApiKeyAuth>;
 };
 
 export type SnapTradeContext = { config: AuthConfig; userId: string; apiBaseUrl: string };
@@ -40,6 +44,8 @@ export function createApis(accessToken: string, apiBaseUrl: string): SnapTradeAp
   return {
     accounts: new AccountInformationApi<PersonalApiKeyAuth>(undefined, apiBaseUrl, http),
     connections: new ConnectionsApi<PersonalApiKeyAuth>(undefined, apiBaseUrl, http),
+    referenceData: new ReferenceDataApi<PersonalApiKeyAuth>(undefined, apiBaseUrl, http),
+    trading: new TradingApi<PersonalApiKeyAuth>(undefined, apiBaseUrl, http),
   };
 }
 

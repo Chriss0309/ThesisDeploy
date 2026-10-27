@@ -16,6 +16,7 @@ import { THESIS_PRESETS } from "@/lib/presets";
 
 export function ThesisPreview({ footer }: { footer: ReactNode }) {
   const [thesis, setThesis] = useState("");
+  const chosen = THESIS_PRESETS.find((preset) => preset.prompt === thesis);
 
   return (
     <Card className="w-full shadow-md">
@@ -49,6 +50,14 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
             </Button>
           ))}
         </div>
+        {chosen && (
+          <a
+            href={`/demo/studio?preset=${chosen.key}`}
+            className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
+          >
+            ► Build this basket in the demo Studio
+          </a>
+        )}
       </CardContent>
       <CardFooter>{footer}</CardFooter>
     </Card>

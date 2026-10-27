@@ -45,12 +45,21 @@ export default function Home({ searchParams }: PageProps<"/">) {
                   ThesisDeploy turns a one-line conviction into a whole-share stock basket, checked against what you
                   already own, and places the orders in your own brokerage account, live or as a paper simulation.
                 </p>
-                <a
-                  href="/demo"
-                  className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
-                >
-                  ► Explore the demo portfolio, no sign-in needed
-                </a>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  <a
+                    href="/demo/studio"
+                    className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
+                  >
+                    ► Try the Thesis Studio demo
+                  </a>
+                  <a
+                    href="/demo"
+                    className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
+                  >
+                    ► Explore the demo portfolio
+                  </a>
+                </div>
+                <p className="text-xs text-muted-foreground">No sign-in needed for either demo.</p>
                 <ThesisPreview
                   footer={
                     <Suspense fallback={<AuthPanelSkeleton />}>
