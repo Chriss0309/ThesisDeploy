@@ -12,13 +12,14 @@ Early scaffold. What works today:
 - `GET /api/health`: liveness, environment validation, and a database check. It returns `200` when every check passes and `503` when one fails. It reports which features are configured (booleans only), the names of malformed variables, and whether the database is reachable, migrated, and has RLS on every app table. It never returns values.
 - Supabase schema for users, sessions, OAuth login attempts, OAuth grants, events, and API-call telemetry.
 - Portfolio X-Ray (`/portfolio`): accounts with capability badges, cash and buying power per currency, positions, and concentration, served through a Bearer-only SnapTrade client that stays inside the per-account rate limit. A guest demo on fictional data is at `/demo`. See [`docs/portfolio-xray.md`](docs/portfolio-xray.md).
+- Design system: every color, font, type size, radius, shadow, and motion value lives in `app/tokens.css`, and a test fails the build on hardcoded values anywhere else. The landing page has a three.js engraved-coin animation of paced, whole-share execution. See [`docs/design-system.md`](docs/design-system.md).
 
 Sign in with SnapTrade, Portfolio X-Ray, Thesis Studio, and paced execution land in later PRs.
 
 ## Stack
 
 - Next.js 16 (App Router, Cache Components) on Vercel (Pro), Node runtime only
-- TypeScript, Tailwind CSS 4, shadcn/ui (Base UI)
+- TypeScript, Tailwind CSS 4, shadcn/ui (Base UI), three.js (landing illustration only, lazy-loaded)
 - Zod for environment validation, Vitest for unit tests, ESLint
 - Supabase Postgres via Prisma ORM 7 and the `pg` driver adapter (server-only; no Supabase Auth or supabase-js)
 - Planned: SnapTrade OAuth + OIDC, Anthropic
