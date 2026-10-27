@@ -55,6 +55,7 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
   const { signal } = options;
   const startedAt = Date.now();
   const guest = owned.userId == null;
+  const owner = { userId: owned.userId, guestKey: owned.guestKey };
   const submit: Submitter =
     view.mode === "paper"
       ? paperSubmitter({ simulateRejectSeq: view.simulateRejectSeq })
@@ -124,7 +125,7 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
           latencyMs: recorded.latencyMs,
           guest,
         },
-        owned.userId ?? undefined,
+        owner,
       );
       yield { type: "leg", leg: toLegView(recorded) };
     }
@@ -146,7 +147,7 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
         currency: execution.currency,
         guest,
       },
-      owned.userId ?? undefined,
+      owner,
     );
   }
   const active = execution.status === "queued" || execution.status === "running";

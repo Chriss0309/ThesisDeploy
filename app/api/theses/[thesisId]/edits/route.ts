@@ -4,13 +4,9 @@ import { z } from "zod";
 import { publicOrigin } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { recordEvent } from "@/lib/telemetry/events";
+import { EditSchema } from "@/lib/thesis/edits";
 import { errorResponse } from "@/lib/thesis/http";
 import { thesisOwnedBy } from "@/lib/thesis/store";
-
-const EditSchema = z.object({
-  action: z.enum(["remove", "restore", "reweight", "step"]),
-  symbol: z.string().min(1).max(24),
-});
 
 // Feeds the basket edit rate: suggested tickers removed or resized before deploying.
 export async function POST(request: NextRequest, context: RouteContext<"/api/theses/[thesisId]/edits">) {

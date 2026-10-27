@@ -61,8 +61,10 @@ export type ThesisSource = "generated" | "cached" | "sample";
 
 export type ComposerPayload = {
   thesis: {
-    /** Null for guest demo theses, which accept no edits telemetry. */
+    /** Null for guest demo theses. */
     id: string | null;
+    /** Ties Basket Composer edits to this basket in telemetry: the thesis ID, or a random ID per demo basket. */
+    ref: string;
     title: string;
     summary: string;
     riskProfile: RiskProfile;

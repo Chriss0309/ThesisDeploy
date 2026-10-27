@@ -100,12 +100,16 @@ export type OwnedExecution = {
   accountKey: string;
   brokerageSlug: string | null;
   userId: string | null;
+  guestKey: string | null;
 };
 
 export async function findExecutionForActor(executionId: string, actor: Actor): Promise<OwnedExecution | null> {
   const row = await getDb().execution.findFirst({
     where: { id: executionId, basket: ownedBy(actor) },
-    include: { ...executionInclude, basket: { select: { ...executionInclude.basket.select, brokerageSlug: true } } },
+    include: {
+      ...executionInclude,
+      basket: { select: { ...executionInclude.basket.select, brokerageSlug: true, guestKey: true } },
+    },
   });
   if (!row) return null;
   return {
@@ -113,6 +117,7 @@ export async function findExecutionForActor(executionId: string, actor: Actor): 
     accountKey: row.accountKey,
     brokerageSlug: row.basket.brokerageSlug,
     userId: row.basket.userId,
+    guestKey: row.basket.guestKey,
   };
 }
 
