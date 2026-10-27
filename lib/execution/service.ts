@@ -354,4 +354,3 @@ export async function cancelExecution(actor: Actor, executionId: string): Promis
   }
   return loadExecutionView(executionId);
 }
-
