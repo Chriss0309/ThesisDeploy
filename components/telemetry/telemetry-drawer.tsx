@@ -85,9 +85,7 @@ function TelemetryPanel() {
           <div className="flex flex-col gap-1">
             <DrawerTitle className="font-display text-2xl font-semibold">How ThesisDeploy is used</DrawerTitle>
             <DrawerDescription className="text-sm text-muted-foreground">
-              The activation funnel, how much people trust ThesisDeploy&apos;s baskets, and how SnapTrade behaves, from the{" "}
-              <code className="font-mono text-xs">events</code> and <code className="font-mono text-xs">api_calls</code>{" "}
-              tables.
+              How people move from signing in, to a basket, to an order, and how SnapTrade responds.
             </DrawerDescription>
           </div>
           {/* Mounted with the numbers, so its one scan pass marks them landing. */}
@@ -113,7 +111,7 @@ function TelemetryPanel() {
             variant="scan"
             framed={false}
             label="Reading telemetry…"
-            detail="Aggregating events and SnapTrade calls."
+            detail="Counting sign-ins, baskets, orders, and SnapTrade responses."
             settled={arrived != null}
             onSettled={() => {
               if (arrived) setState({ status: "ready", data: arrived });
