@@ -1,4 +1,5 @@
 import {
+  EPSILON,
   allocationFromUnits,
   normalizeWeights,
   solveWholeShares,
@@ -8,7 +9,8 @@ import {
 
 // Basket Composer edits, run in the browser. Active weights always sum to 1
 // (or are all 0). Weight changes, removals, and restores re-run the solver;
-// the share stepper overrides one line's units and re-prices the basket.
+// the share stepper overrides one line's units and re-prices the basket, but
+// never past the solver's spend cap.
 
 export type EditableLine = {
   symbol: string;
@@ -63,9 +65,29 @@ export function setWeight(
   return resolve(next, settings);
 }
 
-export function stepUnits(lines: readonly EditableLine[], symbol: string, delta: number): EditableLine[] {
-  return lines.map((line) =>
-    line.symbol === symbol && !line.removed ? { ...line, units: Math.max(0, line.units + delta) } : line,
+/** Cash left under the spend cap (budget less the slippage reserve) for the current shares. */
+export function cashLeft(lines: readonly EditableLine[], settings: BasketSettings): number {
+  const allocation = summarize(lines, settings);
+  return allocation.spendCap - allocation.invested;
+}
+
+/** Whether one more share of an active line fits in the cash left under the spend cap. */
+export function canAddShare(lines: readonly EditableLine[], symbol: string, settings: BasketSettings): boolean {
+  const line = lines.find((candidate) => candidate.symbol === symbol && !candidate.removed);
+  return line != null && line.price <= cashLeft(lines, settings) + EPSILON;
+}
+
+/** Adds or removes whole shares on one line; additions that would pass the spend cap are refused. */
+export function stepUnits(
+  lines: readonly EditableLine[],
+  symbol: string,
+  delta: number,
+  settings: BasketSettings,
+): EditableLine[] {
+  const line = lines.find((candidate) => candidate.symbol === symbol && !candidate.removed);
+  if (!line || (delta > 0 && line.price * delta > cashLeft(lines, settings) + EPSILON)) return [...lines];
+  return lines.map((candidate) =>
+    candidate === line ? { ...candidate, units: Math.max(0, candidate.units + delta) } : candidate,
   );
 }
 

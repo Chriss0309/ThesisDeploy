@@ -10,8 +10,10 @@ import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { AllocatedLine } from "@/lib/solver";
 import {
+  canAddShare,
   removeLine,
   restoreLine,
   setWeight,
@@ -21,7 +23,6 @@ import {
   type EditableLine,
 } from "@/lib/thesis/composer-state";
 import type { ComposerLine, ComposerPayload } from "@/lib/thesis/types";
-import { cn } from "@/lib/utils";
 
 export type EditAction = "remove" | "restore" | "reweight" | "step";
 
@@ -87,17 +88,14 @@ function CapitalSummary({
 }) {
   const { currency, budget } = payload;
   const orders = allocation.lines.filter((line) => line.units > 0).length;
-  const over = allocation.unallocated < 0;
   const active = lines.filter((line) => !line.removed);
   const bought = allocation.lines.filter((line) => line.cost > 0);
   return (
     <section aria-label="Capital" className="flex flex-col gap-3 rounded-md bg-surface-sunken p-4">
       <p className="eyebrow text-muted-foreground">► Capital · {currency}</p>
       <p className="font-display text-2xl font-semibold tabular-nums" aria-live="polite">
-        {formatMoney(allocation.invested, currency)} deployed ·{" "}
-        <span className={cn(over && "text-negative-subtle-foreground")}>
-          {formatMoney(Math.abs(allocation.unallocated), currency)} {over ? "over budget" : "unallocated"}
-        </span>
+        {formatMoney(allocation.invested, currency)} deployed · {formatMoney(allocation.unallocated, currency)}{" "}
+        unallocated
       </p>
       <p className="text-xs text-muted-foreground">
         Of a {formatMoney(budget, currency)} budget, across {orders} whole-share {orders === 1 ? "order" : "orders"}.
@@ -124,20 +122,22 @@ function CapitalSummary({
           Every name here is already held at or above its target. Raise a weight, or switch overlap handling to Ignore.
         </p>
       )}
-      {allocation.overSpendCap && (
-        <p
-          role="alert"
-          className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground"
-        >
-          Manual share counts exceed the spend cap of {formatMoney(allocation.spendCap, currency)}. Remove shares
-          before continuing.
-        </p>
-      )}
     </section>
   );
 }
 
-function Stepper({ symbol, units, onStep }: { symbol: string; units: number; onStep: (delta: number) => void }) {
+function Stepper({
+  symbol,
+  units,
+  addBlockedReason,
+  onStep,
+}: {
+  symbol: string;
+  units: number;
+  /** Why "+" is disabled; null when one more share fits under the spend cap. */
+  addBlockedReason: string | null;
+  onStep: (delta: number) => void;
+}) {
   return (
     <div role="group" aria-label={`Shares of ${symbol}`} className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-input bg-card">
       <Button
@@ -156,15 +156,23 @@ function Stepper({ symbol, units, onStep }: { symbol: string; units: number; onS
       >
         {units}
       </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="h-full rounded-none"
-        aria-label={`One more share of ${symbol}`}
-        onClick={() => onStep(1)}
-      >
-        <Plus />
-      </Button>
+      <Tooltip content={addBlockedReason} disabled={addBlockedReason == null}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="h-full rounded-none data-disabled:cursor-not-allowed data-disabled:opacity-50"
+          aria-label={
+            addBlockedReason
+              ? `One more share of ${symbol} (unavailable: ${addBlockedReason.charAt(0).toLowerCase()}${addBlockedReason.slice(1)})`
+              : `One more share of ${symbol}`
+          }
+          disabled={addBlockedReason != null}
+          focusableWhenDisabled
+          onClick={() => onStep(1)}
+        >
+          <Plus />
+        </Button>
+      </Tooltip>
     </div>
   );
 }
@@ -175,6 +183,8 @@ function LineRow({
   allocated,
   payload,
   spendCap,
+  cashLeft,
+  canAdd,
   onWeight,
   onStep,
   onRemove,
@@ -184,6 +194,9 @@ function LineRow({
   allocated: AllocatedLine | undefined;
   payload: ComposerPayload;
   spendCap: number;
+  /** Cash left under the spend cap for the whole basket. */
+  cashLeft: number;
+  canAdd: boolean;
   onWeight: (weight: number) => void;
   onStep: (delta: number) => void;
   onRemove: () => void;
@@ -192,6 +205,9 @@ function LineRow({
   const weightPct = Math.round(editable.weight * 1000) / 10;
   const slice = editable.weight * spendCap;
   const tooPricey = editable.units === 0 && editable.weight > 0 && line.price > slice;
+  const addBlockedReason = canAdd
+    ? null
+    : `Needs ${formatMoney(line.price, currency)}, ${formatMoney(Math.max(0, cashLeft), currency)} left after the slippage reserve`;
   return (
     <li className="flex flex-col gap-3 border-b py-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
@@ -234,7 +250,7 @@ function LineRow({
           </span>
         </div>
         <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end">
-          <Stepper symbol={line.symbol} units={editable.units} onStep={onStep} />
+          <Stepper symbol={line.symbol} units={editable.units} addBlockedReason={addBlockedReason} onStep={onStep} />
           <span className="text-sm font-medium tabular-nums">{formatMoney(allocated?.cost ?? 0, currency)}</span>
           <Button variant="destructive" size="icon-sm" aria-label={`Remove ${line.symbol}`} onClick={onRemove}>
             <Trash2 />
@@ -244,7 +260,7 @@ function LineRow({
       {tooPricey && (
         <p className="text-xs text-muted-foreground">
           One share ({formatMoney(line.price, currency)}) costs more than this {weightPct.toFixed(1)}% slice (
-          {formatMoney(slice, currency)}), so it gets none. Raise its weight or add a share manually.
+          {formatMoney(slice, currency)}), so it gets none. Raise its weight to include it.
         </p>
       )}
     </li>
@@ -322,12 +338,14 @@ export function BasketComposer({
                   allocated={allocated.get(line.symbol)}
                   payload={payload}
                   spendCap={allocation.spendCap}
+                  cashLeft={allocation.spendCap - allocation.invested}
+                  canAdd={canAddShare(lines, line.symbol, settings)}
                   onWeight={(weight) => {
                     setLines((current) => setWeight(current, line.symbol, weight, settings));
                     onEdit?.("reweight", line.symbol);
                   }}
                   onStep={(delta) => {
-                    setLines((current) => stepUnits(current, line.symbol, delta));
+                    setLines((current) => stepUnits(current, line.symbol, delta, settings));
                     onEdit?.("step", line.symbol);
                   }}
                   onRemove={() => {
