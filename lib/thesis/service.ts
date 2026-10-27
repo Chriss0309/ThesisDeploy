@@ -329,11 +329,11 @@ function presetFor(request: ThesisRequest): ThesisPreset | null {
 
 /**
  * Guest demo: fixture portfolio, fixture prices, and no SnapTrade calls.
- * Claude is only called on a cache miss, within the guest limits:
- * presets are cached for a week per demo context (bounded by the number of
- * presets × accounts × currencies × overlap modes) and count toward the
- * global daily cap only; custom prompts also count per visitor. Without an
- * Anthropic key or a database, presets fall back to committed sample output.
+ * Claude is only called on a cache miss, within the guest limits: presets
+ * are cached for a week per demo context (at most 3 × 4 × 2 × 2 = 48
+ * contexts) and count toward the global daily cap only; custom prompts also
+ * count per visitor. Without an Anthropic key or a database, presets fall
+ * back to committed sample output.
  */
 export async function createDemoThesis(
   request: ThesisRequest,

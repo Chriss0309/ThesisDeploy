@@ -142,7 +142,7 @@ function LineRow({
   const inputId = `weight-${line.symbol}`;
   return (
     <li className="flex flex-col gap-3 border-b py-4 last:border-0">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+      <div className="grid grid-cols-[1fr_auto] items-start gap-x-4">
         <div className="flex min-w-0 flex-col">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-semibold">{line.symbol}</span>
@@ -151,7 +151,7 @@ function LineRow({
               {line.exchange ? ` · ${line.exchange}` : ""}
             </span>
           </span>
-          <p className="mt-1 max-w-prose text-sm text-pretty">{line.rationale}</p>
+          <p className="mt-1 text-sm text-pretty">{line.rationale}</p>
         </div>
         <div className="text-right text-sm tabular-nums">
           <div className="font-medium">{formatMoney(line.price, currency)}</div>

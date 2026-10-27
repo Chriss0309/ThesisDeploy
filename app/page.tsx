@@ -42,12 +42,15 @@ export default function Home({ searchParams }: PageProps<"/">) {
               orders in your own brokerage account, live or as a paper
               simulation.
             </p>
-            <a
-              href="/demo"
-              className="w-fit text-sm font-medium underline underline-offset-4"
-            >
-              Explore the demo portfolio, no sign-in needed
-            </a>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
+              <a href="/demo/studio" className="underline underline-offset-4">
+                Try the Thesis Studio demo
+              </a>
+              <a href="/demo" className="underline underline-offset-4">
+                Explore the demo portfolio
+              </a>
+              <span className="font-normal text-muted-foreground">No sign-in needed.</span>
+            </div>
           </div>
           <ThesisPreview
             footer={

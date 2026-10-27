@@ -1,11 +1,18 @@
 import { APIError } from "@anthropic-ai/sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
-import { MAX_OUTPUT_TOKENS, ThesisGenerationError, generateThesis, type CreateMessage } from "@/lib/thesis/generate";
+import {
+  MAX_OUTPUT_TOKENS,
+  ThesisGenerationError,
+  anthropicCreateMessage,
+  generateThesis,
+  type CreateMessage,
+} from "@/lib/thesis/generate";
 import { collectPortfolio } from "@/lib/thesis/portfolio";
 import { SYSTEM_PROMPT, type ContextInput } from "@/lib/thesis/prompt";
 import { SAMPLE_OUTPUTS, mockCreateMessage, mockMessage } from "@/lib/thesis/testing";
+import { startAnthropicStub } from "@/scripts/anthropic-stub.mjs";
 
 const context: ContextInput = {
   prompt: "Nuclear power for AI data centers",
@@ -56,6 +63,21 @@ describe("generateThesis", () => {
     expect((await failure(async () => mockMessage("not json"))).code).toBe("invalid_output");
     const wrongEnum = { ...sample, risk_profile: "yolo" };
     expect((await failure(async () => mockMessage(JSON.stringify(wrongEnum)))).code).toBe("invalid_output");
+  });
+
+  it("goes through the Anthropic SDK over HTTP", async () => {
+    const stub = await startAnthropicStub({ latencyMs: 0 });
+    vi.stubEnv("ANTHROPIC_BASE_URL", stub.url);
+    try {
+      const createMessage = anthropicCreateMessage("sdk-test-key");
+      const result = await generateThesis(context, { createMessage, model: "claude-sonnet-5-5" });
+      expect(result.output).toEqual(sample);
+      expect(result.model).toBe("claude-sonnet-5-5");
+      expect(stub.stats.requests).toBe(1);
+    } finally {
+      vi.unstubAllEnvs();
+      await stub.close();
+    }
   });
 
   it("maps Anthropic overload and other API errors", async () => {

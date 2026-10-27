@@ -39,7 +39,8 @@ async function compose(
   return composeBasket({ candidates, portfolio, budget, currency, overlapMode, marketOpen });
 }
 
-const bySymbol = (lines: { symbol: string }[]) => Object.fromEntries(lines.map((line) => [line.symbol, line]));
+const bySymbol = <T extends { symbol: string }>(lines: T[]): Record<string, T> =>
+  Object.fromEntries(lines.map((line) => [line.symbol, line]));
 
 describe("composeBasket", () => {
   it("skips names held at target, keeps other-currency holdings uncounted, and sizes whole shares", async () => {
