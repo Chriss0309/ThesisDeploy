@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Loader } from "@/components/loader/loader";
+import { Mark, Reveal } from "@/components/loader/mark";
 import { LinkPendingStatus, PendingForm } from "@/components/loader/pending";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,18 +34,21 @@ function AccountBadges({ account }: { account: PortfolioAccount }) {
   );
 }
 
+const NOTICE_MARK = { info: "success", warn: "rate-limit", error: "error" } as const;
+
 function Notice({ tone, children }: { tone: "info" | "warn" | "error"; children: ReactNode }) {
   return (
     <p
       role={tone === "info" ? "status" : "alert"}
       className={cn(
-        "rounded-md border px-3 py-2.5 text-xs",
+        "flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs",
         tone === "info" && "border-border bg-surface-sunken text-muted-foreground",
         tone === "warn" && "border-warning-border bg-warning-subtle text-warning-subtle-foreground",
         tone === "error" && "border-negative-border bg-negative-subtle text-negative-subtle-foreground",
       )}
     >
-      {children}
+      <Mark kind={NOTICE_MARK[tone]} size="inline" />
+      <span>{children}</span>
     </p>
   );
 }
@@ -203,7 +207,12 @@ function HoldingsTable({
   );
   const { holdings } = result.snapshot;
   if (holdings.length === 0) {
-    return <p className="text-sm text-muted-foreground">No positions in this account.</p>;
+    return (
+      <div className="flex items-center gap-4">
+        <Mark kind="empty" />
+        <p className="text-sm text-muted-foreground">No positions in this account.</p>
+      </div>
+    );
   }
   return (
     <div className="-mx-(--card-spacing) overflow-x-auto px-(--card-spacing)">
@@ -284,6 +293,7 @@ export function XRayView({
   const concentration = result ? concentrationByCurrency(result.snapshot) : [];
   return (
     <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10">
+      <Reveal />
       <AccountSelector overview={overview} selectedId={selected.id} basePath={basePath} mode={mode} />
 
       <section className="flex min-w-0 flex-col gap-5" aria-labelledby="account-heading">

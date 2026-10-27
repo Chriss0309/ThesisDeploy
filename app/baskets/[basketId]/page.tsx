@@ -19,7 +19,7 @@ async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketI
   const user = isAuthConfigured() ? await getCurrentUser() : null;
   if (!user) {
     return (
-      <MessageCard title="Sign in to see this basket">
+      <MessageCard title="Sign in to see this basket" mark="signin">
         <p>
           <PendingLink
             href={`/api/auth/login?returnTo=/baskets/${encodeURIComponent(basketId)}`}

@@ -20,7 +20,7 @@ export const prefetch = "force-disabled";
 async function GuestTheses() {
   if (!serverEnv().DATABASE_URL) {
     return (
-      <MessageCard title="Saved baskets aren&apos;t available here">
+      <MessageCard title="Saved baskets aren&apos;t available here" mark="empty">
         <p>This deployment has no database, so paper runs can&apos;t be saved.</p>
       </MessageCard>
     );

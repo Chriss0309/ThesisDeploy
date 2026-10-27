@@ -1,4 +1,5 @@
 import { Loader } from "@/components/loader/loader";
+import { Mark } from "@/components/loader/mark";
 import { PendingForm, PendingLink } from "@/components/loader/pending";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { isAuthConfigured } from "@/lib/auth/config";
@@ -52,20 +53,24 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
         <p
           role={notice.error ? "alert" : "status"}
           className={cn(
-            "rounded-md border px-3 py-2.5 text-xs",
+            "flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs",
             notice.error
               ? "border-negative-border bg-negative-subtle text-negative-subtle-foreground"
               : "border-border bg-card text-muted-foreground",
           )}
         >
-          {notice.text}
+          <Mark kind={notice.error ? "error" : "signin"} size="inline" />
+          <span>{notice.text}</span>
         </p>
       )}
 
       {user ? (
         <>
           <div className="flex flex-col gap-1 text-sm">
-            <span className="eyebrow text-muted-foreground">{grant ? "► Connected" : "► Access expired"}</span>
+            <span className="flex items-center gap-2">
+              <Mark kind={grant ? "connected" : "error"} size="inline" />
+              <span className="eyebrow text-muted-foreground">{grant ? "► Connected" : "► Access expired"}</span>
+            </span>
             <span>
               Signed in as <strong className="font-semibold">{user.name ?? user.email ?? "SnapTrade user"}</strong>
             </span>

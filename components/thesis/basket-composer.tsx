@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 
 import { PreflightDialog } from "@/components/execution/preflight-dialog";
 
+import { Mark } from "@/components/loader/mark";
 import { formatMoney, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { OverlapBadge } from "@/components/thesis/overlap-badge";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
@@ -450,9 +451,10 @@ export function BasketComposer({
       </CardContent>
 
       <CardFooter className="flex-wrap justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
           {savedBasket ? (
             <>
+              <Mark kind="success" size="inline" />
               Saved as a Paper basket.{" "}
               <Link href={savedBasket} className="font-medium text-brand underline-offset-4 hover:underline">
                 View saved basket

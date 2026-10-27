@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import type { LoaderView } from "@/components/loader/engine";
+import { loadEngine } from "@/components/loader/element";
 import { Badge } from "@/components/ui/badge";
 import type { CoinPalette, CoinScene, Rgb } from "./coin-scene";
-import { LEGS, SETTLED_SECONDS, TOTAL_SHARES, sharesPlaced, stepAt, type Step } from "./coin-timeline";
+import { LEGS, TOTAL_SHARES, sharesPlaced, stepAt, type Step } from "./coin-timeline";
 
 // Resolves any CSS color (hex, oklch, color-mix, ...) to sRGB through a 1x1 canvas.
 function readTokenColor(element: Element, token: string): Rgb {
@@ -69,12 +71,8 @@ export function CoinStage() {
     const canvas = canvasRef.current;
     if (!stage || !canvas) return;
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let view: LoaderView | null = null;
     let scene: CoinScene | null = null;
-    let frame = 0;
-    let elapsed = 0;
-    let last = 0;
-    let visible = false;
     let cancelled = false;
     let shown: Step = { phase: "preflight" };
 
@@ -86,37 +84,9 @@ export function CoinStage() {
       }
     };
 
-    const tick = (now: number) => {
-      frame = 0;
-      if (!scene) return;
-      elapsed += Math.min((now - last) / 1000, 0.1);
-      last = now;
-      scene.render(elapsed);
-      publish(elapsed);
-      schedule();
-    };
-
-    const schedule = () => {
-      if (!scene || frame || !visible || document.hidden) return;
-      if (reducedMotion.matches) {
-        scene.render(SETTLED_SECONDS);
-        publish(SETTLED_SECONDS);
-        return;
-      }
-      last = performance.now();
-      frame = requestAnimationFrame(tick);
-    };
-
-    const stop = () => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = 0;
-    };
-
     const resize = () => {
-      if (!scene) return;
       const { width, height } = stage.getBoundingClientRect();
-      scene.resize(Math.max(width, 1), Math.max(height, 1));
-      if (!frame) scene.render(reducedMotion.matches ? SETTLED_SECONDS : elapsed);
+      view?.resize(Math.max(width, 1), Math.max(height, 1));
     };
 
     const onPointer = (event: PointerEvent) => {
@@ -127,29 +97,21 @@ export function CoinStage() {
       );
     };
 
-    const onVisibility = () => (document.hidden ? stop() : schedule());
-    const onMotionChange = () => {
-      stop();
-      schedule();
-    };
-
     const resizeObserver = new ResizeObserver(resize);
-    const intersection = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      if (visible) schedule();
-      else stop();
-    });
+    const intersection = new IntersectionObserver(([entry]) => view?.setVisible(entry.isIntersecting));
 
-    import("./coin-scene")
-      .then(({ createCoinScene }) => {
+    // The shared loader engine draws the hero too: one WebGL context per page.
+    Promise.all([loadEngine(), import("./coin-scene")])
+      .then(([{ attachScene }, { createCoinScene }]) => {
         if (cancelled) return;
         const palette: CoinPalette = {
           paper: readTokenColor(stage, "--illustration-paper"),
           ink: readTokenColor(stage, "--illustration-ink"),
           accent: readTokenColor(stage, "--illustration-accent"),
         };
+        scene = createCoinScene(palette, publish);
         try {
-          scene = createCoinScene(canvas, palette);
+          view = attachScene(canvas, scene);
         } catch {
           return; // No WebGL: the data cards still tell the story.
         }
@@ -158,20 +120,15 @@ export function CoinStage() {
         resizeObserver.observe(stage);
         intersection.observe(stage);
         stage.addEventListener("pointermove", onPointer);
-        document.addEventListener("visibilitychange", onVisibility);
-        reducedMotion.addEventListener("change", onMotionChange);
       })
       .catch(() => {});
 
     return () => {
       cancelled = true;
-      stop();
       resizeObserver.disconnect();
       intersection.disconnect();
       stage.removeEventListener("pointermove", onPointer);
-      document.removeEventListener("visibilitychange", onVisibility);
-      reducedMotion.removeEventListener("change", onMotionChange);
-      scene?.dispose();
+      view?.dispose();
     };
   }, []);
 

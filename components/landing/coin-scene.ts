@@ -18,9 +18,9 @@ import {
   Shape,
   Vector2,
   Vector3,
-  WebGLRenderer,
 } from "three";
 
+import type { Motif } from "@/components/loader/motifs";
 import { CYCLE_SECONDS, LEGS, SETTLED_SECONDS, basketOpacity, legStart } from "./coin-timeline";
 
 export type Rgb = [number, number, number];
@@ -157,11 +157,11 @@ function easeOutBack(x: number) {
   return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2;
 }
 
-export function createCoinScene(canvas: HTMLCanvasElement, palette: CoinPalette) {
-  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
-  // Pass token colors through untouched so the canvas matches the CSS around it.
-  renderer.outputColorSpace = LinearSRGBColorSpace;
-
+/**
+ * The hero scene as a motif for the shared loader renderer, so the landing page never
+ * needs a second WebGL context. `onTime` reports the timeline position each frame.
+ */
+export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) => void) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(28, 1, 0.1, 50);
   camera.position.set(0, 0.9, 7.2);
@@ -236,7 +236,7 @@ export function createCoinScene(canvas: HTMLCanvasElement, palette: CoinPalette)
   const pointer = new Vector2();
   const tilt = new Vector2();
 
-  function render(elapsed: number) {
+  function pose(elapsed: number) {
     tilt.lerp(pointer, 0.06);
     // Front three-quarter view at SETTLED_SECONDS, the reduced-motion still frame.
     coin.rotation.y = (elapsed - SETTLED_SECONDS) * 0.5 - 0.45 + tilt.x * 0.35;
@@ -254,12 +254,9 @@ export function createCoinScene(canvas: HTMLCanvasElement, palette: CoinPalette)
       share.position.y = restY + (1 - easeOutBack(progress)) * 1.1;
       share.rotation.y = (1 - progress) * 1.2;
     }
-    renderer.render(scene, camera);
   }
 
   function resize(width: number, height: number) {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(width, height, false);
     camera.aspect = width / height;
     // Keep the coin and the stacks in frame on wide, short stages.
     const wide = width / height > 1.15;
@@ -271,17 +268,36 @@ export function createCoinScene(canvas: HTMLCanvasElement, palette: CoinPalette)
     for (const material of engravings) material.uniforms.uDensity.value = height / visibleHeight / 7;
   }
 
-  return {
-    render,
+  // Advances only while drawn (the engine pauses offscreen and hidden tabs).
+  let elapsed = 0;
+  let last: number | null = null;
+  const motif: Motif & { setPointer(x: number, y: number): void } = {
+    scene,
+    camera,
+    still: SETTLED_SECONDS,
+    duration: () => Infinity,
+    update(time, state) {
+      if (state.still) {
+        last = null;
+        pose(SETTLED_SECONDS);
+        onTime(SETTLED_SECONDS);
+        return;
+      }
+      if (last != null) elapsed += Math.min(Math.max(time - last, 0), 0.1);
+      last = time;
+      pose(elapsed);
+      onTime(elapsed);
+    },
     resize,
-    setPointer(x: number, y: number) {
+    setPalette: () => undefined,
+    setPointer(x, y) {
       pointer.set(x, y);
     },
     dispose() {
       for (const item of owned) item.dispose();
-      renderer.dispose();
     },
   };
+  return motif;
 }
 
 export type CoinScene = ReturnType<typeof createCoinScene>;

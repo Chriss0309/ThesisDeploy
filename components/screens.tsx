@@ -7,42 +7,50 @@ import { XRaySkeleton } from "@/components/portfolio/xray-view";
 // hands over to the page's own Suspense fallback without anything moving.
 export const SCREENS = {
   xray: {
+    mark: "xray",
     eyebrow: "01 · Read from SnapTrade",
     title: "Portfolio X-Ray",
     description: "Cash, buying power, positions, and concentration for each connected account.",
   },
   xrayDemo: {
+    mark: "xray",
     eyebrow: "01 · Guest demo",
     title: "Portfolio X-Ray",
     description: "Cash, buying power, positions, and concentration for each connected account.",
   },
   studio: {
+    mark: "studio",
     eyebrow: "02 · Build the basket",
     title: "Thesis Studio",
     description: "Turn a one-line conviction into a whole-share basket, checked against what you already hold.",
   },
   studioDemo: {
+    mark: "studio",
     eyebrow: "02 · Guest demo",
     title: "Thesis Studio",
     description: "Turn a one-line conviction into a whole-share basket, checked against what the portfolio already holds.",
   },
   basket: {
+    mark: "basket",
     eyebrow: "03 · Saved basket",
     title: "Virtual basket",
     description: "The orders you confirmed, the fills they produced, and the execution that placed them.",
   },
   basketDemo: {
+    mark: "basket",
     eyebrow: "03 · Guest demo",
     title: "Virtual basket",
     description: "The orders you confirmed, the fills they produced, and the execution that placed them.",
   },
   theses: {
+    mark: "theses",
     eyebrow: "04 · Valued live",
     title: "My Theses",
     description:
       "Every basket you've run, valued at current prices against what you paid, with drift from each target and a one-click rebalance.",
   },
   thesesDemo: {
+    mark: "theses",
     eyebrow: "04 · Guest demo",
     title: "My Theses",
     description:

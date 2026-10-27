@@ -7,6 +7,7 @@ import { ExecutionLoader } from "@/components/execution/execution-loader";
 import { ExecutionLog } from "@/components/execution/execution-log";
 import { useExecution } from "@/components/execution/use-execution";
 import { LoaderGlyph } from "@/components/loader/loader";
+import { Mark } from "@/components/loader/mark";
 import { formatTimestamp } from "@/components/portfolio/format";
 import { Button } from "@/components/ui/button";
 import { stackLegs } from "@/lib/execution/client-state";
@@ -64,12 +65,15 @@ export function ExecutionPanel({
           role="status"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5 text-xs text-warning-subtle-foreground"
         >
-          <p className="max-w-prose">
-            {summary.working > 0 && `${summary.working} ${summary.working === 1 ? "order is" : "orders are"} open at ${execution.institution}. `}
-            {summary.unknown > 0 &&
-              `${summary.unknown} ${summary.unknown === 1 ? "order wasn't" : "orders weren't"} confirmed by SnapTrade and won't be sent again on their own. `}
-            {execution.reconciledAt ? `Last checked ${formatTimestamp(execution.reconciledAt)}. ` : ""}
-            ThesisDeploy checks every 15 seconds while this page is open.
+          <p className="flex max-w-prose items-center gap-2.5">
+            <Mark kind="awaiting" size="inline" />
+            <span>
+              {summary.working > 0 && `${summary.working} ${summary.working === 1 ? "order is" : "orders are"} open at ${execution.institution}. `}
+              {summary.unknown > 0 &&
+                `${summary.unknown} ${summary.unknown === 1 ? "order wasn't" : "orders weren't"} confirmed by SnapTrade and won't be sent again on their own. `}
+              {execution.reconciledAt ? `Last checked ${formatTimestamp(execution.reconciledAt)}. ` : ""}
+              ThesisDeploy checks every 15 seconds while this page is open.
+            </span>
           </p>
           <Button variant="outline" size="xs" disabled={checking} onClick={() => void checkStatus()}>
             {checking ? <LoaderGlyph variant="scan" fallback={<RefreshCw />} /> : <RefreshCw />} Check status now
@@ -86,7 +90,11 @@ export function ExecutionPanel({
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!draining && (
-          <p className="text-xs text-muted-foreground">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            {!active && !awaiting && execution.status === "completed" && <Mark kind="success" size="inline" />}
+            {!active && !awaiting && (execution.status === "partial" || execution.status === "failed") && (
+              <Mark kind="error" size="inline" />
+            )}
             {active
               ? "Paused with legs left to submit. Filled legs are saved."
               : execution.status === "canceled"

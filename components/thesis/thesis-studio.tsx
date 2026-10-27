@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Loader, LoaderGlyph } from "@/components/loader/loader";
+import { Mark, Reveal } from "@/components/loader/mark";
 import { formatMoney } from "@/components/portfolio/format";
 import { BasketComposer, type EditAction } from "@/components/thesis/basket-composer";
 import { Button } from "@/components/ui/button";
@@ -230,6 +231,7 @@ export function ThesisStudio({
 
   return (
     <div className="flex flex-col items-start gap-6 lg:flex-row">
+      <Reveal />
       <Card className="w-full lg:w-96 lg:shrink-0">
         <CardHeader>
           <p className="eyebrow text-muted-foreground">► Conviction</p>
@@ -384,9 +386,10 @@ export function ThesisStudio({
               {error && (
                 <p
                   role="alert"
-                  className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground"
+                  className="flex items-center gap-2.5 rounded-md border border-negative-border bg-negative-subtle px-3 py-2 text-xs text-negative-subtle-foreground"
                 >
-                  {error}
+                  <Mark kind="error" size="inline" />
+                  <span>{error}</span>
                 </p>
               )}
             </div>
@@ -412,13 +415,16 @@ export function ThesisStudio({
         ) : (
           pendingSince == null && (
             <Card>
-              <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <p className="eyebrow">► Basket</p>
-                <p className="font-display text-xl font-semibold text-foreground">Your basket appears here.</p>
-                <p>
-                  Pick a preset or write your own conviction, then generate. Every ticker is checked against SnapTrade
-                  and priced before it shows up, and anything you already own is flagged and trimmed.
-                </p>
+              <CardContent className="flex flex-col items-start gap-5 text-sm text-muted-foreground sm:flex-row">
+                <Mark kind="empty" />
+                <div className="flex flex-col gap-2">
+                  <p className="eyebrow">► Basket</p>
+                  <p className="font-display text-xl font-semibold text-foreground">Your basket appears here.</p>
+                  <p>
+                    Pick a preset or write your own conviction, then generate. Every ticker is checked against
+                    SnapTrade and priced before it shows up, and anything you already own is flagged and trimmed.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )
