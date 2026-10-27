@@ -26,7 +26,7 @@ Spade was studied on its public site (spade.com at 1440 px and 390 px, plus its 
 3. **Annotate like an analyst.** Small mono uppercase labels name what a number is; the number itself stays plain.
 4. **Honest states.** Paper vs Live, Trading vs Read-only, and overlap are never color-only: each badge carries a word, and Live is visually louder than Paper.
 5. **Calm surfaces, sharp details.** Hairline borders and near-flat elevation; chamfers and registration marks are accents, used sparingly.
-6. **Motion explains.** Animation shows real behavior (one order per second, whole shares stacking) and stops for reduced-motion users.
+6. **Motion explains.** Animation shows real behavior (one order per second, whole shares stacking). CSS transitions honor reduced motion; the three.js scenes play either way.
 
 ## 3. Fonts
 
@@ -127,7 +127,7 @@ Label tracking: `tracking-label` (0.14em) for eyebrows, `tracking-badge` (0.06em
 | `--duration-pace` | 1000 ms | The order-pacing pulse (`animate-pace`) |
 | `ease-standard` / `ease-enter` / `ease-exit` | cubic-bezier(.2,0,0,1) / (0,0,.2,1) / (.4,0,1,1) | Default / entering / leaving |
 
-Under `prefers-reduced-motion: reduce`, CSS animations and transitions collapse to near zero, and the hero coin, every loader, and every mark render a single still frame. Motion is specified in section 11.
+Under `prefers-reduced-motion: reduce`, CSS animations and transitions collapse to near zero. The hero coin, every loader, and every mark keep playing. Motion is specified in section 11.
 
 ## 8. Numbers and currency
 
@@ -207,7 +207,7 @@ A vertical log, one row per step, mono `text-xs`: elapsed offset `[00:02s]` (mut
 **Concentration:** a 16 px bar, `rounded-xs`, segments separated by 1 px gaps on `chart-track`, ordered largest holding first, then Other, then hatched cash. The legend uses 10 px squares, a mono label, and a tabular percent, followed by a summary sentence ("Largest position: ENB.TO at 21.1%…"). The bar has an `aria-label` listing every segment. **Drift (dual bar), per constituent:** a 6 px track; current weight as a `brand` fill; target weight as a 2 px ink tick extending 4 px above and below; the gap between them shaded `drift-over` or `drift-under` at 60%. The signed drift (`+2.4 pts`) is right-aligned and tabular, and past ±5 pts it turns warning and the card shows "Rebalance recommended". On mobile the bar spans the full row width under the ticker.
 
 ### Data cards and the hero illustration (Built: `components/landing/`)
-Floating mono data cards (`frame-marks` on `surface-tint`, or a card with `shadow-md`) carry the live "leg" log and the whole-share counter, echoing Spade's annotated hero without its content. **The hero coin** is an original three.js scene. An engraved coin (lathe profile with a raised rim and reeded edge) carries an original extruded bull-head emblem in cobalt. Its surfaces are drawn as world-space slice lines that thicken on the shaded side, an engraving take on contour line-art. Below it, four stacks of whole-share coins drop in one order leg per second onto a ruled baseline, synced with the data cards. Colors are read from `--illustration-*` tokens at runtime. three.js loads lazily after hydration (a separate chunk shared with the loaders), and the shared loader renderer draws the hero, so the landing page uses one WebGL context; it pauses offscreen and in hidden tabs. Pixel ratio is capped at 2. Reduced motion gets one still frame. Without WebGL, the data cards still render.
+Floating mono data cards (`frame-marks` on `surface-tint`, or a card with `shadow-md`) carry the live "leg" log and the whole-share counter, echoing Spade's annotated hero without its content. **The hero coin** is an original three.js scene. An engraved coin (lathe profile with a raised rim and reeded edge) carries an original extruded bull-head emblem in cobalt. Its surfaces are drawn as world-space slice lines that thicken on the shaded side, an engraving take on contour line-art. Below it, four stacks of whole-share coins drop in one order leg per second onto a ruled baseline, synced with the data cards. Colors are read from `--illustration-*` tokens at runtime. three.js loads lazily after hydration (a separate chunk shared with the loaders), and the shared loader renderer draws the hero, so the landing page uses one WebGL context; it pauses offscreen and in hidden tabs. Pixel ratio is capped at 2. Reduced motion does not stop it. Without WebGL, the data cards still render.
 
 ## 10. Implementation and enforcement
 
@@ -261,7 +261,7 @@ While a page is loading, its header mark holds its first frame (the scan plane a
 - **Minimum visible time.** Once shown, a loader stays for at least 600 ms (`--loader-min-visible`). When the work finishes, the motif settles for 450 ms (`--loader-settle`) before the content is revealed.
 - **No layout shift.** Every motif renders into a box with a fixed size from tokens, and `--page-main-min` keeps the page body from collapsing between a route's `loading.tsx` and its content. Measured CLS on page loads stays below 0.01, and is 0 on most pages.
 - **Accessibility.** Loaders have `role="status"`, `aria-live="polite"`, and `aria-busy="true"`, and always carry readable text. Marks are `aria-hidden`: the title, notice, or message beside them carries the meaning.
-- **Reduced motion.** `prefers-reduced-motion: reduce` draws one still frame per motif and pose (the settled composition, or the end of a one-shot pose) and never starts the frame loop.
+- **Reduced motion.** `prefers-reduced-motion: reduce` collapses CSS animations and transitions only. The landing hero, loaders, page marks, and stacks play through it. Desktop windows keep looping; phones (a coarse pointer or a viewport under 768 px) still play each endless scene once and hold.
 - **Pause.** Each view stops drawing when it is offscreen (IntersectionObserver) or the tab is hidden, and resumes when it returns. A mark that finished its pose draws nothing at all.
 - **One WebGL context per page.** There is one renderer for loaders, marks, and the landing hero. Each scene is drawn into a corner of a detached canvas and copied to the view's own 2D canvas.
 - **GPU budget.** On constrained devices (narrow viewport, touch, few cores, or low device memory) the cap is 30 fps, device pixel ratio 1.5, 420 k backing pixels per view, and 750 k pixels drawn per frame, with views past the frame budget held on a still frame. Phones (a coarse pointer or a viewport under 768 px) play every endless scene once and hold — the landing hero (pre-flight, four legs, basket), loaders, and the paced pulse — because an endless loop kept a phone's main thread busy for as long as the page was open (Lighthouse mobile: total blocking time 5.3 s → about 1 s, time to interactive 46 s → 11 s). A desktop window (fine pointer and a viewport of at least 768 px) keeps those scenes looping; CPU cores and device memory do not stop the loop. Otherwise the cap is 60 fps, DPR 2, 1.2 M and 3 M pixels.

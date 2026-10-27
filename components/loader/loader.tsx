@@ -8,7 +8,7 @@ import { DEFAULT_TIMING, parseMs, settleHold, type ExecutionProgress, type Loade
 
 export type { ExecutionLeg, ExecutionProgress, LegStatus, LoaderVariant } from "./timing";
 
-// <td-motif> does the work (delay, lazy three.js, pause, reduced motion), so a loader
+// <td-motif> does the work (delay, lazy three.js, pause), so a loader
 // streamed in an unhydrated Suspense fallback animates too. React only feeds it live
 // progress and holds the content back while the motif settles.
 defineMotionElements();

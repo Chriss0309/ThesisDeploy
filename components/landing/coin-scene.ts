@@ -240,7 +240,7 @@ export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) 
 
   function pose(elapsed: number) {
     tilt.lerp(pointer, 0.06);
-    // Front three-quarter view at SETTLED_SECONDS, the reduced-motion still frame.
+    // Front three-quarter view at SETTLED_SECONDS, the frame a one-pass hero holds.
     coin.rotation.y = (elapsed - SETTLED_SECONDS) * 0.5 - 0.45 + tilt.x * 0.35;
     coin.rotation.x = 0.16 + Math.sin(elapsed * 0.7) * 0.05 + tilt.y * 0.18;
     coin.position.y = 0.5 + Math.sin(elapsed * 1.1) * 0.03;
