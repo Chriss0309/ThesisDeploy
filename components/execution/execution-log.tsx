@@ -1,6 +1,7 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import { useState } from "react";
 
 import { LoaderGlyph } from "@/components/loader/loader";
 import { formatMoney } from "@/components/portfolio/format";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 const STATUS_BADGE: Record<ExecutionStatus, { tone: "neutral" | "positive" | "warning" | "negative"; label: string }> = {
   queued: { tone: "neutral", label: "Queued" },
   running: { tone: "warning", label: "Running" },
+  working: { tone: "warning", label: "Open at broker" },
   completed: { tone: "positive", label: "Completed" },
   partial: { tone: "warning", label: "Partly filled" },
   failed: { tone: "negative", label: "Failed" },
@@ -23,13 +25,53 @@ const STATUS_BADGE: Record<ExecutionStatus, { tone: "neutral" | "positive" | "wa
 export function ExecutionStatusBadge({ status }: { status: ExecutionStatus }) {
   const badge = STATUS_BADGE[status];
   return (
-    <Badge tone={badge.tone} dot={status === "running"}>
+    <Badge tone={badge.tone} dot={status === "running" || status === "working"}>
       {badge.label}
     </Badge>
   );
 }
 
 const shortId = (id: string) => (id.length > 14 ? `${id.slice(0, 12)}…` : id);
+
+type Retry = (legId: string, options?: { confirmNotPlaced?: boolean }) => void;
+
+/** A Live order SnapTrade never confirmed is resent only after the user checks their broker. */
+function UnknownRetry({
+  leg,
+  institution,
+  busy,
+  retrying,
+  onRetry,
+}: {
+  leg: LegView;
+  institution: string;
+  busy: boolean;
+  retrying: boolean;
+  onRetry: Retry;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center gap-2 font-sans">
+      <label className="flex items-center gap-1.5 text-xs">
+        <input
+          type="checkbox"
+          className="size-3.5 accent-brand"
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
+        />
+        I checked {institution}: this order isn&apos;t there
+      </label>
+      <Button
+        variant="outline"
+        size="xs"
+        disabled={!confirmed || busy}
+        onClick={() => onRetry(leg.id, { confirmNotPlaced: true })}
+      >
+        {retrying ? <LoaderGlyph fallback={<RotateCcw />} /> : <RotateCcw />} Send it again
+      </Button>
+    </div>
+  );
+}
 
 function LegBadge({ leg, pacing }: { leg: LegView; pacing: boolean }) {
   switch (leg.status) {
@@ -56,7 +98,7 @@ function LegBadge({ leg, pacing }: { leg: LegView; pacing: boolean }) {
     case "failed":
       return <Badge tone="negative">Failed</Badge>;
     case "unknown":
-      return <Badge tone="warning">Unknown</Badge>;
+      return <Badge tone="warning">Unconfirmed</Badge>;
     case "skipped":
       return <Badge>Skipped</Badge>;
   }
@@ -87,10 +129,12 @@ function LegRow({
   busy: boolean;
   /** This leg's retry request is in flight. */
   retrying: boolean;
-  onRetry?: (legId: string) => void;
+  onRetry?: Retry;
 }) {
-  const { currency } = execution;
+  const { currency, institution } = execution;
   const failed = leg.status === "rejected" || leg.status === "failed";
+  const open = leg.status === "accepted" || leg.status === "partial";
+  const checkedSince = Boolean(execution.reconciledAt && leg.claimedAt && execution.reconciledAt > leg.claimedAt);
   return (
     <li
       aria-current={current ? "step" : undefined}
@@ -107,9 +151,19 @@ function LegRow({
         </span>
         {(leg.status === "executed" || leg.status === "partial") && leg.fillPrice != null && (
           <span className="text-muted-foreground tabular-nums">
-            {leg.filledUnits} @ {formatMoney(leg.fillPrice, currency)}
+            {leg.status === "partial" ? `${leg.filledUnits} of ${leg.units} filled` : leg.filledUnits} @{" "}
+            {formatMoney(leg.fillPrice, currency)}
             {leg.brokerageOrderId && <> · order {shortId(leg.brokerageOrderId)}</>}
           </span>
+        )}
+        {leg.status === "accepted" && (
+          <span className="text-muted-foreground">
+            Order {leg.brokerageOrderId ? shortId(leg.brokerageOrderId) : ""} open at {institution}
+            {leg.snaptradeStatus ? ` (${leg.snaptradeStatus})` : ""}
+          </span>
+        )}
+        {leg.status === "executed" && leg.errorMessage && (
+          <span className="font-sans text-muted-foreground">{leg.errorMessage}</span>
         )}
         {(leg.status === "pending" || leg.status === "claimed") && (
           <span className="text-muted-foreground tabular-nums">est. {formatMoney(leg.units * leg.estPrice, currency)}</span>
@@ -119,8 +173,17 @@ function LegRow({
             Attempt {attempt.attempt} {attempt.status}: {attempt.errorMessage ?? "no reason given"}
           </span>
         ))}
-        {(failed || leg.status === "unknown") && leg.errorMessage && (
-          <span className="font-sans text-negative-subtle-foreground">{leg.errorMessage}</span>
+        {failed && leg.errorMessage && <span className="font-sans text-negative-subtle-foreground">{leg.errorMessage}</span>}
+        {leg.status === "unknown" && (
+          <span className="font-sans text-warning-subtle-foreground">
+            {leg.errorMessage ?? `Waiting to hear from ${institution}.`}
+          </span>
+        )}
+        {leg.status === "unknown" && checkedSince && onRetry && execution.status !== "canceled" && (
+          <UnknownRetry leg={leg} institution={institution} busy={busy} retrying={retrying} onRetry={onRetry} />
+        )}
+        {open && execution.mode === "live" && !leg.brokerageOrderId && (
+          <span className="text-muted-foreground">Open at {institution}</span>
         )}
         {retryable && onRetry && (
           <Button
@@ -155,7 +218,7 @@ export function ExecutionLog({
   execution: ExecutionView;
   draining: boolean;
   busyLeg?: string | null;
-  onRetry?: (legId: string) => void;
+  onRetry?: Retry;
 }) {
   const latest = latestAttempts(execution.legs);
   const summary = summarizeLegs(execution.legs);
@@ -175,7 +238,9 @@ export function ExecutionLog({
     <section aria-label="Execution progress" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="flex flex-col gap-1">
-          <p className="eyebrow text-muted-foreground">► Execution · 1 order per second</p>
+          <p className="eyebrow text-muted-foreground">
+            ► {execution.mode === "live" ? `Live orders at ${execution.institution}` : "Execution"} · 1 order per second
+          </p>
           <p className="font-display text-xl font-semibold tabular-nums">{summaryLine(summary)}</p>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -183,7 +248,7 @@ export function ExecutionLog({
             <Badge tone="info">Paper</Badge>
           ) : (
             <Badge tone="solid" dot>
-              Live
+              {execution.paperAccount ? "Live · paper account" : "Live"}
             </Badge>
           )}
           <ExecutionStatusBadge status={execution.status} />
@@ -205,7 +270,10 @@ export function ExecutionLog({
       <ol aria-live="polite" className="flex flex-col divide-y rounded-md border font-mono text-xs">
         <li className="grid grid-cols-(--grid-log) items-start gap-x-3 px-3 py-2.5">
           <span className="text-muted-foreground tabular-nums">[00:00s]</span>
-          <span className="text-pretty">Validated pre-flight · account, prices, market hours</span>
+          <span className="text-pretty">
+            Validated pre-flight · account, prices, market hours
+            {execution.mode === "live" && ", buying power, brokerage preview"}
+          </span>
           <span className="justify-self-end">
             {started ? (
               <Badge tone="positive">Checked</Badge>

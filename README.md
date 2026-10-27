@@ -16,9 +16,9 @@ Early scaffold. What works today:
 - Design system: every color, font, type size, radius, shadow, and motion value lives in `app/tokens.css`, and a test fails the build on hardcoded values anywhere else. The landing page has a three.js engraved-coin animation of paced, whole-share execution, and every page uses a shared three.js motif family: loaders while content loads, and engraved marks that play once when it renders (one WebGL context per page, gallery at `/design/loaders`). See [`docs/design-system.md`](docs/design-system.md).
 - Paper execution: a pre-flight modal with the exact order list, fresh SnapTrade quotes, and every reason Live is unavailable. Confirming runs a Postgres-backed queue that submits one leg per 1.1 seconds per account, keeps going past a rejected leg, offers "Retry failed leg", and resumes after a dropped connection or closed tab. Fills land in a Virtual Basket ledger (`/baskets/:id`, or `/demo/baskets/:id` for guests). No order endpoint is called, and Live stays behind `LIVE_TRADING_ENABLED`. See [`docs/paper-execution.md`](docs/paper-execution.md).
 
-- My Theses (`/theses`, guests at `/demo/theses`): every basket valued live against its cost basis, per-stock drift with a dual-bar indicator, and a "Rebalance recommended" flag past 5 points. Rebalance (whole shares, sells before buys, roughly cash-neutral) and Close run through the same pre-flight and paced paper queue. Live stays refused. See [`docs/my-theses.md`](docs/my-theses.md).
-
-Live order submission lands in a later PR.
+- My Theses (`/theses`, guests at `/demo/theses`): every basket valued live against its cost basis, per-stock drift with a dual-bar indicator, and a "Rebalance recommended" flag past 5 points. Rebalance (whole shares, sells before buys, roughly cash-neutral) and Close run through the same pre-flight and paced queue, Paper or Live. See [`docs/my-theses.md`](docs/my-theses.md).
+- Product telemetry: "► Product telemetry" in every footer opens a drawer with the activation funnel, basket edit rate, symbol resolution hit rate, order success per brokerage, SnapTrade p50/p95 latency per operation, and 429s. It shows two views: everyone, and the current user or demo visitor. Aggregates only; account IDs are stored as keyed hashes. See [`docs/telemetry.md`](docs/telemetry.md).
+- Live execution: real whole-share market orders through SnapTrade for deploys, rebalances, and closes. Live is gated on the kill switch (always off on Vercel previews), a `trade`-scoped trading connection, market hours, buying power, and actual holdings. It runs a per-leg brokerage preview with labeled impact, needs an explicit acknowledgement, and places orders with a `client_order_id` per attempt at 1.1 seconds per account. Order status is reconciled from recent orders at most every 15 seconds, and an unconfirmed order is never resent automatically. See [`docs/live-execution.md`](docs/live-execution.md).
 
 ## Stack
 
@@ -74,7 +74,7 @@ All variables are optional at build time so Preview deployments build without se
 | `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`) |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Model default `claude-sonnet-5-5`. Without a key, Thesis Studio generation is off and the demo shows sample baskets. |
 | `GUEST_GENERATIONS_PER_DAY` | Claude calls the guest demo may make per rolling 24 hours across all visitors; default 40, `0` turns them off |
-| `LIVE_TRADING_ENABLED` | Kill switch for real orders, checked on every leg; default `false`. Live submission isn't wired yet, so Live stays disabled either way. |
+| `LIVE_TRADING_ENABLED` | Kill switch for real orders, checked at pre-flight, at confirm, and on every leg; default `false`. Always off on Vercel previews (`VERCEL_ENV=preview`, set by Vercel). |
 
 Secrets live only in Vercel environment variables and `.env.local`, never in the repo. All SnapTrade calls go through the backend.
 

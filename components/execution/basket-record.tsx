@@ -63,9 +63,18 @@ export function BasketRecord({
           <p className="text-xs text-muted-foreground">
             {basket.account.institution} · created {formatTimestamp(basket.createdAt)}
             {basket.deployedAt && <> · first fill {formatTimestamp(basket.deployedAt)}</>}
-            {basket.closedAt && <> · closed {formatTimestamp(basket.closedAt)}</>}. Paper fills use the
-            pre-flight {basket.priceSource === "demo" ? "fictional demo quotes" : "SnapTrade quotes"}; the shares don&apos;t
-            exist at the brokerage and are kept apart from real holdings.
+            {basket.closedAt && <> · closed {formatTimestamp(basket.closedAt)}</>}.{" "}
+            {basket.mode === "live" ? (
+              <>
+                Live: fills are what {basket.account.institution} reported through SnapTrade, and the ledger tracks only
+                the shares this basket placed.
+              </>
+            ) : (
+              <>
+                Paper fills use the pre-flight {basket.priceSource === "demo" ? "fictional demo quotes" : "SnapTrade quotes"};
+                the shares don&apos;t exist at the brokerage and are kept apart from real holdings.
+              </>
+            )}
           </p>
         </CardHeader>
 

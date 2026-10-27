@@ -68,6 +68,7 @@ function stackStatus(leg: LegView, pacing: boolean): StackStatus {
     case "pending":
       return pacing ? "pacing" : "queued";
     case "claimed":
+    case "unknown":
       return "submitting";
     case "executed":
     case "accepted":
@@ -75,7 +76,6 @@ function stackStatus(leg: LegView, pacing: boolean): StackStatus {
       return "submitted";
     case "rejected":
     case "failed":
-    case "unknown":
       return "failed";
     case "skipped":
       return "queued";

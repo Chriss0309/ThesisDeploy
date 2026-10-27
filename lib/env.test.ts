@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { configuredFeatures, parseServerEnv } from "@/lib/env";
+import { configuredFeatures, liveTradingEnabled, parseServerEnv } from "@/lib/env";
 
 const key32 = Buffer.alloc(32, 7).toString("base64");
 
@@ -88,5 +88,18 @@ describe("configuredFeatures", () => {
       anthropic: false,
       liveTrading: true,
     });
+  });
+
+  it("keeps Live trading off on Vercel previews whatever the switch says", () => {
+    const on = { LIVE_TRADING_ENABLED: "true" };
+    const parse = (extra: Record<string, string>) => {
+      const result = parseServerEnv({ ...on, ...extra });
+      if (!result.ok) throw new Error("expected valid env");
+      return liveTradingEnabled(result.env);
+    };
+    expect(parse({})).toBe(true);
+    expect(parse({ VERCEL_ENV: "production" })).toBe(true);
+    expect(parse({ VERCEL_ENV: "preview" })).toBe(false);
+    expect(parse({ VERCEL_ENV: "preview", LIVE_TRADING_ENABLED: "false" })).toBe(false);
   });
 });

@@ -205,14 +205,19 @@ export function ThesisStudio({
   };
 
   const thesisId = payload?.thesis.id ?? null;
+  const ref = payload?.thesis.ref ?? null;
   const recordEdit = useCallback(
     (action: EditAction, symbol: string) => {
-      if (mode !== "live" || !thesisId) return;
+      const target =
+        mode === "live"
+          ? thesisId && { url: `/api/theses/${thesisId}/edits`, body: { action, symbol } }
+          : ref && { url: "/api/demo/edits", body: { ref, action, symbol } };
+      if (!target) return;
       const post = () =>
-        void fetch(`/api/theses/${thesisId}/edits`, {
+        void fetch(target.url, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action, symbol }),
+          body: JSON.stringify(target.body),
           keepalive: true,
         }).catch(() => undefined);
       if (action !== "reweight" && action !== "step") return post();
@@ -221,7 +226,7 @@ export function ThesisStudio({
       window.clearTimeout(editTimers.current.get(key));
       editTimers.current.set(key, window.setTimeout(post, 1000));
     },
-    [mode, thesisId],
+    [mode, thesisId, ref],
   );
 
   return (

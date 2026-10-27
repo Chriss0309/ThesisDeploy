@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { ReauthRequiredError } from "@/lib/auth/vault";
 import { serverEnv } from "@/lib/env";
 import { describeError } from "@/lib/errors";
@@ -9,7 +11,7 @@ import { THESIS_PRESETS, type ThesisPreset } from "@/lib/presets";
 import { SnapTradeError, hashAccountId, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { decideBudget, readBudgetWindow } from "@/lib/snaptrade/rate-budget";
 import { DEFAULT_SLIPPAGE_BUFFER } from "@/lib/solver";
-import { recordEvent } from "@/lib/telemetry/events";
+import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 import { composeBasket, type Composition } from "@/lib/thesis/compose";
 import {
   ThesisGenerationError,
@@ -110,6 +112,7 @@ async function runPipeline(
 
 function toPayload(args: {
   id: string | null;
+  ref: string;
   request: ThesisRequest;
   account: PortfolioAccount;
   pipeline: Pipeline;
@@ -125,6 +128,7 @@ function toPayload(args: {
   return {
     thesis: {
       id: args.id,
+      ref: args.ref,
       title: pipeline.normalized.title,
       summary: pipeline.normalized.summary,
       riskProfile: pipeline.normalized.riskProfile,
@@ -160,12 +164,25 @@ function toPayload(args: {
   };
 }
 
-async function recordGeneration(
-  userId: string | undefined,
-  generation: Generation,
+/**
+ * One `thesis_generated` and one `symbols_resolved` per basket shown to
+ * someone, the funnel's "generated" step and the hit rate's input. `source`
+ * says whether Claude ran for it; model latency and tokens are set only then.
+ * Guests are keyed by their demo cookie, and `ref` ties their edits to this basket.
+ */
+async function recordServed(
+  owner: EventOwner,
   pipeline: Pipeline,
-  extra: { guest: boolean; presetKey: string | null },
+  served: {
+    guest: boolean;
+    presetKey: string | null;
+    source: ThesisSource;
+    ref: string;
+    model: string;
+    generation: Generation | null;
+  },
 ) {
+  const { generation, ...extra } = served;
   const dropped: Record<string, number> = {};
   const all = [...pipeline.grounded, ...pipeline.normalized.rejected];
   for (const candidate of all) {
@@ -175,17 +192,24 @@ async function recordGeneration(
     "thesis_generated",
     {
       ...extra,
-      model: generation.model,
-      latencyMs: generation.latencyMs,
-      inputTokens: generation.inputTokens,
-      outputTokens: generation.outputTokens,
+      latencyMs: generation?.latencyMs ?? null,
+      inputTokens: generation?.inputTokens ?? null,
+      outputTokens: generation?.outputTokens ?? null,
     },
-    userId,
+    owner,
   );
   await recordEvent(
     "symbols_resolved",
-    { ...extra, proposed: all.length, resolved: all.length - Object.values(dropped).reduce((a, b) => a + b, 0), dropped },
-    userId,
+    {
+      guest: extra.guest,
+      presetKey: extra.presetKey,
+      source: extra.source,
+      ref: extra.ref,
+      proposed: all.length,
+      resolved: all.length - Object.values(dropped).reduce((a, b) => a + b, 0),
+      dropped,
+    },
+    owner,
   );
 }
 
@@ -304,9 +328,17 @@ export async function createThesis(
     composition: pipeline.composition,
     priceSource: "snaptrade",
   });
-  await recordGeneration(ctx.userId, generation, pipeline, { guest: false, presetKey: request.presetKey ?? null });
+  await recordServed({ userId: ctx.userId }, pipeline, {
+    guest: false,
+    presetKey: request.presetKey ?? null,
+    source: "generated",
+    ref: id,
+    model: generation.model,
+    generation,
+  });
   return toPayload({
     id,
+    ref: id,
     request,
     account,
     pipeline,
@@ -337,7 +369,8 @@ function presetFor(request: ThesisRequest): ThesisPreset | null {
  */
 export async function createDemoThesis(
   request: ThesisRequest,
-  guest: { client: string },
+  /** `key` is the keyed hash of the visitor's demo cookie, for telemetry. */
+  guest: { client: string; key?: string | null },
   deps: ThesisDeps = {},
 ): Promise<ComposerPayload> {
   const env = serverEnv();
@@ -352,7 +385,17 @@ export async function createDemoThesis(
   const source = demoQuoteSource();
   const preset = presetFor(request);
   const dbReady = Boolean(env.DATABASE_URL);
-  const base = { request, account, portfolio, pricing: "demo" as const, pricedAt: DEMO_QUOTES.as_of };
+  const ref = randomUUID();
+  const base = { request, account, portfolio, ref, pricing: "demo" as const, pricedAt: DEMO_QUOTES.as_of };
+  const served = (pipeline: Pipeline, from: ThesisSource, servedModel: string, generation: Generation | null = null) =>
+    recordServed({ guestKey: guest.key ?? null }, pipeline, {
+      guest: true,
+      presetKey: preset?.key ?? null,
+      source: from,
+      ref,
+      model: servedModel,
+      generation,
+    });
 
   if (dbReady) {
     const cached = await findCachedGuestThesis({
@@ -369,6 +412,7 @@ export async function createDemoThesis(
     const output = cached ? ThesisOutputSchema.safeParse(cached.llmOutput) : null;
     if (cached && output?.success) {
       const pipeline = await runPipeline(output.data, request, portfolio, source, now);
+      await served(pipeline, "cached", cached.model);
       return toPayload({
         ...base,
         id: null,
@@ -384,6 +428,7 @@ export async function createDemoThesis(
   const sample = preset ? SAMPLES[`${preset.key}:${request.currency}`] : undefined;
   const fromSample = async () => {
     const pipeline = await runPipeline(sample!, request, portfolio, source, now);
+    await served(pipeline, "sample", "sample");
     return toPayload({ ...base, id: null, pipeline, model: "sample", latencyMs: null, source: "sample", generatedAt: now });
   };
 
@@ -400,6 +445,7 @@ export async function createDemoThesis(
   // still sizes the basket for its own budget.
   const key = [preset?.key ?? guest.client, request.prompt, account.id, request.currency, request.overlapMode].join("|");
   let job = inFlight.get(key);
+  const shared = job != null;
   if (!job) {
     job = (async () => {
       const reservation = await reserveGeneration({
@@ -438,7 +484,6 @@ export async function createDemoThesis(
         composition: pipeline.composition,
         priceSource: "demo",
       });
-      await recordGeneration(undefined, generation, pipeline, { guest: true, presetKey: preset?.key ?? null });
       return generation;
     })().finally(() => inFlight.delete(key));
     inFlight.set(key, job);
@@ -447,6 +492,8 @@ export async function createDemoThesis(
   try {
     const generation = await job;
     const pipeline = await runPipeline(generation.output, request, portfolio, source, now);
+    // A caller that joined another's request got the basket without a Claude call of its own.
+    await (shared ? served(pipeline, "cached", generation.model) : served(pipeline, "generated", generation.model, generation));
     return toPayload({
       ...base,
       id: null,

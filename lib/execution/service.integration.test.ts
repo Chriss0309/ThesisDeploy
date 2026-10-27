@@ -327,12 +327,18 @@ describe.skipIf(!TEST_DATABASE_URL)("paper execution against stubs and Postgres"
     expect(run.execution.legs.filter((leg) => leg.seq === 1)).toEqual([expect.objectContaining({ status: "executed" })]);
   });
 
-  it("refuses Live in this release and stale pre-flights", async () => {
+  it("refuses Live while it's switched off or gated, and stale pre-flights", async () => {
     const { preflight } = await signedInPreflight();
     const live = { basketId: preflight.basketId, mode: "live" as const, simulateRejectSeq: null };
     await expectError(createExecution(user, { ...live, idempotencyKey: randomUUID() }, { now }), "live_disabled", 403);
     vi.stubEnv("LIVE_TRADING_ENABLED", "true");
-    await expectError(createExecution(user, { ...live, idempotencyKey: randomUUID() }, { now }), "live_unavailable", 501);
+    await expectError(createExecution(user, { ...live, idempotencyKey: randomUUID() }, { now }), "acknowledgement_required", 400);
+    // Saturday: the pre-flight's Live gate says the market is closed.
+    await expectError(
+      createExecution(user, { ...live, acknowledgeLive: true, idempotencyKey: randomUUID() }, { now }),
+      "live_unavailable",
+      409,
+    );
     vi.stubEnv("LIVE_TRADING_ENABLED", "false");
 
     const later = () => new Date(SATURDAY.getTime() + 6 * 60_000);

@@ -1,22 +1,25 @@
 import { randomUUID } from "node:crypto";
 
 import { getDb } from "@/lib/db/client";
-import { serverEnv } from "@/lib/env";
+import { currentKillSwitch, freshAccountState, type AccountState } from "@/lib/execution/live-account";
 import {
   ExecutionError,
   basketPath,
-  findActiveExecutionId,
+  findBlockingExecution,
   listBaskets,
   ownedBy,
   type Actor,
   type BasketRow,
 } from "@/lib/execution/store";
+import { latestAttempts, needsReconcile } from "@/lib/execution/summary";
 import type { PreflightPayload } from "@/lib/execution/types";
 import { PREFLIGHT_TTL_MS, type ExecutionView } from "@/lib/execution/types";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
+import { loadOverview } from "@/lib/portfolio/service";
+import type { PortfolioAccount } from "@/lib/portfolio/types";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
-import { recordEvent } from "@/lib/telemetry/events";
+import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 import { ActionPlanError, buildActionPreflight } from "@/lib/theses/action-preflight";
 import {
   demoMarks,
@@ -36,7 +39,10 @@ const isGuestBasket = (row: Pick<BasketRow, "userId">) => row.userId == null;
 
 /** The latest rebalance or close run shows on its card until it settles cleanly. */
 function visibleExecution(execution: ExecutionView | null): ExecutionView | null {
-  if (!execution || execution.kind === "deploy") return null;
+  if (!execution) return null;
+  // A deploy shows only while Live orders are unsettled, since that blocks rebalance and close.
+  const unsettled = latestAttempts(execution.legs).some((leg) => needsReconcile(leg.status));
+  if (execution.kind === "deploy" && !unsettled) return null;
   return execution.status === "completed" || execution.status === "canceled" ? null : execution;
 }
 
@@ -106,7 +112,7 @@ export async function loadTheses(
 }
 
 /** Telemetry for the dashboard being opened with at least one priced, active basket. */
-export async function recordDriftViewed(cards: readonly ThesisCard[], userId: string | null): Promise<void> {
+export async function recordDriftViewed(cards: readonly ThesisCard[], owner: EventOwner): Promise<void> {
   const priced = cards.filter((card) => card.status === "active" && card.valuation);
   if (priced.length === 0) return;
   const maxAbsDrift = Math.max(...priced.map((card) => card.valuation!.maxAbsDrift));
@@ -116,9 +122,9 @@ export async function recordDriftViewed(cards: readonly ThesisCard[], userId: st
       baskets: priced.length,
       flagged: priced.filter((card) => card.valuation!.rebalanceRecommended).length,
       maxAbsDriftPoints: Math.round(maxAbsDrift * 1000) / 10,
-      guest: userId == null,
+      guest: owner.userId == null,
     },
-    userId ?? undefined,
+    owner,
   );
 }
 
@@ -135,14 +141,19 @@ async function requireActionBasket(actor: Actor, basketId: string): Promise<Bask
       row.status === "closed" ? "This basket is closed." : "Only an active basket can be rebalanced or closed.",
     );
   }
-  if (row.mode === "live") {
-    throw new ExecutionError("live_unavailable", 501, "Live baskets can't be rebalanced or closed in this release.");
-  }
-  const active = await findActiveExecutionId(row.id);
-  if (active) {
+  const blocking = await findBlockingExecution(row.id);
+  if (blocking?.reason === "running") {
     throw new ExecutionError("execution_active", 409, "This basket still has an execution running. Finish or cancel it first.", {
-      executionId: active,
+      executionId: blocking.id,
     });
+  }
+  if (blocking) {
+    throw new ExecutionError(
+      "orders_open",
+      409,
+      `Orders from this basket's last run aren't settled at ${row.institution} yet. Check their status on the basket page first.`,
+      { executionId: blocking.id },
+    );
   }
   return row;
 }
@@ -183,6 +194,19 @@ export async function actionPreflight(
 
   const stored = row.preflight as unknown as PreflightPayload;
   const market = marketStatus(marketForCurrency(row.currency) ?? "NYSE", now);
+  const killSwitch = currentKillSwitch();
+  // A Live basket's gate needs the account re-read, buying power, and real holdings; skipped when Live is blocked anyway.
+  let account: PortfolioAccount | null = null;
+  let state: AccountState | null = null;
+  if (row.mode === "live" && !guest && killSwitch.on && market.open) {
+    const ctx = deps.ctx ?? snapTradeContext(actor.userId!);
+    try {
+      account = (await loadOverview(ctx)).accounts.find((candidate) => candidate.id === row.accountId) ?? null;
+    } catch (error) {
+      console.error("[theses] account re-read failed", error instanceof Error ? error.message : error);
+    }
+    if (account) state = await freshAccountState(ctx, account, row.currency);
+  }
   let built;
   try {
     built = buildActionPreflight({
@@ -192,7 +216,7 @@ export async function actionPreflight(
         id: row.accountId,
         name: row.accountName,
         institution: row.institution,
-        isPaper: stored.account?.isPaper ?? false,
+        isPaper: account?.isPaper ?? stored.account?.isPaper ?? false,
       },
       constituents: row.constituents.map((c) => ({
         symbol: c.symbol,
@@ -206,7 +230,11 @@ export async function actionPreflight(
       marks,
       market,
       guest,
-      liveTradingEnabled: serverEnv().LIVE_TRADING_ENABLED,
+      killSwitch,
+      basketMode: row.mode as "paper" | "live" | null,
+      capability: account,
+      buyingPower: state?.buyingPower ?? null,
+      held: row.mode === "live" ? (state?.held ?? null) : null,
     });
   } catch (error) {
     if (error instanceof ActionPlanError) {
@@ -236,9 +264,10 @@ export async function actionPreflight(
       orders: payload.orders.length,
       currency: row.currency,
       marketOpen: payload.market.open,
-      liveAvailable: false,
+      mode: row.mode,
+      liveAvailable: payload.live.available,
     },
-    row.userId ?? undefined,
+    { userId: row.userId, guestKey: row.guestKey },
   );
   return payload;
 }

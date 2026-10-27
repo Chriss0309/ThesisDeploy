@@ -1,6 +1,6 @@
 # My Theses
 
-`/theses` (and `/demo/theses` for guests) lists every basket the user has run, valued live against what they paid. It shows how far each holding has drifted from its target weight, flags baskets that need a rebalance, and lets the user rebalance or close a basket through the same pre-flight and paced queue as the first deploy. Paper only: Live stays refused, and no SnapTrade order endpoint is called anywhere.
+`/theses` (and `/demo/theses` for guests) lists every basket the user has run, valued live against what they paid. It shows how far each holding has drifted from its target weight, flags baskets that need a rebalance, and lets the user rebalance or close a basket through the same pre-flight and paced queue as the first deploy. A Paper basket is rebalanced and closed with Paper, a Live basket only Live ([Live execution](live-execution.md)); in Paper no SnapTrade order endpoint is called anywhere.
 
 ## Dashboard
 
@@ -22,7 +22,8 @@ Marks come from one SnapTrade quotes call per account (batched at 10 symbols, in
 
 Confirming posts to `POST /api/executions` with `kind` and `preflightId`. That reuses the paper queue unchanged (one leg per 1.1 seconds, retry failed leg, resume after a closed tab), with these rules:
 
-- Live is refused first, exactly as for a deploy.
+- The basket's mode decides: a Paper basket runs Paper, a Live basket runs Live (`409 mode_mismatch` otherwise). Live adds the brokerage preview, acknowledgement, and order-status reconciliation, and sells no more than the broker holds.
+- A basket whose last Live run still has orders open or unconfirmed at the broker can't be rebalanced or closed until they settle (`409 orders_open`).
 - Prices are valid for 5 minutes. An older pre-flight, or one replaced by a newer one, returns `409 preflight_stale`. A pre-flight that already started a run returns `409 preflight_used`.
 - One active execution per account still applies. Rebalance and Close fill at the leg's pre-flight price, and each fill updates units, average cost, realized gain, and basket cash in the same transaction as the ledger entry.
 - If a leg is rejected, the basket keeps whatever did fill, and "Retry failed leg" works as before.
@@ -43,12 +44,13 @@ All waits use the shared loader (`docs/design-system.md` section 11); this page 
 | `rebalance_confirmed` | A rebalance run starts | basket and execution IDs, mode, sells, buys, drift before and after in points, sell proceeds, buy cost |
 | `basket_closed` | A close run finishes with nothing left held | basket and execution IDs, mode, orders, filled, failed, currency |
 
+Guest events carry the demo cookie's hash in `events.guest_key`, and `leg_result` records the execution `kind`, so the [telemetry drawer](telemetry.md) counts rebalance and close legs in order success and shows a guest's My Theses activity under "You".
+
 ## Data
 
 Migration `20261027061500_my_theses` adds columns only (no new table, so no RLS change): `baskets.contributed`, `cash`, `action_preflight`, `marks`, `marked_at`, `simulated_moves`, `closed_at`; `basket_constituents.realized_total`; and a unique `executions.preflight_id`. It backfills `contributed` from the existing cost total. No new environment variables.
 
 ## Not built
 
-- Live rebalance and close (refused until the Live submitter lands).
 - Rebalance by threshold alerts or schedule; the user starts every run.
 - Fees, taxes, and dividends in the valuation.

@@ -63,7 +63,9 @@ async function SignedInTheses() {
     console.error("[theses] could not load", describeError(error));
     return <SnapTradeProblem error={error} returnTo="/theses" />;
   }
-  after(() => recordDriftViewed(cards, user.id).catch((error) => console.error("[theses] telemetry", describeError(error))));
+  after(() =>
+    recordDriftViewed(cards, { userId: user.id }).catch((error) => console.error("[theses] telemetry", describeError(error))),
+  );
   return <ThesesView cards={cards} demo={false} />;
 }
 

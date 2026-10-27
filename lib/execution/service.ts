@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import type { SymbolsQuotesInner } from "snaptrade-typescript-sdk";
 
 import { getDb } from "@/lib/db/client";
-import { serverEnv } from "@/lib/env";
+import { liveTradingEnabled } from "@/lib/env";
 import { describeError } from "@/lib/errors";
+import { currentKillSwitch, freshBuyingPower } from "@/lib/execution/live-account";
 import { buildPreflight, type PreflightInput } from "@/lib/execution/preflight";
 import {
   ExecutionError,
@@ -27,9 +28,9 @@ import {
 } from "@/lib/execution/types";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
-import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
+import { demoOverview } from "@/lib/portfolio/fixtures";
 import { loadOverview } from "@/lib/portfolio/service";
-import type { CashBalance, PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/lib/portfolio/types";
 import { SnapTradeError, hashAccountId, type SnapTradeContext } from "@/lib/snaptrade/client";
 import type { Quote } from "@/lib/solver";
 import { recordEvent } from "@/lib/telemetry/events";
@@ -52,9 +53,6 @@ function quoteMap(quotes: readonly SymbolsQuotesInner[]): Map<string, Quote> {
     ),
   );
 }
-
-const cashIn = (balances: readonly CashBalance[] | undefined, currency: string) =>
-  balances?.find((balance) => balance.currency.toUpperCase() === currency)?.cash ?? null;
 
 function quoteFailure(error: unknown): ExecutionError {
   if (error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")) {
@@ -122,7 +120,7 @@ async function finishPreflight(a: Assembled): Promise<PreflightPayload> {
       marketOpen: built.market.open,
       liveAvailable: built.live.available,
     },
-    a.owner.userId ?? undefined,
+    a.owner,
   );
   return { basketId, ...snapshot };
 }
@@ -166,11 +164,14 @@ export async function preflightForUser(
     throw quoteFailure(error);
   }
 
-  const snapshot = await getDb().accountSnapshot.findUnique({
-    where: { userId_accountId: { userId: ctx.userId, accountId: account.id } },
-    select: { balances: true },
-  });
   const now = deps.now?.() ?? new Date();
+  const market = marketFor(request.currency, now);
+  const killSwitch = currentKillSwitch();
+  // Buying power is read fresh only when nothing else already blocks Live.
+  const buyingPower =
+    killSwitch.on && account.capability === "trade" && market.open
+      ? await freshBuyingPower(ctx, account, request.currency)
+      : null;
   return finishPreflight({
     request,
     now,
@@ -186,12 +187,12 @@ export async function preflightForUser(
     input: {
       lines,
       quotes: quoteMap(quotes),
-      market: marketFor(request.currency, now),
+      market,
       budget: request.budget,
       currency: request.currency,
       account,
-      cash: cashIn(snapshot?.balances as CashBalance[] | undefined, request.currency),
-      liveTradingEnabled: serverEnv().LIVE_TRADING_ENABLED,
+      buyingPower,
+      killSwitch,
       guest: false,
       priceSource: "snaptrade",
     },
@@ -247,8 +248,8 @@ export async function preflightForGuest(
       budget: request.budget,
       currency: request.currency,
       account,
-      cash: cashIn(demoSnapshot(account.id)?.balances, request.currency),
-      liveTradingEnabled: serverEnv().LIVE_TRADING_ENABLED,
+      buyingPower: null,
+      killSwitch: currentKillSwitch(),
       guest: true,
       priceSource: "demo",
     },
@@ -263,11 +264,15 @@ export type CreateExecutionInput = {
   mode: "paper" | "live";
   simulateRejectSeq: number | null;
   idempotencyKey: string;
+  /** Live: the user ticked "these are real market orders". */
+  acknowledgeLive?: boolean;
 };
 
 /**
- * Confirms a pre-flight. Live is refused in this release whatever the kill
- * switch says; Paper needs a pre-flight from the last five minutes.
+ * Confirms a pre-flight from the last five minutes. Live also needs the kill
+ * switch, a signed-in owner, the user's acknowledgement, a pre-flight whose
+ * Live gate passed, a brokerage preview attempt, and an open market now. A
+ * Live basket is rebalanced and closed only Live, and a Paper one only Paper.
  */
 export async function createExecution(
   actor: Actor,
@@ -279,14 +284,32 @@ export async function createExecution(
   const guest = basket.userId == null;
 
   if (input.mode === "live") {
-    throw serverEnv().LIVE_TRADING_ENABLED
-      ? new ExecutionError("live_unavailable", 501, "Live order submission ships in a later release. Use Paper.")
-      : new ExecutionError("live_disabled", 403, "Live trading is switched off on this deployment. Use Paper.");
+    if (guest || !actor.userId || basket.userId !== actor.userId) {
+      throw new ExecutionError("live_signed_in_only", 403, "Live orders need your own SnapTrade account. Sign in to trade.");
+    }
+    if (!liveTradingEnabled()) {
+      throw new ExecutionError("live_disabled", 403, "Live trading is switched off on this deployment. Use Paper.");
+    }
+    if (!input.acknowledgeLive) {
+      throw new ExecutionError("acknowledgement_required", 400, "Confirm that these are real market orders before submitting.");
+    }
   }
 
   const kind = input.kind ?? "deploy";
   const preflight = (kind === "deploy" ? basket.preflight : basket.actionPreflight) as unknown as PreflightPayload | null;
   if (!preflight) throw new ExecutionError("preflight_stale", 409, "Run pre-flight before confirming.");
+  if (kind !== "deploy" && basket.mode && basket.mode !== input.mode) {
+    throw new ExecutionError(
+      "mode_mismatch",
+      409,
+      basket.mode === "live"
+        ? "This basket holds real shares; rebalance or close it Live."
+        : "This is a Paper basket; rebalance or close it with Paper.",
+    );
+  }
+  if (input.mode === "live" && input.simulateRejectSeq != null) {
+    throw new ExecutionError("invalid_request", 400, "Failure injection is Paper only.");
+  }
   if (kind !== "deploy" && (preflight.kind !== kind || !input.preflightId || preflight.preflightId !== input.preflightId)) {
     throw new ExecutionError("preflight_stale", 409, "This pre-flight was replaced or is out of date. Run pre-flight again.");
   }
@@ -297,6 +320,17 @@ export async function createExecution(
   const preparedAt = kind === "deploy" ? basket.preflightAt : new Date(preflight.preparedAt);
   if ((kind !== "deploy" || basket.status === "draft") && now.getTime() - preparedAt.getTime() > PREFLIGHT_TTL_MS) {
     throw new ExecutionError("preflight_stale", 409, "These prices are more than 5 minutes old. Refresh pre-flight.");
+  }
+  if (input.mode === "live" && (kind !== "deploy" || basket.status === "draft")) {
+    if (!preflight.live.available) {
+      throw new ExecutionError("live_unavailable", 409, preflight.live.reasons[0] ?? "Live isn't available for this pre-flight.");
+    }
+    if (!preflight.impact) {
+      throw new ExecutionError("impact_required", 409, "Run the brokerage preview before submitting Live orders.");
+    }
+    if (!marketFor(basket.currency, now).open) {
+      throw new ExecutionError("market_closed", 409, "The market closed since this pre-flight. Live orders wait for the next session.");
+    }
   }
 
   if (guest && basket.guestClient && kind !== "close" && (kind === "rebalance" || basket.status === "draft")) {
@@ -325,6 +359,10 @@ export async function createExecution(
       impactNote: preflight.impactNote,
       disclosures: preflight.disclosures[input.mode],
       simulateRejectSeq: input.simulateRejectSeq,
+      paperAccount: preflight.account.isPaper,
+      ...(input.mode === "live"
+        ? { acknowledgedAt: now.toISOString(), impact: preflight.impact ?? null, liveNotes: preflight.live.notes ?? [] }
+        : {}),
     } as unknown as Prisma.InputJsonObject,
     simulateRejectSeq: input.simulateRejectSeq,
     orders: preflight.orders,
@@ -340,9 +378,11 @@ export async function createExecution(
         orders: preflight.orders.length,
         marketOpen: preflight.market.open,
         simulateReject: input.simulateRejectSeq != null,
+        paperAccount: preflight.account.isPaper,
+        impactSource: preflight.impact?.source ?? null,
         guest,
       },
-      basket.userId ?? undefined,
+      { userId: basket.userId, guestKey: basket.guestKey },
     );
     if (kind === "rebalance") {
       await recordEvent(
@@ -361,7 +401,7 @@ export async function createExecution(
           marketOpen: preflight.market.open,
           guest,
         },
-        basket.userId ?? undefined,
+        { userId: basket.userId, guestKey: basket.guestKey },
       );
     }
   }
@@ -374,9 +414,17 @@ export async function requireExecution(actor: Actor, executionId: string) {
   return owned;
 }
 
-export async function retryLeg(actor: Actor, executionId: string, legId: string): Promise<ExecutionView> {
-  await requireExecution(actor, executionId);
-  await queueRetry(executionId, legId);
+export async function retryLeg(
+  actor: Actor,
+  executionId: string,
+  legId: string,
+  options: { confirmNotPlaced?: boolean } = {},
+): Promise<ExecutionView> {
+  const owned = await requireExecution(actor, executionId);
+  if (owned.view.mode === "live" && !liveTradingEnabled()) {
+    throw new ExecutionError("live_disabled", 403, "Live trading is switched off on this deployment.");
+  }
+  await queueRetry(executionId, legId, options);
   return loadExecutionView(executionId);
 }
 
@@ -387,7 +435,7 @@ export async function cancelExecution(actor: Actor, executionId: string): Promis
     await recordEvent(
       "execution_canceled",
       { executionId, mode: owned.view.mode, skipped, guest: owned.userId == null },
-      owned.userId ?? undefined,
+      { userId: owned.userId, guestKey: owned.guestKey },
     );
   }
   return loadExecutionView(executionId);

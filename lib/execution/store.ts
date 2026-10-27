@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/client";
 import type { SubmitResult } from "@/lib/execution/submitters";
-import { deriveStatus, isRetryable } from "@/lib/execution/summary";
+import { deriveStatus, isRetryable, latestAttempts, needsReconcile } from "@/lib/execution/summary";
 import type {
   BasketView,
   ExecutionKind,
@@ -56,6 +56,7 @@ export function toLegView(leg: ExecutionLeg): LegView {
     estPrice: leg.estPrice.toNumber(),
     status: leg.status as LegStatus,
     brokerageOrderId: leg.brokerageOrderId,
+    snaptradeStatus: leg.snaptradeStatus,
     filledUnits: leg.filledUnits,
     fillPrice: num(leg.fillPrice),
     errorCode: leg.errorCode,
@@ -67,7 +68,7 @@ export function toLegView(leg: ExecutionLeg): LegView {
 
 const executionInclude = {
   legs: { orderBy: [{ seq: "asc" }, { attempt: "asc" }] },
-  basket: { select: { id: true, userId: true, currency: true, accountName: true } },
+  basket: { select: { id: true, userId: true, currency: true, accountName: true, institution: true } },
 } satisfies Prisma.ExecutionInclude;
 
 type ExecutionRow = Prisma.ExecutionGetPayload<{ include: typeof executionInclude }>;
@@ -86,6 +87,9 @@ function toExecutionView(row: ExecutionRow): ExecutionView {
     startedAt: iso(row.startedAt),
     finishedAt: iso(row.finishedAt),
     simulateRejectSeq: row.simulateRejectSeq,
+    paperAccount: (row.confirmation as { paperAccount?: boolean } | null)?.paperAccount === true,
+    institution: row.basket.institution,
+    reconciledAt: iso(row.reconciledAt),
     legs: row.legs.map(toLegView),
   };
 }
@@ -99,21 +103,29 @@ export async function loadExecutionView(executionId: string): Promise<ExecutionV
 export type OwnedExecution = {
   view: ExecutionView;
   accountKey: string;
+  /** SnapTrade's account ID, for Live orders and reconciliation. */
+  accountId: string;
   brokerageSlug: string | null;
   userId: string | null;
+  guestKey: string | null;
 };
 
 export async function findExecutionForActor(executionId: string, actor: Actor): Promise<OwnedExecution | null> {
   const row = await getDb().execution.findFirst({
     where: { id: executionId, basket: ownedBy(actor) },
-    include: { ...executionInclude, basket: { select: { ...executionInclude.basket.select, brokerageSlug: true } } },
+    include: {
+      ...executionInclude,
+      basket: { select: { ...executionInclude.basket.select, brokerageSlug: true, accountId: true, guestKey: true } },
+    },
   });
   if (!row) return null;
   return {
     view: toExecutionView(row),
     accountKey: row.accountKey,
+    accountId: row.basket.accountId,
     brokerageSlug: row.basket.brokerageSlug,
     userId: row.basket.userId,
+    guestKey: row.basket.guestKey,
   };
 }
 
@@ -439,6 +451,22 @@ function resultData(result: SubmitResult): Prisma.ExecutionLegUpdateManyMutation
         filledUnits: result.filledUnits,
         fillPrice: result.fillPrice,
         latencyMs: result.latencyMs,
+        requestId: result.requestId ?? undefined,
+        errorCode: result.note ? "partial_fill" : null,
+        errorMessage: result.note ?? null,
+        submittedAt: now,
+      };
+    case "working":
+      return {
+        status: result.filledUnits > 0 ? "partial" : "accepted",
+        brokerageOrderId: result.brokerageOrderId,
+        snaptradeStatus: result.snaptradeStatus,
+        filledUnits: result.filledUnits,
+        fillPrice: result.fillPrice,
+        latencyMs: result.latencyMs,
+        requestId: result.requestId ?? undefined,
+        errorCode: null,
+        errorMessage: null,
         submittedAt: now,
       };
     case "rejected":
@@ -448,10 +476,21 @@ function resultData(result: SubmitResult): Prisma.ExecutionLegUpdateManyMutation
         errorMessage: result.message,
         requestId: result.requestId,
         latencyMs: result.latencyMs,
+        brokerageOrderId: result.brokerageOrderId ?? undefined,
+        snaptradeStatus: result.snaptradeStatus ?? undefined,
         submittedAt: now,
       };
     case "failed":
       return { status: "failed", errorCode: result.code, errorMessage: result.message };
+    case "unknown":
+      return {
+        status: "unknown",
+        errorCode: result.code,
+        errorMessage: result.message,
+        requestId: result.requestId,
+        latencyMs: result.latencyMs,
+        submittedAt: now,
+      };
     case "retry_later":
       return {
         status: "pending",
@@ -461,20 +500,47 @@ function resultData(result: SubmitResult): Prisma.ExecutionLegUpdateManyMutation
   }
 }
 
+/** Shares and money a result adds on top of what the leg already recorded, so each fill reaches the ledger once. */
+function fillDelta(leg: ExecutionLeg, result: SubmitResult): { units: number; amount: Prisma.Decimal } | null {
+  if (result.kind !== "filled" && result.kind !== "working") return null;
+  const before = leg.filledUnits ?? 0;
+  const units = result.filledUnits - before;
+  if (units <= 0 || result.fillPrice == null) return null;
+  const total = new Prisma.Decimal(result.fillPrice).times(result.filledUnits);
+  const prior = leg.fillPrice ? leg.fillPrice.times(before) : new Prisma.Decimal(0);
+  return { units, amount: total.minus(prior) };
+}
+
 /**
  * Records a claimed leg's outcome and, for a fill, the basket ledger in the
  * same transaction. Only a leg still in `claimed` is written, so an outcome
  * is applied to the ledger at most once.
  */
 export async function recordLegResult(leg: ExecutionLeg, basketId: string, result: SubmitResult): Promise<ExecutionLeg> {
+  return updateLeg(leg, basketId, result, ["claimed"]);
+}
+
+/** Reconciliation: moves an open Live leg to what the broker reports. */
+export async function recordOpenLegResult(leg: ExecutionLeg, basketId: string, result: SubmitResult): Promise<ExecutionLeg> {
+  return updateLeg(leg, basketId, result, ["accepted", "partial", "unknown"]);
+}
+
+async function updateLeg(
+  leg: ExecutionLeg,
+  basketId: string,
+  result: SubmitResult,
+  from: readonly string[],
+): Promise<ExecutionLeg> {
   return getDb().$transaction(async (tx) => {
+    const current = await tx.executionLeg.findUniqueOrThrow({ where: { id: leg.id } });
     const { count } = await tx.executionLeg.updateMany({
-      where: { id: leg.id, status: "claimed" },
+      where: { id: leg.id, status: { in: [...from] } },
       data: resultData(result),
     });
-    if (count === 1 && result.kind === "filled" && result.filledUnits > 0) {
+    const delta = count === 1 ? fillDelta(current, result) : null;
+    if (delta) {
       const execution = await tx.execution.findUniqueOrThrow({ where: { id: leg.executionId }, select: { kind: true } });
-      await applyFill(tx, basketId, leg.symbol, leg.action as "BUY" | "SELL", result, execution.kind as ExecutionKind);
+      await applyFill(tx, basketId, leg.symbol, leg.action as "BUY" | "SELL", delta, execution.kind as ExecutionKind);
     }
     return tx.executionLeg.findUniqueOrThrow({ where: { id: leg.id } });
   });
@@ -490,26 +556,25 @@ async function applyFill(
   basketId: string,
   symbol: string,
   action: "BUY" | "SELL",
-  fill: { filledUnits: number; fillPrice: number },
+  fill: { units: number; amount: Prisma.Decimal },
   kind: ExecutionKind,
 ) {
   const where = { basketId_symbol: { basketId, symbol } };
-  const amount = new Prisma.Decimal(fill.fillPrice).times(fill.filledUnits);
   if (action === "BUY") {
     await tx.basketConstituent.update({
       where,
-      data: { ledgerUnits: { increment: fill.filledUnits }, costTotal: { increment: amount } },
+      data: { ledgerUnits: { increment: fill.units }, costTotal: { increment: fill.amount } },
     });
     await tx.basket.update({
       where: { id: basketId },
-      data: kind === "deploy" ? { contributed: { increment: amount } } : { cash: { decrement: amount } },
+      data: kind === "deploy" ? { contributed: { increment: fill.amount } } : { cash: { decrement: fill.amount } },
     });
     return;
   }
   const row = await tx.basketConstituent.findUniqueOrThrow({ where });
-  const units = Math.min(fill.filledUnits, row.ledgerUnits);
+  const units = Math.min(fill.units, row.ledgerUnits);
   if (units <= 0) return;
-  const proceeds = new Prisma.Decimal(fill.fillPrice).times(units);
+  const proceeds = fill.amount.times(units).dividedBy(fill.units);
   const cost = row.costTotal.times(units).dividedBy(row.ledgerUnits).toDecimalPlaces(4);
   await tx.basketConstituent.update({
     where,
@@ -534,7 +599,7 @@ type Settled = { activated: boolean; closed: boolean };
  * A deploy with fills activates the basket, and without any it falls back to
  * a draft. A close that has sold every share closes the basket.
  */
-async function settleBasket(tx: Tx, basketId: string, kind: ExecutionKind): Promise<Settled> {
+async function settleBasket(tx: Tx, basketId: string, kind: ExecutionKind, open = false): Promise<Settled> {
   const held = await tx.basketConstituent.count({ where: { basketId, ledgerUnits: { gt: 0 } } });
   if (kind === "deploy") {
     if (held > 0) {
@@ -544,7 +609,8 @@ async function settleBasket(tx: Tx, basketId: string, kind: ExecutionKind): Prom
       });
       return { activated: count === 1, closed: false };
     }
-    await tx.basket.updateMany({ where: { id: basketId, status: "deploying" }, data: { status: "draft" } });
+    // Live orders still open at the broker may yet fill.
+    if (!open) await tx.basket.updateMany({ where: { id: basketId, status: "deploying" }, data: { status: "draft" } });
     return { activated: false, closed: false };
   }
   if (kind === "close" && held === 0) {
@@ -565,35 +631,50 @@ export type Finalized = {
   basketId: string;
 };
 
-/** Closes the execution once no leg is pending or claimed; always re-settles the basket. */
+/**
+ * Re-derives the status from the legs once nothing is waiting to be sent:
+ * reconciliation can turn `working` or `partial` into `completed` later. The
+ * account is freed for other executions as soon as every leg was sent. The
+ * basket is always re-settled.
+ */
 export async function finalizeExecution(executionId: string): Promise<Finalized | null> {
   return getDb().$transaction(async (tx) => {
     const locked = await lockExecution(tx, executionId);
     if (!locked) return null;
     let status = locked.status as ExecutionStatus;
     let finished = false;
-    if (status === "queued" || status === "running") {
-      const legs = await tx.executionLeg.findMany({
-        where: { executionId },
-        select: { seq: true, attempt: true, status: true },
-      });
+    const legs = await tx.executionLeg.findMany({
+      where: { executionId },
+      select: { seq: true, attempt: true, status: true },
+    });
+    if (status !== "canceled") {
       const next = deriveStatus(legs);
-      if (next !== "running") {
+      if (next !== "running" && next !== status) {
         await tx.execution.update({
           where: { id: executionId },
-          data: { status: next, finishedAt: new Date(), activeAccountKey: null },
+          data: { status: next, finishedAt: next === "working" ? null : new Date(), activeAccountKey: null },
         });
+        finished = next !== "working";
         status = next;
-        finished = true;
       }
     }
-    const settled = await settleBasket(tx, locked.basket_id, locked.kind as ExecutionKind);
+    const open = latestAttempts(legs).some((leg) => needsReconcile(leg.status));
+    const settled = await settleBasket(tx, locked.basket_id, locked.kind as ExecutionKind, open);
     return { status, finished, ...settled, basketId: locked.basket_id };
   });
 }
 
-/** Queues a new attempt (new client_order_id) for the latest rejected or failed attempt of a leg. */
-export async function queueRetry(executionId: string, legId: string): Promise<LegView> {
+/**
+ * Queues a new attempt (new client_order_id) for the latest rejected or failed
+ * attempt of a leg. A Live leg in `unknown` can be retried only when the user
+ * confirms it isn't at the broker, after a reconciliation pass that didn't
+ * find it: the old attempt is marked failed, never resubmitted as is.
+ */
+export async function queueRetry(
+  executionId: string,
+  legId: string,
+  { confirmNotPlaced = false }: { confirmNotPlaced?: boolean } = {},
+): Promise<LegView> {
   const db = getDb();
   try {
     return await db.$transaction(async (tx) => {
@@ -605,6 +686,20 @@ export async function queueRetry(executionId: string, legId: string): Promise<Le
       const legs = await tx.executionLeg.findMany({ where: { executionId } });
       const leg = legs.find((candidate) => candidate.id === legId);
       if (!leg) throw new ExecutionError("not_found", 404, "Leg not found.");
+      if (leg.status === "unknown") {
+        const checked = await tx.execution.findUniqueOrThrow({ where: { id: executionId }, select: { reconciledAt: true } });
+        if (!confirmNotPlaced) {
+          throw new ExecutionError("confirm_not_placed", 409, "Confirm this order isn't at your broker before retrying it.");
+        }
+        if (!checked.reconciledAt || !leg.claimedAt || checked.reconciledAt <= leg.claimedAt) {
+          throw new ExecutionError("reconcile_first", 409, "Check the order status at the broker first, then retry.");
+        }
+        await tx.executionLeg.update({
+          where: { id: leg.id },
+          data: { status: "failed", errorCode: "not_placed_confirmed", errorMessage: "You confirmed this order never reached the broker." },
+        });
+        leg.status = "failed";
+      }
       if (!isRetryable(leg, legs)) {
         throw new ExecutionError("not_retryable", 409, "Only the latest rejected or failed attempt can be retried.");
       }
@@ -692,4 +787,42 @@ export async function findActiveExecutionId(basketId: string): Promise<string | 
     select: { id: true },
   });
   return row?.id ?? null;
+}
+
+/**
+ * Takes the execution's reconciliation slot: at most one order-status check
+ * per 15 seconds, shared by every tab and instance. Returns when the next
+ * check is allowed if this one isn't.
+ */
+export async function claimReconcile(executionId: string, intervalMs: number): Promise<{ ok: true } | { ok: false; nextAt: Date }> {
+  const db = getDb();
+  const [claimed] = await db.$queryRaw<{ id: string }[]>`
+    update executions set reconciled_at = clock_timestamp()
+    where id = ${executionId}::uuid
+      and (reconciled_at is null or reconciled_at <= clock_timestamp() - make_interval(secs => ${intervalMs / 1000}::float8))
+    returning id`;
+  if (claimed) return { ok: true };
+  const row = await db.execution.findUniqueOrThrow({ where: { id: executionId }, select: { reconciledAt: true } });
+  return { ok: false, nextAt: new Date((row.reconciledAt?.getTime() ?? Date.now()) + intervalMs) };
+}
+
+/** Rebalance and close wait while the basket's last run is still sending, or has Live orders the broker hasn't settled. */
+export async function findBlockingExecution(basketId: string): Promise<{ id: string; reason: "running" | "open_orders" } | null> {
+  const latest = await getDb().execution.findFirst({
+    where: { basketId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, status: true, legs: { select: { seq: true, attempt: true, status: true } } },
+  });
+  if (!latest) return null;
+  if (latest.status === "queued" || latest.status === "running") return { id: latest.id, reason: "running" };
+  if (latest.status !== "canceled" && latestAttempts(latest.legs).some((leg) => needsReconcile(leg.status))) {
+    return { id: latest.id, reason: "open_orders" };
+  }
+  return null;
+}
+
+/** Live legs still waiting on the broker, latest attempts only. */
+export async function openLiveLegs(executionId: string): Promise<ExecutionLeg[]> {
+  const legs = await getDb().executionLeg.findMany({ where: { executionId }, orderBy: [{ seq: "asc" }, { attempt: "asc" }] });
+  return latestAttempts(legs).filter((leg) => needsReconcile(leg.status));
 }

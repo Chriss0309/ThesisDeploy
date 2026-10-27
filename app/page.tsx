@@ -4,6 +4,7 @@ import { AuthPanel, AuthPanelSkeleton } from "@/components/auth-panel";
 import { BackendStatus } from "@/components/backend-status";
 import { CoinStage } from "@/components/landing/coin-stage";
 import { Wordmark } from "@/components/site-chrome";
+import { TelemetryToggle } from "@/components/telemetry/telemetry-drawer";
 import { ThesisPreview } from "@/components/thesis-preview";
 
 const STEPS = [
@@ -100,14 +101,17 @@ export default function Home({ searchParams }: PageProps<"/">) {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:justify-between sm:px-6">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-3 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>Not investment advice. Paper mode never sends orders to a brokerage.</p>
-          <a
-            href="https://github.com/Chriss0309/ThesisDeploy"
-            className="underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Source on GitHub
-          </a>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <TelemetryToggle />
+            <a
+              href="https://github.com/Chriss0309/ThesisDeploy"
+              className="underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Source on GitHub
+            </a>
+          </div>
         </div>
       </footer>
     </div>
