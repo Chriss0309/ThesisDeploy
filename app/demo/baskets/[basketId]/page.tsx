@@ -15,6 +15,9 @@ import { findBasketView } from "@/lib/execution/store";
 
 export const metadata: Metadata = { title: "Demo basket · ThesisDeploy" };
 
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
+
 async function GuestBasket({ params }: { params: PageProps<"/demo/baskets/[basketId]">["params"] }) {
   const { basketId } = await params;
   if (!serverEnv().DATABASE_URL) {

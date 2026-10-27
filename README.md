@@ -13,7 +13,7 @@ Going from "I think North American grid power is the next bottleneck" to owning 
 ThesisDeploy does it on top of the brokerage you already use:
 
 1. **Portfolio X-Ray** reads every connected account: cash and buying power per currency, positions, and concentration.
-2. **Thesis Studio** asks Claude for candidates given your conviction *and* your holdings, then grounds every ticker against SnapTrade quotes and symbol search, trims what you already own (the "top-up" rule), and sizes whole shares within your budget. You can reweight, step shares, and remove names; cost and leftover cash update as you go.
+2. **Thesis Studio** asks ThesisDeploy's AI for candidates given your conviction *and* your holdings, then grounds every ticker against SnapTrade quotes and symbol search, trims what you already own (the "top-up" rule), and sizes whole shares within your budget. You can reweight, step shares, and remove names; cost and leftover cash update as you go.
 3. **Pre-flight** shows the exact orders, fresh prices, and every reason Live isn't available. Confirming runs a queue that sends one order per account per 1.1 seconds, keeps going past a rejected leg, and offers "Retry failed leg". The result is a Virtual Basket: a ledger of what actually filled.
 4. **My Theses** values each basket, shows each stock's drift from its target, flags drift past 5 points, and builds a whole-share rebalance (sells first) or a close, through the same pre-flight and queue.
 
@@ -25,7 +25,7 @@ One authorization is both the sign-in (OpenID Connect) and the brokerage access 
 
 ## A 2-minute reviewer path
 
-1. **Demo, no sign-in.** Open [`/demo/studio`](https://thesisdeploy.vercel.app/demo/studio), pick **AI power & nuclear**, and click **Generate basket**. Presets are cached; the first run for an account and currency calls Claude (10–40 seconds). Note the overlap badges: the demo TFSA already holds some of these names.
+1. **Demo, no sign-in.** Open [`/demo/studio`](https://thesisdeploy.vercel.app/demo/studio), pick **AI power & nuclear**, and click **Generate basket**. Presets are cached; the first run for an account and currency calls ThesisDeploy's AI (10–40 seconds). Note the overlap badges: the demo TFSA already holds some of these names.
 2. **Pre-flight with a failure.** Click **Continue to pre-flight**. Live is listed as unavailable, with every reason (demo account, kill switch, market hours). Tick **Simulate a broker rejection on leg 2**, then **Run paper simulation**. Leg 2 is rejected and the queue carries on; click **Retry failed leg**.
 3. **Lifecycle.** Click **View saved basket**, then **My Theses** in the demo banner. Use **Simulate a market move** (+50%) to push a stock past 5 points of drift, then **Rebalance** and **Close basket**.
 4. **Telemetry.** Open **► Product telemetry** in the footer. "You" shows your own demo run: funnel, edit rate, symbol hit rate, order success.
@@ -69,17 +69,17 @@ Browser (React, same-origin fetch only; CSP connect-src 'self')
 Next.js 16 route handlers and server components on Vercel (Node runtime)
    ├─ lib/auth        SnapTrade OAuth + OIDC, PKCE, sessions, encrypted token vault
    ├─ lib/snaptrade   Bearer-only SDK client, per-account budget, api_calls
-   ├─ lib/thesis      Claude structured output → validation → grounding → overlap → solver
+   ├─ lib/thesis      AI structured output → validation → grounding → overlap → solver
    ├─ lib/execution   pre-flight, Live gate, paced Postgres queue, Paper/Live submitters, reconciliation
    ├─ lib/theses      valuation, drift, rebalance and close plans
    └─ lib/telemetry   events and aggregates for the drawer
    ▼                         ▼                      ▼
 Supabase Postgres       api.snaptrade.com      api.anthropic.com
-(Prisma 7, pg adapter)  (OAuth + API)          (Claude Sonnet 5.5)
+(Prisma 7, pg adapter)  (OAuth + API)          (ThesisDeploy's AI)
 ```
 
 - **Pure libraries** (`lib/solver.ts`, `lib/overlap.ts`, `lib/drift.ts`, `lib/market-hours.ts`) run in the browser for instant recompute in the composer and again on the server at pre-flight.
-- **Thesis generation** uses Claude structured outputs, then re-checks everything the schema can't enforce (counts, bounds, duplicate tickers, weights) in code. The thesis text is passed as data inside tags. Grounding drops anything SnapTrade can't price in the basket's currency, and ETFs.
+- **Thesis generation** uses ThesisDeploy's AI for structured outputs, then re-checks everything the schema can't enforce (counts, bounds, duplicate tickers, weights) in code. The thesis text is passed as data inside tags. Grounding drops anything SnapTrade can't price in the basket's currency, and ETFs.
 - **Next.js 16** with Cache Components: static shells are prerendered and SnapTrade data streams in; pages that call SnapTrade are never prefetched.
 
 ### Data model
@@ -106,7 +106,7 @@ Schema: [`prisma/schema.prisma`](prisma/schema.prisma). Migrations: [`prisma/mig
 - **Headers.** CSP (`frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP, and HSTS ([`next.config.ts`](next.config.ts)).
 - **Input.** Every route validates its body with Zod. The server never trusts the browser's prices, symbols, or company names: pre-flight re-reads the thesis, the account, and quotes from its own sources.
 - **Privacy.** Account IDs reach telemetry only as keyed hashes; guests are keyed by a hash of their demo cookie and, for rate limits, an HMAC of their IP. Tokens, codes, and account numbers are never logged.
-- **Abuse limits.** The guest demo caps Claude calls (40 per day across all visitors, 3 custom prompts per visitor), pre-flights, and paper runs; signed-in users get 30 generations a day.
+- **Abuse limits.** The guest demo caps AI generations (40 per day across all visitors, 3 custom prompts per visitor), pre-flights, and paper runs; signed-in users get 30 generations a day.
 
 ## Design system and three.js
 
@@ -120,7 +120,7 @@ The landing hero is an original three.js scene: an engraved coin with a bull emb
 
 - **Activation funnel:** connected → generated → deployed, then drift viewed, rebalanced, closed. Tells whether people drop at generation or at pre-flight.
 - **Basket edit rate:** suggested tickers removed or resized before pre-flight. A proxy for whether people trust the basket as suggested, and what to change in the prompt or the overlap rule.
-- **Symbol resolution hit rate:** tickers Claude proposed that SnapTrade could price, with drop reasons.
+- **Symbol resolution hit rate:** tickers ThesisDeploy proposed that SnapTrade could price, with drop reasons.
 - **Order success by brokerage,** and **SnapTrade latency** (p50/p95 per operation) with **429 count:** where broker quirks and rate limits bite.
 
 Aggregates only. Details: [`docs/telemetry.md`](docs/telemetry.md).

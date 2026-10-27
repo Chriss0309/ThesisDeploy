@@ -65,11 +65,11 @@ const waitText = (seconds: number | null) =>
 function generationFailure(error: ThesisGenerationError): ThesisError {
   switch (error.code) {
     case "refusal":
-      return new ThesisError("refused", 422, "Claude declined this request. Try rephrasing it as an investment theme.");
+      return new ThesisError("refused", 422, "ThesisDeploy's AI declined this request. Try rephrasing it as an investment theme.");
     case "overloaded":
-      return new ThesisError("model_busy", 503, "Claude is busy right now. Try again in a minute.", 60);
+      return new ThesisError("model_busy", 503, "ThesisDeploy's AI is busy right now. Try again in a minute.", 60);
     default:
-      return new ThesisError("generation_failed", 502, "Claude didn't return a usable basket. Try again.");
+      return new ThesisError("generation_failed", 502, "ThesisDeploy's AI didn't return a usable basket. Try again.");
   }
 }
 

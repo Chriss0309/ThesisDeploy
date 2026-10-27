@@ -450,7 +450,7 @@ export function BasketComposer({
 
         {payload.excluded.length > 0 && (
           <section aria-label="Considered and excluded" className="flex flex-col gap-2">
-            <h3 className="eyebrow text-muted-foreground">► Considered and excluded by Claude</h3>
+            <h3 className="eyebrow text-muted-foreground">► Considered and excluded by ThesisDeploy</h3>
             <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
               {payload.excluded.map((entry) => (
                 <li key={entry.ticker}>

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AuthPanel, AuthPanelSkeleton } from "@/components/auth-panel";
 import { BackendStatus } from "@/components/backend-status";
 import { CoinStage } from "@/components/landing/coin-stage";
+import { LandingHeadline } from "@/components/landing/headline";
 import { Wordmark } from "@/components/site-chrome";
 import { TelemetryToggle } from "@/components/telemetry/telemetry-drawer";
 import { ThesisPreview } from "@/components/thesis-preview";
@@ -14,7 +15,7 @@ const STEPS = [
   },
   {
     title: "Thesis Studio",
-    body: "Describe a theme. Claude proposes candidates, SnapTrade grounds every ticker and quote, overlap with what you already hold is trimmed, and a solver sizes whole shares.",
+    body: "Describe a theme. ThesisDeploy proposes candidates, SnapTrade grounds every ticker and quote, overlap with what you already hold is trimmed, and a solver sizes whole shares.",
   },
   {
     title: "Paced execution and drift",
@@ -33,11 +34,8 @@ export default function Home({ searchParams }: PageProps<"/">) {
       <main className="flex flex-1 flex-col gap-3 px-2 pb-16 sm:gap-4 sm:px-4">
         <section className="chamfer mx-auto w-full max-w-page bg-surface-tint [--chamfer:var(--chamfer-lg)]">
           <div className="flex flex-col gap-6 px-4 pt-10 pb-8 sm:px-8 sm:pt-14 lg:gap-8 lg:px-12 lg:pt-16 lg:pb-12">
-            <div className="flex flex-col items-center gap-5 text-center">
-              <p className="eyebrow text-muted-foreground">► Built on SnapTrade OAuth</p>
-              <h1 className="max-w-4xl font-display text-display font-semibold text-balance">
-                Invest in a thesis, <span className="text-highlight">not a ticker list.</span>
-              </h1>
+            <div className="flex flex-col items-center text-center">
+              <LandingHeadline />
             </div>
             <div className="grid items-center gap-6 lg:grid-cols-(--grid-hero) lg:gap-12">
               <CoinStage />

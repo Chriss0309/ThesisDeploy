@@ -224,10 +224,10 @@ Every wait, and every page once its content is in, uses one shared three.js syst
 
 | Variant | Shape | Loading (loops) | Content-time poses (play once, then hold) |
 |---|---|---|---|
-| `coin` | The brand coin | Spinning on its edge: generic route waits, button glyphs, the backend "checking" dot | `success`: a fast spin that slows to land face-up, with one cobalt ring. `lost`: a dropped coin wobbling down to rest (404) |
+| `coin` | The brand coin | Spinning on its edge: generic route waits and button glyphs | `success`: a fast spin that slows to land face-up, with one cobalt ring. `lost`: a dropped coin wobbling down to rest (404) |
 | `link` | Two interlocked tori | Turning through each other: sign-in redirect, session check, sign out, disconnect | `linked`: the rings slide together (connected). `apart`: two rings not yet joined (sign in needed). `broken`: the rings pull apart and the cobalt ring turns `negative` (errors, expired access) |
 | `scan` | A tower of layered discs with a cobalt plane | Plane sweeping up and down: X-Ray load, account switch, refresh, Studio accounts, the telemetry drawer's aggregates | `reveal`: one pass top to bottom as holdings arrive, then the plane fades |
-| `orbit` | The hero coin with candidate lots orbiting it | Candidates join, a cobalt marker checks each one, then they settle into a row of whole shares: the Studio's Claude generation (the showpiece) | `reveal`: the same story in three seconds (Studio header) |
+| `orbit` | The hero coin with candidate lots orbiting it | Candidates join, a cobalt marker checks each one, then they settle into a row of whole shares: the Studio's AI generation (the showpiece) | `reveal`: the same story in three seconds (Studio header) |
 | `stacks` | One stack of whole-share lots per order leg on a ruled baseline | The execution queue (queued ring, pacing pulse, submitting lot, submitted ink, failed toppled lot in `negative`); indeterminate loop without progress. The row zooms out to fit any leg count | `reveal`: the basket's own legs rise in turn (basket record). `drift`: lots against cobalt target rings, two over and two under (My Theses). `empty`: open slots and one cobalt lot waiting. `paced`: two legs placed, the next pulsing once a second (rate limits) |
 
 Sizes: `inline` (20 px glyph with text beside it), `panel` (a framed stage in a card), and `showpiece` (the Studio's generation panel, with the step list and elapsed timer under it). Stage sizes are `--loader-*` tokens. Marks come in `header`, `card`, and `inline` sizes (`--mark-*` tokens).

@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Demo theses · ThesisDeploy" };
 
 // Valuing a basket reads the clock and the database, so links never prefetch it.
 export const prefetch = "force-disabled";
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
 
 async function GuestTheses() {
   if (!serverEnv().DATABASE_URL) {
