@@ -30,8 +30,18 @@ export const PreflightRequestSchema = z.object({
 export const CreateExecutionSchema = z.object({
   basketId: z.uuid(),
   mode: z.enum(["paper", "live"]),
+  /** Rebalance and close confirm the pre-flight they were shown by id. */
+  kind: z.enum(["deploy", "rebalance", "close"]).default("deploy"),
+  preflightId: z.uuid().nullish(),
   /** Paper only: reject the first attempt of this leg, to demo partial failure and retry. */
   simulateRejectSeq: z.number().int().min(1).max(MAX_CANDIDATES).nullable().default(null),
 });
 
 export const IdempotencyKeySchema = z.uuid();
+
+export const ActionPreflightSchema = z.object({ kind: z.enum(["rebalance", "close"]) });
+
+export const SimulateMoveSchema = z.union([
+  z.object({ reset: z.literal(true) }),
+  z.object({ symbol: z.string().trim().toUpperCase().min(1).max(24), change: z.number().min(-0.9).max(2) }),
+]);

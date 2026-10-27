@@ -149,6 +149,23 @@ export async function* drainExecution(owned: OwnedExecution, options: DrainOptio
       owned.userId ?? undefined,
     );
   }
+  if (finalized?.closed) {
+    const summary = summarizeLegs(execution.legs);
+    await recordEvent(
+      "basket_closed",
+      {
+        basketId: execution.basketId,
+        executionId: execution.id,
+        mode: execution.mode,
+        orders: summary.orders,
+        filled: summary.filled,
+        failed: summary.failed,
+        currency: execution.currency,
+        guest,
+      },
+      owned.userId ?? undefined,
+    );
+  }
   const active = execution.status === "queued" || execution.status === "running";
   yield { type: "done", execution, reason: active ? reason : "finished" };
 }

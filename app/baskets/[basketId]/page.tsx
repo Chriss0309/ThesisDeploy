@@ -30,7 +30,7 @@ async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketI
   if (!z.uuid().safeParse(basketId).success) notFound();
   const basket = await findBasketView(basketId, { userId: user.id, guestKey: null });
   if (!basket) notFound();
-  return <BasketRecord basket={basket} studioPath="/studio" />;
+  return <BasketRecord basket={basket} studioPath="/studio" thesesPath="/theses" />;
 }
 
 export default function BasketPage({ params }: PageProps<"/baskets/[basketId]">) {

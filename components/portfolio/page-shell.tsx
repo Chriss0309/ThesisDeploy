@@ -5,6 +5,7 @@ import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
 const NAV = [
   { href: "/portfolio", label: "Portfolio X-Ray" },
   { href: "/studio", label: "Thesis Studio" },
+  { href: "/theses", label: "My Theses" },
   { href: "/demo", label: "Demo" },
 ];
 

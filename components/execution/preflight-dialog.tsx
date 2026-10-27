@@ -12,6 +12,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogSection, D
 import { Segmented } from "@/components/ui/segmented";
 import type {
   ExecutionErrorBody,
+  ExecutionKind,
   ExecutionMode,
   ExecutionView,
   PreflightPayload,
@@ -33,11 +34,16 @@ const failure = (body: unknown, status: number) =>
     ? (body as ExecutionErrorBody).error
     : { code: "http_error", message: `Request failed (HTTP ${status}). Try again.` };
 
+/** A rebalance or close of a saved basket; a deploy is the default and needs no description. */
+export type BasketAction = { kind: "rebalance" | "close"; basketId: string };
+
+const pts = (fraction: number) => `${(Math.abs(fraction) * 100).toFixed(1)} pts`;
+
 type PreflightResult = { ok: true; preflight: PreflightPayload } | { ok: false; message: string };
 
 async function fetchPreflight(
   endpoint: string,
-  request: PreflightRequest,
+  request: PreflightRequest | BasketAction,
   basketId: string | null,
 ): Promise<PreflightResult> {
   try {
@@ -54,8 +60,11 @@ async function fetchPreflight(
   }
 }
 
+const BASIS_LABEL = { ask: "ask", bid: "bid", last: "last trade" } as const;
+
 function OrderTable({ preflight }: { preflight: PreflightPayload }) {
-  const { currency } = preflight;
+  const { currency, totals } = preflight;
+  const trades = preflight.kind === "rebalance" || preflight.kind === "close";
   return (
     <table className="w-full font-mono text-xs">
       <caption className="sr-only">Orders to submit, in order</caption>
@@ -71,7 +80,7 @@ function OrderTable({ preflight }: { preflight: PreflightPayload }) {
             Price
           </th>
           <th scope="col" className="eyebrow py-2 text-right font-medium text-muted-foreground">
-            Est. cost
+            {trades ? "Est. value" : "Est. cost"}
           </th>
         </tr>
       </thead>
@@ -90,26 +99,49 @@ function OrderTable({ preflight }: { preflight: PreflightPayload }) {
             </td>
             <td className="hidden py-2.5 text-right align-top tabular-nums sm:table-cell">
               {formatMoney(order.price, currency)}
-              <span className="block text-muted-foreground">{order.priceBasis === "ask" ? "ask" : "last trade"}</span>
+              <span className="block text-muted-foreground">{BASIS_LABEL[order.priceBasis]}</span>
             </td>
             <td className="py-2.5 text-right align-top font-medium tabular-nums">{formatMoney(order.estCost, currency)}</td>
           </tr>
         ))}
       </tbody>
       <tfoot>
-        <tr className="border-t border-border-strong">
-          <td colSpan={2} className="py-2.5 font-sans text-sm font-medium">
-            Estimated total
-          </td>
-          <td className="hidden sm:table-cell" />
-          <td className="py-2.5 text-right text-sm font-medium tabular-nums">
-            {formatMoney(preflight.totals.estCost, currency)}
-          </td>
-        </tr>
+        {trades ? (
+          <>
+            <tr className="border-t border-border-strong">
+              <td colSpan={2} className="py-2 font-sans text-sm text-muted-foreground">
+                Sells raise
+              </td>
+              <td className="hidden sm:table-cell" />
+              <td className="py-2 text-right text-sm tabular-nums">{formatMoney(totals.sellProceeds ?? 0, currency)}</td>
+            </tr>
+            <tr>
+              <td colSpan={2} className="py-2 font-sans text-sm text-muted-foreground">
+                Buys spend
+              </td>
+              <td className="hidden sm:table-cell" />
+              <td className="py-2 text-right text-sm tabular-nums">{formatMoney(totals.estCost, currency)}</td>
+            </tr>
+          </>
+        ) : (
+          <tr className="border-t border-border-strong">
+            <td colSpan={2} className="py-2.5 font-sans text-sm font-medium">
+              Estimated total
+            </td>
+            <td className="hidden sm:table-cell" />
+            <td className="py-2.5 text-right text-sm font-medium tabular-nums">{formatMoney(totals.estCost, currency)}</td>
+          </tr>
+        )}
       </tfoot>
     </table>
   );
 }
+
+const RUN_LABEL: Record<ExecutionKind, { eyebrow: string; run: string; confirm: string; button: string }> = {
+  deploy: { eyebrow: "Pre-flight", run: "Paper run", confirm: "Confirm", button: "Run paper simulation" },
+  rebalance: { eyebrow: "Rebalance pre-flight", run: "Paper rebalance", confirm: "Rebalance", button: "Run paper rebalance" },
+  close: { eyebrow: "Close pre-flight", run: "Paper close", confirm: "Close basket", button: "Sell everything and close" },
+};
 
 function PreflightBody({
   preflight,
@@ -127,15 +159,31 @@ function PreflightBody({
   const { currency, totals } = preflight;
   return (
     <DialogSection className="flex flex-col gap-5 pb-6">
+      {preflight.rebalance && (
+        <p className="rounded-md bg-surface-sunken px-3 py-2.5 text-sm tabular-nums">
+          Largest drift {pts(preflight.rebalance.maxDriftBefore)} → about {pts(preflight.rebalance.maxDriftAfter)} after these
+          trades.
+        </p>
+      )}
       <OrderTable preflight={preflight} />
       <p className="text-xs text-muted-foreground">
-        Budget {formatMoney(preflight.budget, currency)} ·{" "}
-        {totals.overBudget ? (
-          <span className="text-negative-subtle-foreground">
-            {formatMoney(-totals.unallocated, currency)} over budget at these prices
-          </span>
+        {preflight.kind === "rebalance" ? (
+          <>
+            {formatMoney(totals.unallocated, currency)} left over after whole shares
+          </>
+        ) : preflight.kind === "close" ? (
+          <>Sells every share in the basket at the {preflight.market.open ? "bid" : "last trade"}</>
         ) : (
-          <>{formatMoney(totals.unallocated, currency)} stays in cash</>
+          <>
+            Budget {formatMoney(preflight.budget, currency)} ·{" "}
+            {totals.overBudget ? (
+              <span className="text-negative-subtle-foreground">
+                {formatMoney(-totals.unallocated, currency)} over budget at these prices
+              </span>
+            ) : (
+              <>{formatMoney(totals.unallocated, currency)} stays in cash</>
+            )}
+          </>
         )}
         {preflight.leftOut.length > 0 && (
           <>
@@ -235,7 +283,7 @@ function PreflightFlow({
   onExecuted,
 }: {
   endpoint: string;
-  request: PreflightRequest;
+  request: PreflightRequest | BasketAction;
   onRunState: (state: ExecutionState) => void;
   onExecuted: (basketPath: string) => void;
 }) {
@@ -283,13 +331,19 @@ function PreflightFlow({
       const response = await fetch("/api/executions", {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
-        body: JSON.stringify({ basketId: preflight.basketId, mode, simulateRejectSeq: mode === "paper" ? rejectSeq : null }),
+        body: JSON.stringify({
+          basketId: preflight.basketId,
+          kind: preflight.kind ?? "deploy",
+          preflightId: preflight.preflightId ?? null,
+          mode,
+          simulateRejectSeq: mode === "paper" ? rejectSeq : null,
+        }),
       });
       const body = await readJson<ExecutionView>(response);
       if (!response.ok || !body || "error" in body) {
         const { code, message } = failure(body, response.status);
         if (code === "preflight_stale") {
-          setNotice("Those prices were more than 5 minutes old, so pre-flight ran again. Check the orders and confirm.");
+          setNotice("Those prices were out of date, so pre-flight ran again. Check the orders and confirm.");
           setPhase("loading");
           await load(preflight.basketId);
           return;
@@ -308,25 +362,29 @@ function PreflightFlow({
   }
 
   const count = preflight?.orders.length ?? 0;
+  const kind: ExecutionKind = preflight?.kind ?? ("kind" in request ? request.kind : "deploy");
+  const label = RUN_LABEL[kind];
   return (
     <>
       <DialogSection className="flex flex-col gap-1 pt-6 pb-4">
         <p className="eyebrow text-muted-foreground">
-          ► {execution ? "Paper run" : "Pre-flight"}
+          ► {execution ? label.run : label.eyebrow}
           {preflight && ` · ${preflight.account.name}`}
         </p>
         <DialogTitle>
           {execution
             ? preflight?.title
             : preflight
-              ? `Confirm ${count} ${count === 1 ? "order" : "orders"}`
+              ? `${label.confirm} · ${count} ${count === 1 ? "order" : "orders"}`
               : "Pre-flight check"}
         </DialogTitle>
         <DialogDescription>
           {execution
             ? "Each leg is submitted one second apart. A failed leg doesn't stop the queue."
             : preflight
-              ? `${preflight.title}: whole-share market orders in ${preflight.currency}, priced just now.`
+              ? `${preflight.title}: whole-share market orders in ${preflight.currency}${
+                  kind === "deploy" ? ", priced just now." : ", sells first, priced just now."
+                }`
               : "Re-checking prices, market hours, and the account before anything is submitted."}
         </DialogDescription>
       </DialogSection>
@@ -400,8 +458,13 @@ function PreflightFlow({
                 Submit {count} live {count === 1 ? "order" : "orders"}
               </Button>
             ) : (
-              <Button disabled={phase !== "ready" || count === 0} onClick={() => void confirm()}>
-                {phase === "confirming" ? "Starting…" : "Run paper simulation"}
+              <Button
+                variant={kind === "close" ? "destructive" : "default"}
+                className={kind === "close" ? "border-destructive" : undefined}
+                disabled={phase !== "ready" || count === 0}
+                onClick={() => void confirm()}
+              >
+                {phase === "confirming" ? "Starting…" : label.button}
               </Button>
             )}
           </div>
@@ -420,8 +483,9 @@ export function PreflightDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The deploy pre-flight route; rebalance and close use the basket's own. */
   endpoint: string;
-  request: PreflightRequest | null;
+  request: PreflightRequest | BasketAction | null;
   onExecuted: (basketPath: string) => void;
 }) {
   const [run, setRun] = useState<ExecutionState | null>(null);
@@ -439,7 +503,12 @@ export function PreflightDialog({
     >
       <DialogContent>
         {open && request && (
-          <PreflightFlow endpoint={endpoint} request={request} onRunState={setRun} onExecuted={onExecuted} />
+          <PreflightFlow
+            endpoint={"kind" in request ? `/api/baskets/${request.basketId}/preflight` : endpoint}
+            request={request}
+            onRunState={setRun}
+            onExecuted={onExecuted}
+          />
         )}
       </DialogContent>
     </Dialog>

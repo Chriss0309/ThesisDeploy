@@ -27,7 +27,7 @@ async function GuestBasket({ params }: { params: PageProps<"/demo/baskets/[baske
   if (!token || !z.uuid().safeParse(basketId).success) notFound();
   const basket = await findBasketView(basketId, { userId: null, guestKey: guestKeyFor(token) });
   if (!basket) notFound();
-  return <BasketRecord basket={basket} studioPath="/demo/studio" />;
+  return <BasketRecord basket={basket} studioPath="/demo/studio" thesesPath="/demo/theses" />;
 }
 
 export default function DemoBasketPage({ params }: PageProps<"/demo/baskets/[basketId]">) {

@@ -3,6 +3,7 @@ import Link from "next/link";
 const TABS = [
   { key: "xray", href: "/demo", label: "Portfolio X-Ray" },
   { key: "studio", href: "/demo/studio", label: "Thesis Studio" },
+  { key: "theses", href: "/demo/theses", label: "My Theses" },
 ] as const;
 
 export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]["key"]; returnTo: string }) {

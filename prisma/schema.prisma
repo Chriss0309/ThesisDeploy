@@ -196,33 +196,45 @@ model ThesisCandidate {
 /// paper and live baskets are never mixed. Guest demo baskets have no user;
 /// the demo cookie owns them.
 model Basket {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String?   @map("user_id") @db.Uuid
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
   /// Keyed hash of the guest demo cookie; null for signed-in baskets.
-  guestKey      String?   @map("guest_key")
+  guestKey        String?   @map("guest_key")
   /// Keyed hash of a guest's IP, for the demo's daily limits.
-  guestClient   String?   @map("guest_client")
-  thesisId      String?   @map("thesis_id") @db.Uuid
-  accountId     String    @map("account_id")
-  accountName   String    @map("account_name")
-  institution   String
-  brokerageSlug String?   @map("brokerage_slug")
+  guestClient     String?   @map("guest_client")
+  thesisId        String?   @map("thesis_id") @db.Uuid
+  accountId       String    @map("account_id")
+  accountName     String    @map("account_name")
+  institution     String
+  brokerageSlug   String?   @map("brokerage_slug")
   /// Hashed account ID (per guest for demo accounts): the pacing and one-active-execution key.
-  accountKey    String    @map("account_key")
+  accountKey      String    @map("account_key")
   /// paper or live; null until an execution is confirmed.
-  mode          String?
+  mode            String?
   /// draft, deploying, active, or closed
-  status        String    @default("draft")
-  currency      String
-  budget        Decimal   @db.Decimal(14, 2)
-  title         String
-  summary       String
-  riskProfile   String    @map("risk_profile")
-  /// The latest pre-flight: order list, quotes, market status, and Live gating.
-  preflight     Json
-  preflightAt   DateTime  @map("preflight_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  deployedAt    DateTime? @map("deployed_at") @db.Timestamptz(6)
+  status          String    @default("draft")
+  currency        String
+  budget          Decimal   @db.Decimal(14, 2)
+  title           String
+  summary         String
+  riskProfile     String    @map("risk_profile")
+  /// The deploy pre-flight: order list, quotes, market status, and Live gating.
+  preflight       Json
+  preflightAt     DateTime  @map("preflight_at") @db.Timestamptz(6)
+  /// Cost of the deploy fills: the capital put into the basket.
+  contributed     Decimal   @default(0) @db.Decimal(16, 4)
+  /// Proceeds of rebalance and close sells, less rebalance buys.
+  cash            Decimal   @default(0) @db.Decimal(16, 4)
+  /// The latest rebalance or close pre-flight (same shape as `preflight`, plus `id` and `kind`).
+  actionPreflight Json?     @map("action_preflight")
+  /// Cached prices for valuation: { source, asOf, prices: { SYMBOL: { last, bid, ask } } }.
+  marks           Json?
+  markedAt        DateTime? @map("marked_at") @db.Timestamptz(6)
+  /// Guest demo only: price multipliers from the "Simulate a market move" reviewer tool.
+  simulatedMoves  Json?     @map("simulated_moves")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deployedAt      DateTime? @map("deployed_at") @db.Timestamptz(6)
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(6)
 
   user         AppUser?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   thesis       Thesis?             @relation(fields: [thesisId], references: [id], onDelete: SetNull)
@@ -246,7 +258,10 @@ model BasketConstituent {
   plannedUnits      Int     @map("planned_units")
   /// Filled shares; written only together with a filled leg.
   ledgerUnits       Int     @default(0) @map("ledger_units")
+  /// Cost basis of the shares still held (average cost).
   costTotal         Decimal @default(0) @map("cost_total") @db.Decimal(16, 4)
+  /// Sale proceeds less the average cost of the shares sold.
+  realizedTotal     Decimal @default(0) @map("realized_total") @db.Decimal(16, 4)
 
   basket Basket @relation(fields: [basketId], references: [id], onDelete: Cascade)
 
@@ -263,7 +278,7 @@ model Execution {
   /// Equals account_key while queued or running and is null otherwise, so the
   /// unique index allows one active execution per account (NULLs never collide).
   activeAccountKey  String?   @unique @map("active_account_key")
-  /// deploy (rebalance and close arrive with My Theses)
+  /// deploy, rebalance, or close
   kind              String
   /// paper or live
   mode              String
@@ -271,6 +286,8 @@ model Execution {
   status            String
   /// Client-generated per confirmation; a repeated POST returns the same execution.
   idempotencyKey    String    @unique @map("idempotency_key")
+  /// The pre-flight this execution confirmed; each pre-flight runs at most once.
+  preflightId       String?   @unique @map("preflight_id") @db.Uuid
   /// What the user confirmed: order list, quotes, market status, disclosures.
   confirmation      Json
   /// Paper only: the leg whose first attempt is rejected (reviewer failure injection).
