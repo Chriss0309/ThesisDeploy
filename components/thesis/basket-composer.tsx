@@ -333,7 +333,9 @@ export function BasketComposer({
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="flex flex-col gap-1">
             <p className="eyebrow text-muted-foreground">► Thesis · Basket Composer</p>
-            <CardTitle className="font-display text-xl font-semibold">{thesis.title}</CardTitle>
+            <CardTitle role="heading" aria-level={2} className="font-display text-xl font-semibold">
+              {thesis.title}
+            </CardTitle>
           </div>
           <div className="flex flex-wrap gap-1">
             <Badge tone={RISK_TONE[thesis.riskProfile]}>{thesis.riskProfile} risk</Badge>

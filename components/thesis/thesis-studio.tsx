@@ -13,7 +13,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
-import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/schema";
+import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/constants";
 import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/lib/thesis/types";
 import { cn } from "@/lib/utils";
 
@@ -57,12 +57,14 @@ function Field({
   children: ReactNode;
   hint?: ReactNode;
 }) {
+  // Controls without an id (segmented groups) carry their own aria-label.
+  const Label = htmlFor ? "label" : "span";
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-end justify-between gap-3">
-        <label htmlFor={htmlFor} className="text-sm font-medium">
+        <Label htmlFor={htmlFor} className="text-sm font-medium">
           {label}
-        </label>
+        </Label>
         {aside}
       </div>
       {children}
@@ -123,6 +125,7 @@ export function ThesisStudio({
   accounts,
   initialAccountId,
   initialPresetKey,
+  initialPrompt,
   generation,
 }: {
   mode: "live" | "demo";
@@ -130,6 +133,8 @@ export function ThesisStudio({
   accounts: StudioAccount[];
   initialAccountId: string;
   initialPresetKey?: string | null;
+  /** A custom thesis carried over from the landing page; a preset key wins. */
+  initialPrompt?: string | null;
   /** Which prompts can be submitted, and a note explaining generation limits. */
   generation: { presets: boolean; custom: boolean; note: string };
 }) {
@@ -139,7 +144,7 @@ export function ThesisStudio({
   const [currency, setCurrency] = useState<BasketCurrency>(() => defaultCurrency(account));
   const [budget, setBudget] = useState(() => defaultBudget(cashIn(account, defaultCurrency(account))).budget);
   const [overlapMode, setOverlapMode] = useState<OverlapMode>("auto");
-  const [prompt, setPrompt] = useState(initialPreset?.prompt ?? "");
+  const [prompt, setPrompt] = useState(initialPreset?.prompt ?? initialPrompt?.slice(0, MAX_PROMPT_LENGTH) ?? "");
   const [presetKey, setPresetKey] = useState<string | null>(initialPreset?.key ?? null);
   const [pendingSince, setPendingSince] = useState<number | null>(null);
   const [arrived, setArrived] = useState<ComposerPayload | null>(null);

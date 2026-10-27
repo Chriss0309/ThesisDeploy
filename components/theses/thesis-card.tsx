@@ -49,7 +49,7 @@ function Valuation({ card, valuation }: { card: ThesisCardData; valuation: Thesi
   const { currency } = card;
   const closed = card.status === "closed";
   return (
-    <section aria-label="Valuation" className="flex flex-col gap-4 rounded-md bg-surface-sunken p-4">
+    <div role="group" aria-label="Valuation" className="flex flex-col gap-4 rounded-md bg-surface-sunken p-4">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="flex flex-col gap-1">
           <p className="eyebrow text-muted-foreground">► {closed ? "Final result" : "Value now"} · {currency}</p>
@@ -83,7 +83,7 @@ function Valuation({ card, valuation }: { card: ThesisCardData; valuation: Thesi
           />
         </dl>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -127,7 +127,7 @@ function Lines({ card, valuation }: { card: ThesisCardData; valuation: ThesisVal
   const held = valuation.lines.filter((line) => line.units > 0 || card.status !== "closed");
   const scale = Math.max(0.1, ...held.map((line) => Math.max(line.currentWeight, line.targetWeight))) * 1.15;
   return (
-    <section aria-label="Drift by stock" className="flex flex-col gap-1">
+    <div role="group" aria-label="Drift by stock" className="flex flex-col gap-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="eyebrow text-muted-foreground">► Drift from target</p>
         <p className="text-xs text-muted-foreground">
@@ -145,7 +145,7 @@ function Lines({ card, valuation }: { card: ThesisCardData; valuation: ThesisVal
           />
         ))}
       </ul>
-    </section>
+    </div>
   );
 }
 
@@ -181,7 +181,9 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="flex flex-col gap-1">
             <p className="eyebrow text-muted-foreground">► Thesis</p>
-            <CardTitle className="font-display text-xl font-semibold">{card.title}</CardTitle>
+            <CardTitle role="heading" aria-level={2} className="font-display text-xl font-semibold">
+              {card.title}
+            </CardTitle>
           </div>
           <div className="flex flex-wrap gap-1">
             {flagged && (
@@ -240,13 +242,13 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
         )}
 
         {card.execution && !open && (
-          <section aria-label="Rebalance or close run" className="flex flex-col gap-3 rounded-md border p-4">
+          <div role="group" aria-label="Rebalance or close run" className="flex flex-col gap-3 rounded-md border p-4">
             <p className="eyebrow text-muted-foreground">
               ► {card.execution.kind === "close" ? "Closing" : card.execution.kind === "deploy" ? "Deploying" : "Rebalancing"} ·{" "}
               {card.execution.mode === "live" ? "live" : "paper"} run
             </p>
             <BasketExecution execution={card.execution} />
-          </section>
+          </div>
         )}
 
         {demo && card.status === "active" && valuation && (

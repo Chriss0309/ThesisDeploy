@@ -1,14 +1,23 @@
 import { z } from "zod";
 
-export const RISK_PROFILES = ["conservative", "moderate", "aggressive", "speculative"] as const;
-export type RiskProfile = (typeof RISK_PROFILES)[number];
+import {
+  BASKET_CURRENCIES,
+  MAX_CANDIDATES,
+  MAX_PROMPT_LENGTH,
+  MIN_CANDIDATES,
+  RISK_PROFILES,
+} from "@/lib/thesis/constants";
 
-export const MIN_CANDIDATES = 6;
-export const MAX_CANDIDATES = 8;
-export const MAX_PROMPT_LENGTH = 500;
-export const BASKET_CURRENCIES = ["USD", "CAD"] as const;
-export type BasketCurrency = (typeof BASKET_CURRENCIES)[number];
-export type OverlapMode = "auto" | "ignore";
+export {
+  BASKET_CURRENCIES,
+  MAX_CANDIDATES,
+  MAX_PROMPT_LENGTH,
+  MIN_CANDIDATES,
+  RISK_PROFILES,
+  type BasketCurrency,
+  type OverlapMode,
+  type RiskProfile,
+} from "@/lib/thesis/constants";
 
 /**
  * Claude's structured output. Structured outputs enforce types, enums, and

@@ -17,6 +17,12 @@ import { THESIS_PRESETS } from "@/lib/presets";
 export function ThesisPreview({ footer }: { footer: ReactNode }) {
   const [thesis, setThesis] = useState("");
   const chosen = THESIS_PRESETS.find((preset) => preset.prompt === thesis);
+  const custom = thesis.trim();
+  const studioHref = chosen
+    ? `/demo/studio?preset=${chosen.key}`
+    : custom.length >= 3
+      ? `/demo/studio?${new URLSearchParams({ prompt: custom })}`
+      : null;
 
   return (
     <Card className="w-full shadow-md">
@@ -29,6 +35,7 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Textarea
+          name="thesis"
           aria-label="Investment thesis"
           placeholder="e.g. Utilities and grid suppliers that win as AI data centers strain North American power"
           value={thesis}
@@ -50,9 +57,9 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
             </Button>
           ))}
         </div>
-        {chosen && (
+        {studioHref && (
           <a
-            href={`/demo/studio?preset=${chosen.key}`}
+            href={studioHref}
             className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
           >
             ► Build this basket in the demo Studio
