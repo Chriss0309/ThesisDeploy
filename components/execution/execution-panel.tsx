@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { stackLegs } from "@/lib/execution/client-state";
 import { summarizeLegs, summaryLine } from "@/lib/execution/summary";
 import type { ExecutionView } from "@/lib/execution/types";
+import { executionHasFill, noteBasketFilled } from "@/lib/thesis/studio-cache";
 
 export type ExecutionState = { execution: ExecutionView; active: boolean; draining: boolean };
 
@@ -48,6 +49,10 @@ export function ExecutionPanel({
   useEffect(() => {
     onStateChange?.({ execution, active, draining });
   }, [execution, active, draining, onStateChange]);
+
+  useEffect(() => {
+    if (executionHasFill(execution)) noteBasketFilled(execution.basketId);
+  }, [execution]);
 
   return (
     <div className="flex flex-col gap-4">

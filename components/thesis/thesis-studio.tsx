@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Loader, LoaderGlyph } from "@/components/loader/loader";
 import { Mark, Reveal } from "@/components/loader/mark";
@@ -14,6 +14,16 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
 import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/constants";
+import {
+  applyStudioWorld,
+  canExecuteStudioBasket,
+  confirmStudioBasket,
+  emptyStudioCache,
+  getStudioWorld,
+  setStudioDialog,
+  startStudioBasket,
+  subscribeStudioWorld,
+} from "@/lib/thesis/studio-cache";
 import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/lib/thesis/types";
 import { cn } from "@/lib/utils";
 
@@ -150,8 +160,17 @@ export function ThesisStudio({
   const [arrived, setArrived] = useState<ComposerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<ComposerPayload | null>(null);
+  const [cache, setCache] = useState(emptyStudioCache);
   const [run, setRun] = useState(0);
   const editTimers = useRef(new Map<string, number>());
+
+  // Activity keeps this page mounted after navigation. Re-apply My Theses visits
+  // and fills on the way back in, before the preserved basket can paint.
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Activity restores this page with the old basket already committed
+    setCache((current) => applyStudioWorld(current, true));
+    return subscribeStudioWorld(() => setCache((current) => applyStudioWorld(current, false)));
+  }, []);
 
   const cash = cashIn(account, currency);
   const { simulated } = defaultBudget(cash);
@@ -202,6 +221,7 @@ export function ThesisStudio({
 
   const reveal = () => {
     if (arrived) {
+      setCache(startStudioBasket(getStudioWorld().thesesVisits, arrived.thesis.ref));
       setPayload(arrived);
       setRun((count) => count + 1);
     }
@@ -406,7 +426,7 @@ export function ThesisStudio({
         {pendingSince != null && (
           <GenerationLoader startedAt={pendingSince} settled={arrived != null} onSettled={reveal} />
         )}
-        {payload ? (
+        {payload && cache.draftKey ? (
           // Hidden, not unmounted, while regenerating: the loader takes its place and a
           // failed request brings the previous basket back untouched.
           <div hidden={pendingSince != null} className="contents">
@@ -414,6 +434,9 @@ export function ThesisStudio({
               key={run}
               payload={payload}
               onEdit={recordEdit}
+              executable={canExecuteStudioBasket(cache)}
+              onSubmitted={(basketId) => setCache((current) => confirmStudioBasket(current, basketId))}
+              onDialogOpenChange={(open) => setCache((current) => setStudioDialog(current, open))}
               preflightEndpoint={mode === "live" ? "/api/preflight" : "/api/demo/preflight"}
             />
           </div>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { MotionRuntime } from "@/components/loader/runtime";
+import { StudioCacheListener } from "@/components/thesis/studio-cache-listener";
 import { fontVariables } from "./fonts";
 import "./globals.css";
 
@@ -16,6 +18,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {children}
         <MotionRuntime />
+        <Suspense fallback={null}>
+          <StudioCacheListener />
+        </Suspense>
       </body>
     </html>
   );
