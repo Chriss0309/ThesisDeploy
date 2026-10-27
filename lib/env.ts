@@ -36,6 +36,8 @@ const serverEnvSchema = z.object({
   TOKEN_ENCRYPTION_KEY: base64Key32.optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
+  // Claude calls guests can trigger per rolling 24 hours, across all visitors; 0 turns guest generation off.
+  GUEST_GENERATIONS_PER_DAY: z.coerce.number().int().min(0).default(40),
   LIVE_TRADING_ENABLED: z.stringbool().default(false),
 });
 

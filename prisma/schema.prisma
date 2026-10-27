@@ -27,6 +27,7 @@ model AppUser {
   events    Event[]
   apiCalls  ApiCall[]
   snapshots AccountSnapshot[]
+  theses    Thesis[]
 
   @@map("app_users")
 }
@@ -124,4 +125,66 @@ model AccountSnapshot {
 
   @@id([userId, accountId])
   @@map("account_snapshots")
+}
+
+/// One Claude generation and the context it ran with. Guest demo theses have
+/// no user; they double as the cache for preset and repeated guest prompts.
+model Thesis {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  /// Keyed hash of a guest's IP for custom prompts; never the address itself.
+  guestClient  String?  @map("guest_client")
+  accountId    String   @map("account_id")
+  prompt       String
+  /// SHA-256 of the normalized prompt, for cache lookups.
+  promptHash   String   @map("prompt_hash")
+  presetKey    String?  @map("preset_key")
+  budget       Decimal  @db.Decimal(14, 2)
+  currency     String
+  overlapMode  String   @map("overlap_mode")
+  model        String
+  /// Raw structured output, kept for auditing.
+  llmOutput    Json     @map("llm_output")
+  title        String
+  summary      String
+  riskProfile  String   @map("risk_profile")
+  latencyMs    Int      @map("latency_ms")
+  inputTokens  Int?     @map("input_tokens")
+  outputTokens Int?     @map("output_tokens")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user       AppUser?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidates ThesisCandidate[]
+
+  @@index([userId, createdAt])
+  @@index([promptHash, createdAt])
+  @@map("theses")
+}
+
+/// Every ticker Claude proposed and what grounding did with it; the source
+/// for the symbol-resolution hit rate.
+model ThesisCandidate {
+  thesisId          String   @map("thesis_id") @db.Uuid
+  seq               Int
+  ticker            String
+  companyName       String   @map("company_name")
+  rationale         String
+  /// Claude's weight, normalized over every valid proposal.
+  llmWeight         Float?   @map("llm_weight")
+  /// resolved, not_found, untradeable, currency_mismatch, no_price, duplicate, or invalid
+  resolutionStatus  String   @map("resolution_status")
+  detail            String?
+  symbol            String?
+  universalSymbolId String?  @map("universal_symbol_id")
+  price             Decimal? @db.Decimal(18, 4)
+  /// snaptrade or demo, then ask or last.
+  priceSource       String?  @map("price_source")
+  overlapValue      Decimal? @map("overlap_value") @db.Decimal(14, 2)
+  adjustedWeight    Float?   @map("adjusted_weight")
+  units             Int?
+
+  thesis Thesis @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+
+  @@id([thesisId, seq])
+  @@map("thesis_candidates")
 }

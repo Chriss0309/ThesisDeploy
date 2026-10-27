@@ -22,6 +22,9 @@ export function PageShell({
           <Link href="/portfolio" className="hover:text-foreground">
             Portfolio X-Ray
           </Link>
+          <Link href="/studio" className="hover:text-foreground">
+            Thesis Studio
+          </Link>
           <Link href="/demo" className="hover:text-foreground">
             Demo
           </Link>

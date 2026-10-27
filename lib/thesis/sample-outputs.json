@@ -1,0 +1,122 @@
+{
+  "ai-power-nuclear:USD": {
+    "on_topic": true,
+    "title": "AI Power and Nuclear Build-out",
+    "summary": "Generators, nuclear fuel and reactor suppliers, and grid builders that sell into data-center power demand, tilted toward names not already in the portfolio.",
+    "risk_profile": "aggressive",
+    "candidates": [
+      { "ticker": "CEG", "listing": "US", "company_name": "Constellation Energy", "rationale": "Largest US nuclear fleet, already signing long-term power deals with hyperscale data centers.", "weight_pct": 15, "holding_note": "Already about 3% of USD holdings (15 shares in Paper Trading)." },
+      { "ticker": "TLN", "listing": "US", "company_name": "Talen Energy", "rationale": "Owns the Susquehanna nuclear plant with a co-located data-center campus supply agreement.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "BWXT", "listing": "US", "company_name": "BWX Technologies", "rationale": "Sole supplier of naval reactors and a leading builder of small modular reactor components.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "CCJ", "listing": "US", "company_name": "Cameco", "rationale": "Top Western uranium miner and Westinghouse co-owner, levered to new reactor demand.", "weight_pct": 10, "holding_note": "Held as CCJ.TO (35 shares) in TFSA." },
+      { "ticker": "PWR", "listing": "US", "company_name": "Quanta Services", "rationale": "Largest US contractor for transmission lines and substations that connect new load.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "VRT", "listing": "US", "company_name": "Vertiv", "rationale": "Power and cooling equipment inside data centers, where AI racks raise power density.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "OKLO", "listing": "US", "company_name": "Oklo", "rationale": "Pre-revenue advanced-reactor developer targeting behind-the-meter power for data centers.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "SMR", "listing": "US", "company_name": "NuScale Power", "rationale": "Small modular reactor design with NRC approval, an early-stage bet on nuclear for data centers.", "weight_pct": 10, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "VST", "reason": "Already about 5% of USD holdings in Paper Trading; similar exposure to CEG and TLN." },
+      { "ticker": "GEV", "reason": "Already held in Paper Trading, and one share costs more than a typical slice." },
+      { "ticker": "ETN", "reason": "Already held in Paper Trading." },
+      { "ticker": "NEE", "reason": "Regulated utility with diluted data-center exposure." },
+      { "ticker": "URA", "reason": "ETF; baskets hold individual stocks." }
+    ]
+  },
+  "ai-power-nuclear:CAD": {
+    "on_topic": true,
+    "title": "Canadian Power for AI",
+    "summary": "TSX-listed uranium, reactor engineering, transformer, and power-generation names that benefit as data centers strain North American grids.",
+    "risk_profile": "aggressive",
+    "candidates": [
+      { "ticker": "CCJ", "listing": "TSX", "company_name": "Cameco", "rationale": "Top Western uranium miner and Westinghouse co-owner, levered to new reactor demand.", "weight_pct": 20, "holding_note": "Already 35 shares (about C$3,400) in TFSA." },
+      { "ticker": "NXE", "listing": "TSX", "company_name": "NexGen Energy", "rationale": "Developing Rook I, one of the largest high-grade uranium deposits in the world.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "ATRL", "listing": "TSX", "company_name": "AtkinsRéalis", "rationale": "CANDU reactor owner and nuclear engineering firm working on refurbishments and new builds.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "HPS.A", "listing": "TSX", "company_name": "Hammond Power Solutions", "rationale": "Dry-type transformer maker facing backlogs from data-center and grid demand.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "CLS", "listing": "TSX", "company_name": "Celestica", "rationale": "Builds AI networking and server hardware for hyperscalers, a direct read on data-center capex.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "CPX", "listing": "TSX", "company_name": "Capital Power", "rationale": "Owns US gas plants in PJM and is pursuing data-center supply contracts.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "H", "listing": "TSX", "company_name": "Hydro One", "rationale": "Ontario transmission utility investing in grid capacity for new load, including nuclear.", "weight_pct": 10, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "ENB", "reason": "Already about 19% of CAD holdings in TFSA; a pipeline rather than power." },
+      { "ticker": "FTS", "reason": "Regulated utility with limited data-center exposure." },
+      { "ticker": "CEG", "reason": "No TSX listing; the budget is in CAD." },
+      { "ticker": "HURA", "reason": "ETF; baskets hold individual stocks." }
+    ]
+  },
+  "critical-minerals:USD": {
+    "on_topic": true,
+    "title": "Battery Metals Supply Chain",
+    "summary": "Lithium, rare-earth, and copper producers that feed EV batteries and motors, with a mix of established miners and developers.",
+    "risk_profile": "speculative",
+    "candidates": [
+      { "ticker": "ALB", "listing": "US", "company_name": "Albemarle", "rationale": "Largest Western lithium producer, with brine and hard-rock assets and refining capacity.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "MP", "listing": "US", "company_name": "MP Materials", "rationale": "Operates the only scaled US rare-earth mine and is building magnet production for EV motors.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "FCX", "listing": "US", "company_name": "Freeport-McMoRan", "rationale": "Major copper producer; copper wiring and motors scale with EV and grid build-outs.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "TECK", "listing": "US", "company_name": "Teck Resources", "rationale": "Canadian miner refocused on copper, with growth projects in Chile and Canada.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "SQM", "listing": "US", "company_name": "Sociedad Química y Minera", "rationale": "Low-cost Chilean lithium brine producer supplying battery-grade carbonate and hydroxide.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "LAC", "listing": "US", "company_name": "Lithium Americas", "rationale": "Developing Thacker Pass in Nevada, a large US lithium source backed by an automaker.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "PLL", "listing": "US", "company_name": "Piedmont Lithium", "rationale": "US lithium developer supplying spodumene concentrate to North American battery makers.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "RIO", "listing": "US", "company_name": "Rio Tinto", "rationale": "Diversified miner expanding in lithium and copper, adding scale and balance-sheet strength.", "weight_pct": 10, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "BHP", "reason": "Iron ore still dominates earnings." },
+      { "ticker": "VALE", "reason": "Iron ore heavy; nickel is a small share." },
+      { "ticker": "LIT", "reason": "ETF; baskets hold individual stocks." }
+    ]
+  },
+  "critical-minerals:CAD": {
+    "on_topic": true,
+    "title": "Canadian Battery Metals",
+    "summary": "TSX-listed copper and lithium miners that supply the North American EV battery and grid build-out.",
+    "risk_profile": "speculative",
+    "candidates": [
+      { "ticker": "TECK.B", "listing": "TSX", "company_name": "Teck Resources", "rationale": "Copper-focused miner with growth projects in Chile and Canada.", "weight_pct": 20, "holding_note": null },
+      { "ticker": "LUN", "listing": "TSX", "company_name": "Lundin Mining", "rationale": "Mid-tier copper producer with assets across the Americas.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "IVN", "listing": "TSX", "company_name": "Ivanhoe Mines", "rationale": "Ramping Kamoa-Kakula, one of the world's highest-grade copper mines.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "FM", "listing": "TSX", "company_name": "First Quantum Minerals", "rationale": "Large copper producer with exposure to battery-grade nickel.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "HBM", "listing": "TSX", "company_name": "Hudbay Minerals", "rationale": "Copper producer in Peru and Manitoba with an Arizona development project.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "CS", "listing": "TSX", "company_name": "Capstone Copper", "rationale": "Growing copper output from the Americas with a Chilean expansion.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "LAC", "listing": "TSX", "company_name": "Lithium Americas", "rationale": "Developing Thacker Pass in Nevada, a large US lithium source backed by an automaker.", "weight_pct": 15, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "CCJ", "reason": "Uranium rather than battery metals; already held in TFSA." },
+      { "ticker": "ALB", "reason": "No TSX listing; the budget is in CAD." }
+    ]
+  },
+  "ai-cybersecurity:USD": {
+    "on_topic": true,
+    "title": "Security for the AI Era",
+    "summary": "Endpoint, identity, network, and cloud security platforms whose demand grows as AI agents and models widen the attack surface.",
+    "risk_profile": "aggressive",
+    "candidates": [
+      { "ticker": "CRWD", "listing": "US", "company_name": "CrowdStrike", "rationale": "Endpoint and cloud security platform using AI-driven detection across a broad module set.", "weight_pct": 20, "holding_note": null },
+      { "ticker": "PANW", "listing": "US", "company_name": "Palo Alto Networks", "rationale": "Largest pure-play security vendor, consolidating network, cloud, and AI security.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "ZS", "listing": "US", "company_name": "Zscaler", "rationale": "Zero-trust cloud proxy that inspects traffic between users, apps, and AI services.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "NET", "listing": "US", "company_name": "Cloudflare", "rationale": "Edge network securing and serving AI inference and bot traffic.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "FTNT", "listing": "US", "company_name": "Fortinet", "rationale": "Firewall and secure networking leader with its own security chips.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "S", "listing": "US", "company_name": "SentinelOne", "rationale": "Autonomous endpoint protection, a smaller challenger to CrowdStrike.", "weight_pct": 10, "holding_note": null },
+      { "ticker": "CYBR", "listing": "US", "company_name": "CyberArk", "rationale": "Privileged-access and machine-identity security for AI agents.", "weight_pct": 15, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "MSFT", "reason": "Already about 11% of USD holdings across TFSA and Individual; security is a small share of revenue." },
+      { "ticker": "CIBR", "reason": "ETF; baskets hold individual stocks." }
+    ]
+  },
+  "ai-cybersecurity:CAD": {
+    "on_topic": true,
+    "title": "Cybersecurity from Canada",
+    "summary": "The few TSX-listed security software names, with US leaders that this CAD budget can't buy flagged for review.",
+    "risk_profile": "aggressive",
+    "candidates": [
+      { "ticker": "OTEX", "listing": "TSX", "company_name": "OpenText", "rationale": "Enterprise information management with a growing security portfolio.", "weight_pct": 25, "holding_note": null },
+      { "ticker": "BB", "listing": "TSX", "company_name": "BlackBerry", "rationale": "Pivoted to cybersecurity and embedded software for vehicles and governments.", "weight_pct": 20, "holding_note": null },
+      { "ticker": "CRWD", "listing": "US", "company_name": "CrowdStrike", "rationale": "Endpoint and cloud security platform using AI-driven detection.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "PANW", "listing": "US", "company_name": "Palo Alto Networks", "rationale": "Largest pure-play security vendor, consolidating network and AI security.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "ZS", "listing": "US", "company_name": "Zscaler", "rationale": "Zero-trust cloud proxy for traffic between users, apps, and AI services.", "weight_pct": 15, "holding_note": null },
+      { "ticker": "FTNT", "listing": "US", "company_name": "Fortinet", "rationale": "Firewall and secure networking leader with its own security chips.", "weight_pct": 10, "holding_note": null }
+    ],
+    "excluded": [
+      { "ticker": "MSFT", "reason": "Already a large USD holding." }
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { formatTimestamp } from "@/components/portfolio/format";
+import { LINK, SnapTradeProblem, waitText } from "@/components/portfolio/snaptrade-problem";
 import {
   SNAPTRADE_DASHBOARD_URL,
   XRaySkeleton,
@@ -23,12 +24,7 @@ export const prefetch = "force-disabled";
 
 type SearchParams = PageProps<"/portfolio">["searchParams"];
 
-const LINK = "font-medium text-foreground underline underline-offset-4";
 const SIGN_IN = "/api/auth/login?returnTo=/portfolio";
-
-function waitText(seconds: number | null | undefined) {
-  return seconds ? `Try again in about ${Math.ceil(seconds)} seconds.` : "Try again in a minute.";
-}
 
 function noticeFor(
   result: SnapshotResult | null,
@@ -55,34 +51,6 @@ function noticeFor(
     return { tone: "warn", text: "Not refreshed: SnapTrade couldn't be reached. Showing the last data we have." };
   }
   return undefined;
-}
-
-function SnapTradeProblem({ error }: { error: unknown }) {
-  if (error instanceof ReauthRequiredError) {
-    return (
-      <MessageCard title="Reconnect SnapTrade">
-        <p>ThesisDeploy&apos;s access to SnapTrade expired or was revoked.</p>
-        <p>
-          <a href={SIGN_IN} className={LINK}>
-            Sign in with SnapTrade again
-          </a>{" "}
-          to continue.
-        </p>
-      </MessageCard>
-    );
-  }
-  if (error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")) {
-    return (
-      <MessageCard title="SnapTrade rate limit reached">
-        <p>{waitText(error.retryAfterSeconds)}</p>
-      </MessageCard>
-    );
-  }
-  return (
-    <MessageCard title="Couldn't load your accounts">
-      <p>SnapTrade didn&apos;t respond as expected. Try again shortly.</p>
-    </MessageCard>
-  );
 }
 
 async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
@@ -129,7 +97,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
     overview = await loadOverview(ctx);
   } catch (error) {
     console.error("[portfolio] could not load accounts", describeError(error));
-    return <SnapTradeProblem error={error} />;
+    return <SnapTradeProblem error={error} returnTo="/portfolio" />;
   }
 
   if (overview.accounts.length === 0) {
@@ -153,7 +121,7 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
   try {
     result = await getSnapshot(ctx, selected);
   } catch (error) {
-    if (error instanceof ReauthRequiredError) return <SnapTradeProblem error={error} />;
+    if (error instanceof ReauthRequiredError) return <SnapTradeProblem error={error} returnTo="/portfolio" />;
     console.error("[portfolio] could not load snapshot", describeError(error));
     snapshotError =
       error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")

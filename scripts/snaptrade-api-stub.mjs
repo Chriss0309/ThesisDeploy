@@ -1,11 +1,13 @@
 // Local stand-in for the SnapTrade account-data endpoints used by Portfolio
-// X-Ray, serving lib/portfolio/demo-fixtures.json. It requires a Bearer token
-// and enforces the documented per-account limit (rolling 60s) with
-// X-RateLimit-Account-* headers and SnapTrade's 429 body. Never used by a
-// deployed app: point SNAPTRADE_API_BASE_URL at it locally.
+// X-Ray and Thesis Studio, serving lib/portfolio/demo-fixtures.json and
+// lib/thesis/demo-quotes.json. It requires a Bearer token and enforces the
+// documented per-account limit (rolling 60s) on balances, positions, and
+// quotes with X-RateLimit-Account-* headers and SnapTrade's 429 body. Never
+// used by a deployed app: point SNAPTRADE_API_BASE_URL at it locally.
 //
 //   node scripts/snaptrade-api-stub.mjs   # http://127.0.0.1:4020
 //   POST /__stub/fail-next?status=401     # next API request answers 401
+//   POST /__stub/unknown-quotes?mode=reject  # unknown tickers fail the quotes batch (default: omitted)
 //   GET  /__stub/stats                    # request counters
 
 import { randomUUID } from "node:crypto";
@@ -16,11 +18,35 @@ import { pathToFileURL } from "node:url";
 const FIXTURES = JSON.parse(
   readFileSync(new URL("../lib/portfolio/demo-fixtures.json", import.meta.url), "utf8"),
 );
+const QUOTES = JSON.parse(readFileSync(new URL("../lib/thesis/demo-quotes.json", import.meta.url), "utf8")).quotes;
 
-export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, accountLimit = 10 } = {}) {
-  const stats = { requests: 0, rateLimited: 0, byPath: {} };
+// Ticker or name match, exact tickers first, at most 20 results.
+function searchSymbols(quotes, query) {
+  const needle = String(query ?? "").trim().toUpperCase();
+  if (!needle) return [];
+  const rank = (symbol) =>
+    symbol.symbol.toUpperCase() === needle || symbol.raw_symbol?.toUpperCase() === needle
+      ? 0
+      : symbol.symbol.toUpperCase().startsWith(needle)
+        ? 1
+        : 2;
+  return quotes
+    .map((quote) => quote.symbol)
+    .filter((symbol) => rank(symbol) < 2 || symbol.description?.toUpperCase().includes(needle))
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 20);
+}
+
+export async function startSnapTradeApiStub({
+  port = 0,
+  data = FIXTURES,
+  quotes = QUOTES,
+  accountLimit = 10,
+} = {}) {
+  const stats = { requests: 0, rateLimited: 0, byPath: {}, quoteRequests: [] };
   const failures = [];
   const windows = new Map();
+  let unknownQuotes = "omit";
 
   const json = (res, status, body, headers = {}) => {
     res.writeHead(status, {
@@ -51,14 +77,58 @@ export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, account
     "x-ratelimit-account-reset": String(reset),
   });
 
-  function route(path) {
-    if (path === "/authorizations") return { body: data.connections };
-    if (path === "/accounts/all") return { body: data.accounts };
-    const match = /^\/accounts\/([^/]+)\/(balances|positions\/all)$/.exec(path);
-    if (!match) return null;
-    const accountId = decodeURIComponent(match[1]);
-    const body = match[2] === "balances" ? data.balances[accountId] : data.positions[accountId];
-    return { accountId, body };
+  function quotesFor(url) {
+    const requested = (url.searchParams.get("symbols") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    stats.quoteRequests.push(requested);
+    if (requested.length === 0 || requested.length > 10) {
+      return { status: 400, body: { detail: "Provide between 1 and 10 symbols." } };
+    }
+    const byTicker = url.searchParams.get("use_ticker") === "true";
+    const found = requested.map((value) =>
+      quotes.find((quote) =>
+        byTicker ? quote.symbol.symbol.toUpperCase() === value.toUpperCase() : quote.symbol.id === value,
+      ),
+    );
+    if (unknownQuotes === "reject" && found.some((quote) => !quote)) {
+      return { status: 400, body: { detail: "Invalid symbol provided." } };
+    }
+    return { body: found.filter(Boolean) };
+  }
+
+  function route(method, url, body) {
+    const path = url.pathname;
+    if (method === "GET" && path === "/authorizations") return { body: data.connections };
+    if (method === "GET" && path === "/accounts/all") return { body: data.accounts };
+    const account = /^\/accounts\/([^/]+)\/(balances|positions\/all|quotes|symbols)$/.exec(path);
+    if (!account) return null;
+    const accountId = decodeURIComponent(account[1]);
+    if (!data.accounts.results.some((entry) => entry.id === accountId)) {
+      return { accountId, limited: true, body: undefined };
+    }
+    switch (`${method} ${account[2]}`) {
+      case "GET balances":
+        return { accountId, limited: true, body: data.balances[accountId] };
+      case "GET positions/all":
+        return { accountId, limited: true, body: data.positions[accountId] };
+      case "GET quotes":
+        return { accountId, limited: true, ...quotesFor(url) };
+      case "POST symbols":
+        // Symbol search is not on SnapTrade's list of account-limited endpoints.
+        return { accountId, limited: false, body: searchSymbols(quotes, body?.substring) };
+      default:
+        return null;
+    }
+  }
+
+  async function readJson(req) {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const text = Buffer.concat(chunks).toString("utf8");
+    try {
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
   }
 
   async function handle(req, res) {
@@ -67,9 +137,13 @@ export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, account
       failures.push(Number(url.searchParams.get("status") ?? 500));
       return json(res, 200, { queued: failures.length });
     }
+    if (req.method === "POST" && url.pathname === "/__stub/unknown-quotes") {
+      unknownQuotes = url.searchParams.get("mode") === "reject" ? "reject" : "omit";
+      return json(res, 200, { unknownQuotes });
+    }
     if (req.method === "GET" && url.pathname === "/__stub/stats") return json(res, 200, stats);
 
-    const found = req.method === "GET" ? route(url.pathname) : null;
+    const found = route(req.method, url, req.method === "POST" ? await readJson(req) : null);
     if (!found) return json(res, 404, { detail: "Not found" });
     stats.requests++;
     stats.byPath[url.pathname] = (stats.byPath[url.pathname] ?? 0) + 1;
@@ -79,7 +153,7 @@ export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, account
     }
 
     let headers = {};
-    if (found.accountId) {
+    if (found.limited) {
       const slot = takeAccountSlot(found.accountId);
       headers = slot.headers;
       if (!slot.allowed) {
@@ -96,7 +170,7 @@ export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, account
     const failure = failures.shift();
     if (failure) return json(res, failure, { detail: `Injected HTTP ${failure}` }, headers);
     if (found.body === undefined) return json(res, 404, { detail: "Account not found" }, headers);
-    return json(res, 200, found.body, headers);
+    return json(res, found.status ?? 200, found.body, headers);
   }
 
   const server = createServer((req, res) => {
@@ -108,6 +182,9 @@ export async function startSnapTradeApiStub({ port = 0, data = FIXTURES, account
     url: `http://127.0.0.1:${server.address().port}`,
     stats,
     failNext: (...statuses) => failures.push(...statuses),
+    setUnknownQuotes: (mode) => {
+      unknownQuotes = mode;
+    },
     close: () => new Promise((resolve) => server.close(resolve)),
   };
 }

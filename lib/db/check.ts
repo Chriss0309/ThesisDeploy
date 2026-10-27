@@ -10,6 +10,8 @@ export const APP_TABLES = [
   "events",
   "api_calls",
   "account_snapshots",
+  "theses",
+  "thesis_candidates",
 ] as const;
 
 class TimeoutError extends Error {
