@@ -47,7 +47,7 @@ export type MotifState = {
 export type Motif = {
   scene: Scene;
   camera: PerspectiveCamera;
-  /** Global time of the reduced-motion still frame for looping poses. */
+  /** Global time of the held frame when a looping pose is drawn still. */
   still: number;
   /** Seconds a pose plays before holding its last frame; Infinity for loops. */
   duration(pose: Pose): number;

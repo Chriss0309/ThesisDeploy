@@ -14,7 +14,7 @@ const FADE_SECONDS = 0.8;
 
 export const TOTAL_SHARES = LEGS.reduce((sum, leg) => sum + leg.shares, 0);
 export const CYCLE_SECONDS = PREFLIGHT_SECONDS + LEGS.length * PACE_SECONDS + HOLD_SECONDS + FADE_SECONDS;
-/** A moment where every leg has landed; used as the still frame for reduced motion. */
+/** A moment where every leg has landed; a one-pass hero holds this frame. */
 export const SETTLED_SECONDS = PREFLIGHT_SECONDS + LEGS.length * PACE_SECONDS + HOLD_SECONDS / 2;
 
 export type Step = { phase: "preflight" } | { phase: "leg"; leg: number } | { phase: "done" };

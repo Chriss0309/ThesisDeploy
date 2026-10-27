@@ -37,7 +37,6 @@ export type LoaderView = {
 const views = new Set<View>();
 const startedAt = performance.now();
 const seconds = () => (performance.now() - startedAt) / 1000;
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const budget = gpuBudget({
   coarsePointer: window.matchMedia("(pointer: coarse)").matches,
   viewportWidth: window.innerWidth,
@@ -70,7 +69,6 @@ function getRenderer() {
 
 /** Desktop loops run while visible. Phones and one-shot poses play once, then hold. */
 function animating(view: View, time: number) {
-  if (reducedMotion.matches) return false;
   const natural = view.motif.duration(view.state.pose);
   const duration = endlessPlayback(
     natural,
@@ -101,12 +99,12 @@ function draw(view: View, time: number) {
   view.ctx.drawImage(target, 0, target.height - height, width, height, 0, 0, width, height);
 }
 
-/** Reduced motion keeps its still frame. A phone pass, and every one-shot pose, holds the frame it ends on. */
+/** A phone pass, and every one-shot pose, holds the frame it ends on. A loop skipped this frame holds its designed still. */
 function drawStill(view: View) {
   const { state, motif } = view;
   const natural = motif.duration(state.pose);
   const poseAt = state.poseAt;
-  const phonePass = poseAt != null && natural === Infinity && constrainedDevice && !reducedMotion.matches;
+  const phonePass = poseAt != null && natural === Infinity && constrainedDevice;
   view.state.still = true;
   const at = phonePass
     ? poseAt + motif.cycle(state.pose)
@@ -161,10 +159,6 @@ document.addEventListener("visibilitychange", () => {
     cancelAnimationFrame(frame);
     frame = 0;
   }
-  schedule();
-});
-reducedMotion.addEventListener("change", () => {
-  for (const view of views) view.dirty = true;
   schedule();
 });
 

@@ -128,8 +128,7 @@ export function gpuBudget({
 
 /**
  * Endless scenes loop on a desktop window. On a phone (`constrained`), they play one
- * cycle and hold. One-shot poses keep their own duration. Reduced motion is separate:
- * the renderer draws the designed still frame and never starts the loop.
+ * cycle and hold. One-shot poses keep their own duration.
  */
 export function endlessPlayback(duration: number, cycle: number, constrained: boolean): number {
   return duration === Infinity && constrained ? cycle : duration;
