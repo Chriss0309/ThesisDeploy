@@ -221,7 +221,7 @@ describe.skipIf(!TEST_DATABASE_URL)("My Theses against stubs and Postgres", () =
     expect(card.valuation!.maxAbsDrift).toBeGreaterThan(0.05);
     expect(card.valuation!.lines.find((line) => line.symbol === symbol)!.drift).toBeGreaterThan(0.05);
     expect(card.valuation!.unrealized).toBeGreaterThan(0);
-    await recordDriftViewed(cards, ctx.userId);
+    await recordDriftViewed(cards, { userId: ctx.userId });
     expect((await events("drift_viewed"))[0]).toMatchObject({
       userId: ctx.userId,
       props: expect.objectContaining({ baskets: 1, flagged: 1, guest: false }),
@@ -358,6 +358,7 @@ describe.skipIf(!TEST_DATABASE_URL)("My Theses against stubs and Postgres", () =
       expect(moved.valuation!.rebalanceRecommended).toBe(true);
       expect(moved.simulatedMoves).toEqual({ [symbol]: 1.6 });
       expect(moved.pricing.source).toBe("demo");
+      await recordDriftViewed([moved], { guestKey: actor.guestKey });
 
       const plan = await actionPreflight(actor, deployed.basketId, "rebalance", { now });
       expect(plan).toMatchObject({ priceSource: "demo", kind: "rebalance" });
@@ -374,6 +375,15 @@ describe.skipIf(!TEST_DATABASE_URL)("My Theses against stubs and Postgres", () =
       expect(api.stats.requests).toBe(0);
       expect((await events("rebalance_confirmed"))[0].props).toMatchObject({ guest: true });
       expect((await events("basket_closed"))[0].props).toMatchObject({ guest: true });
+
+      // Every My Theses event belongs to the demo cookie, so the telemetry drawer's "You" view sees it.
+      for (const name of ["drift_viewed", "preflight_opened", "execution_confirmed", "rebalance_confirmed", "leg_result", "basket_closed"]) {
+        const rows = await events(name);
+        expect(rows.length, name).toBeGreaterThan(0);
+        expect(rows.every((row) => row.guestKey === actor.guestKey && row.userId == null), name).toBe(true);
+      }
+      const kinds = new Set((await events("leg_result")).map((row) => (row.props as { kind?: string }).kind));
+      expect(kinds).toEqual(new Set(["deploy", "rebalance", "close"]));
     }, 60_000);
   });
 });

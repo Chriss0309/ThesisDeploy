@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { clientIp } from "@/lib/auth/http";
-import { guestToken, newGuestToken, withGuestCookie } from "@/lib/execution/http";
+import { guestKeyFor, guestToken, newGuestToken, withGuestCookie } from "@/lib/execution/http";
 import { errorResponse, readThesisRequest, thesisErrorResponse } from "@/lib/thesis/http";
 import { guestClientKey } from "@/lib/thesis/rate-limit";
 import { createDemoThesis } from "@/lib/thesis/service";
@@ -17,11 +17,17 @@ export async function POST(request: NextRequest) {
     return errorResponse(400, "unknown_client", "Custom prompts need a client address. Try a preset.");
   }
 
+  // Issue the demo cookie with the first basket, so pre-flight can't mint a second
+  // one in parallel and the basket's telemetry already belongs to this visitor.
+  const existing = guestToken(request);
+  const token = existing ?? newGuestToken();
   try {
-    const payload = await createDemoThesis(parsed.body, { client: guestClientKey(ip ?? "unknown") });
+    const payload = await createDemoThesis(parsed.body, {
+      client: guestClientKey(ip ?? "unknown"),
+      key: guestKeyFor(token),
+    });
     const response = Response.json(payload, { headers: { "Cache-Control": "no-store" } });
-    // Issue the demo cookie before pre-flight, so parallel pre-flights can't each mint a different one.
-    return guestToken(request) ? response : withGuestCookie(response, request, newGuestToken());
+    return existing ? response : withGuestCookie(response, request, token);
   } catch (error) {
     return thesisErrorResponse(error, "demo-theses");
   }

@@ -122,7 +122,7 @@ async function finishPreflight(a: Assembled): Promise<PreflightPayload> {
       marketOpen: built.market.open,
       liveAvailable: built.live.available,
     },
-    a.owner.userId ?? undefined,
+    a.owner,
   );
   return { basketId, ...snapshot };
 }
@@ -342,7 +342,7 @@ export async function createExecution(
         simulateReject: input.simulateRejectSeq != null,
         guest,
       },
-      basket.userId ?? undefined,
+      { userId: basket.userId, guestKey: basket.guestKey },
     );
     if (kind === "rebalance") {
       await recordEvent(
@@ -361,7 +361,7 @@ export async function createExecution(
           marketOpen: preflight.market.open,
           guest,
         },
-        basket.userId ?? undefined,
+        { userId: basket.userId, guestKey: basket.guestKey },
       );
     }
   }
@@ -387,7 +387,7 @@ export async function cancelExecution(actor: Actor, executionId: string): Promis
     await recordEvent(
       "execution_canceled",
       { executionId, mode: owned.view.mode, skipped, guest: owned.userId == null },
-      owned.userId ?? undefined,
+      { userId: owned.userId, guestKey: owned.guestKey },
     );
   }
   return loadExecutionView(executionId);

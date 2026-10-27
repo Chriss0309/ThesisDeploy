@@ -43,6 +43,8 @@ All waits use the shared loader (`docs/design-system.md` section 11); this page 
 | `rebalance_confirmed` | A rebalance run starts | basket and execution IDs, mode, sells, buys, drift before and after in points, sell proceeds, buy cost |
 | `basket_closed` | A close run finishes with nothing left held | basket and execution IDs, mode, orders, filled, failed, currency |
 
+Guest events carry the demo cookie's hash in `events.guest_key`, and `leg_result` records the execution `kind`, so the [telemetry drawer](telemetry.md) counts rebalance and close legs in order success and shows a guest's My Theses activity under "You".
+
 ## Data
 
 Migration `20261027061500_my_theses` adds columns only (no new table, so no RLS change): `baskets.contributed`, `cash`, `action_preflight`, `marks`, `marked_at`, `simulated_moves`, `closed_at`; `basket_constituents.realized_total`; and a unique `executions.preflight_id`. It backfills `contributed` from the existing cost total. No new environment variables.

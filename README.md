@@ -17,6 +17,7 @@ Early scaffold. What works today:
 - Paper execution: a pre-flight modal with the exact order list, fresh SnapTrade quotes, and every reason Live is unavailable. Confirming runs a Postgres-backed queue that submits one leg per 1.1 seconds per account, keeps going past a rejected leg, offers "Retry failed leg", and resumes after a dropped connection or closed tab. Fills land in a Virtual Basket ledger (`/baskets/:id`, or `/demo/baskets/:id` for guests). No order endpoint is called, and Live stays behind `LIVE_TRADING_ENABLED`. See [`docs/paper-execution.md`](docs/paper-execution.md).
 
 - My Theses (`/theses`, guests at `/demo/theses`): every basket valued live against its cost basis, per-stock drift with a dual-bar indicator, and a "Rebalance recommended" flag past 5 points. Rebalance (whole shares, sells before buys, roughly cash-neutral) and Close run through the same pre-flight and paced paper queue. Live stays refused. See [`docs/my-theses.md`](docs/my-theses.md).
+- Product telemetry: "► Product telemetry" in every footer opens a drawer with the activation funnel, basket edit rate, symbol resolution hit rate, order success per brokerage, SnapTrade p50/p95 latency per operation, and 429s. It shows two views: everyone, and the current user or demo visitor. Aggregates only; account IDs are stored as keyed hashes. See [`docs/telemetry.md`](docs/telemetry.md).
 
 Live order submission lands in a later PR.
 
