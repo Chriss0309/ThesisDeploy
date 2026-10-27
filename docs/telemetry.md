@@ -35,7 +35,7 @@ Emitted server-side unless noted. Guest events carry `guest_key`, the keyed hash
 | `rebalance_confirmed` | A rebalance pre-flight confirmed | sells, buys, drift before and after, proceeds, cost |
 | `basket_closed` | A close run sells the last share | orders, filled, failed |
 
-This PR filled three gaps that skewed the drawer:
+Three gaps that skewed the drawer were closed when it was built:
 
 - **Cached and sample demo baskets emitted nothing.** Most guests get a cached preset, so guests deployed baskets the funnel never saw generated. `thesis_generated` and `symbols_resolved` now fire once per basket shown, with a `source`. The guest path no longer emits them inside the shared generation job: a caller that joins someone else's in-flight generation records `cached`, so tokens are never counted twice.
 - **Guest events had no owner.** The demo cookie is now issued with the first demo basket (it used to come in that response, after the events were written), and every guest event records its hash in `events.guest_key`.
@@ -56,7 +56,7 @@ Every query is bounded by the 30-day window and served by an index:
 - `events`: `(name, created_at)`, `(user_id)`, and the new `(guest_key, created_at)`.
 - `api_calls`: `(user_id)` and the new `(created_at)`, which serves the Everyone scan across operations.
 
-Each view is six small aggregate queries run in parallel, or five for a guest-only view, which has no SnapTrade calls to read. Everyone is computed at most once a minute per instance, and concurrent requests share the computation. The new migration, `20261027065454_telemetry_drawer`, adds one nullable column and two indexes, and changes no existing migration. Apply it with `DIRECT_URL=… npm run db:migrate` before deploying.
+Each view is six small aggregate queries run in parallel, or five for a guest-only view, which has no SnapTrade calls to read. Everyone is computed at most once a minute per instance, and concurrent requests share the computation. The migration `20261027065454_telemetry_drawer` adds one nullable column and two indexes.
 
 ## Tests
 
