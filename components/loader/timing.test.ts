@@ -6,6 +6,7 @@ import {
   animatedViews,
   appearDelay,
   backingSize,
+  endlessPlayback,
   gpuBudget,
   parseLegs,
   parseMs,
@@ -41,8 +42,22 @@ describe("GPU budget", () => {
     expect(gpuBudget({ coarsePointer: true, viewportWidth: 390 }).fps).toBe(30);
     expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 8, memoryGb: 16 }).fps).toBe(60);
     expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 4 }).fps).toBe(30);
+    expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, memoryGb: 4 }).fps).toBe(30);
     expect(gpuBudget({ coarsePointer: true, viewportWidth: 390 }).constrained).toBe(true);
     expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 8, memoryGb: 16 }).constrained).toBe(false);
+  });
+
+  it("loops endless scenes on every desktop window and plays them once on phones", () => {
+    const lowEndDesktop = gpuBudget({ coarsePointer: false, viewportWidth: 768, cores: 2, memoryGb: 2 });
+    expect(lowEndDesktop.constrained).toBe(false);
+    expect(lowEndDesktop.fps).toBe(30);
+    expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 4, memoryGb: 4 }).constrained).toBe(false);
+    expect(gpuBudget({ coarsePointer: true, viewportWidth: 1440, cores: 8, memoryGb: 16 }).constrained).toBe(true);
+    expect(gpuBudget({ coarsePointer: false, viewportWidth: 767, cores: 16, memoryGb: 32 }).constrained).toBe(true);
+
+    expect(endlessPlayback(Infinity, 6.5, false)).toBe(Infinity);
+    expect(endlessPlayback(Infinity, 6.5, true)).toBe(6.5);
+    expect(endlessPlayback(1.9, 6.5, true)).toBe(1.9);
   });
 
   it("animates the largest loaders that fit the frame budget and freezes the rest", () => {

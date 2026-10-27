@@ -278,6 +278,7 @@ export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) 
     camera,
     still: SETTLED_SECONDS,
     duration: () => (loop ? Infinity : SETTLED_SECONDS),
+    cycle: () => SETTLED_SECONDS,
     update(time, state) {
       if (state.still) {
         last = null;

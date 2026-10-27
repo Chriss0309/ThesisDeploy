@@ -99,7 +99,10 @@ export type GpuBudget = {
   maxPixels: number;
   /** Pixels animated per frame across all loaders; the rest hold a still frame. */
   framePixels: number;
-  /** Phones and low-end machines: endless scenes (the landing hero) play once, then hold. */
+  /**
+   * Phones (coarse pointer or viewport under 768): endless scenes play once, then hold.
+   * A desktop window always loops. Core count and device memory never set this.
+   */
   constrained: boolean;
 };
 
@@ -115,11 +118,21 @@ export function gpuBudget({
   cores?: number;
   memoryGb?: number;
 }): GpuBudget {
-  const constrained =
-    coarsePointer || viewportWidth < 768 || (cores != null && cores <= 4) || (memoryGb != null && memoryGb <= 4);
-  return constrained
-    ? { fps: 30, maxDpr: 1.5, maxPixels: 420_000, framePixels: 750_000, constrained }
-    : { fps: 60, maxDpr: 2, maxPixels: 1_200_000, framePixels: 3_000_000, constrained };
+  // Looping follows the window. Few cores or low memory only tighten the frame budget.
+  const phone = coarsePointer || viewportWidth < 768;
+  const limited = phone || (cores != null && cores <= 4) || (memoryGb != null && memoryGb <= 4);
+  return limited
+    ? { fps: 30, maxDpr: 1.5, maxPixels: 420_000, framePixels: 750_000, constrained: phone }
+    : { fps: 60, maxDpr: 2, maxPixels: 1_200_000, framePixels: 3_000_000, constrained: phone };
+}
+
+/**
+ * Endless scenes loop on a desktop window. On a phone (`constrained`), they play one
+ * cycle and hold. One-shot poses keep their own duration. Reduced motion is separate:
+ * the renderer draws the designed still frame and never starts the loop.
+ */
+export function endlessPlayback(duration: number, cycle: number, constrained: boolean): number {
+  return duration === Infinity && constrained ? cycle : duration;
 }
 
 /** Backing-store size for a canvas, capped by the budget's pixel ratio and pixel count. */
