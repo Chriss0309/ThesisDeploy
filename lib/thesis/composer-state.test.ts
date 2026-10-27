@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canAddShare,
+  cashLeft,
   removeLine,
   restoreLine,
   setWeight,
@@ -39,15 +41,51 @@ describe("Basket Composer edits", () => {
     expect(setWeight(one, "A", 0.3, settings).find((line) => line.symbol === "A")?.weight).toBe(1);
   });
 
-  it("steps one line's shares without touching weights, and never below zero", () => {
-    const stepped = stepUnits(lines(), "B", 2);
-    expect(units(stepped)).toEqual([5, 8, 10]);
+  it("steps one line's shares down without touching weights, and never below zero", () => {
+    const stepped = stepUnits(lines(), "A", -1, settings);
+    expect(units(stepped)).toEqual([4, 6, 10]);
     expect(weights(stepped)).toEqual(weights(lines()));
-    expect(units(stepUnits(lines(), "A", -9))[0]).toBe(0);
-    const summary = summarize(stepped, settings);
-    expect(summary.invested).toBe(1100);
-    expect(summary.overSpendCap).toBe(true);
-    expect(summary.unallocated).toBe(-100);
+    expect(units(stepUnits(lines(), "A", -9, settings))[0]).toBe(0);
+  });
+
+  it("refuses a share that would pass the spend cap", () => {
+    // Fully invested: 5 × 100 + 6 × 50 + 10 × 20 = 1,000 of a 1,000 cap.
+    expect(cashLeft(lines(), settings)).toBe(0);
+    expect(canAddShare(lines(), "C", settings)).toBe(false);
+    const refused = stepUnits(lines(), "C", 1, settings);
+    expect(units(refused)).toEqual([5, 6, 10]);
+    expect(summarize(refused, settings).overSpendCap).toBe(false);
+  });
+
+  it("adds shares only while they fit in the cash left under the spend cap", () => {
+    let current = stepUnits(lines(), "A", -1, settings);
+    expect(cashLeft(current, settings)).toBe(100);
+    expect(["A", "B", "C"].map((symbol) => canAddShare(current, symbol, settings))).toEqual([true, true, true]);
+
+    current = stepUnits(current, "B", 1, settings);
+    current = stepUnits(current, "B", 1, settings);
+    expect(units(current)).toEqual([4, 8, 10]);
+    expect(canAddShare(current, "B", settings)).toBe(false);
+    expect(units(stepUnits(current, "B", 1, settings))).toEqual([4, 8, 10]);
+
+    const freed = stepUnits(lines(), "A", -1, settings);
+    expect(units(stepUnits(freed, "C", 6, settings))).toEqual([4, 6, 10]);
+    expect(units(stepUnits(freed, "C", 5, settings))).toEqual([4, 6, 15]);
+  });
+
+  it("measures the cash left against the slippage-reduced spend cap, not the raw budget", () => {
+    const one: EditableLine[] = [{ symbol: "A", price: 100, weight: 1, units: 9, removed: false }];
+    const buffered = { budget: 1000, slippageBuffer: 0.015 };
+    // 1,000 budget, 985 spend cap, 900 invested: 100 of budget but only 85 of cap left.
+    expect(cashLeft(one, buffered)).toBeCloseTo(85);
+    expect(canAddShare(one, "A", buffered)).toBe(false);
+    expect(units(stepUnits(one, "A", 1, buffered))).toEqual([9]);
+  });
+
+  it("can't add shares to a removed line", () => {
+    const removed = removeLine(stepUnits(lines(), "A", -3, settings), "B", settings);
+    expect(canAddShare(removed, "B", settings)).toBe(false);
+    expect(stepUnits(removed, "B", 1, settings).find((line) => line.symbol === "B")?.units).toBe(0);
   });
 
   it("removes a line, renormalizes the rest, and restores it", () => {

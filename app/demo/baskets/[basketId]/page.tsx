@@ -8,6 +8,7 @@ import { BasketRecord } from "@/components/execution/basket-record";
 import { DemoBanner } from "@/components/portfolio/demo-banner";
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK } from "@/components/portfolio/snaptrade-problem";
+import { BasketSkeleton, SCREENS } from "@/components/screens";
 import { serverEnv } from "@/lib/env";
 import { GUEST_COOKIE, guestKeyFor } from "@/lib/execution/http";
 import { findBasketView } from "@/lib/execution/store";
@@ -32,13 +33,8 @@ async function GuestBasket({ params }: { params: PageProps<"/demo/baskets/[baske
 
 export default function DemoBasketPage({ params }: PageProps<"/demo/baskets/[basketId]">) {
   return (
-    <PageShell
-      eyebrow="03 · Guest demo"
-      title="Virtual basket"
-      description="The orders you confirmed, the fills they produced, and the execution that placed them."
-      banner={<DemoBanner active="studio" returnTo="/studio" />}
-    >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+    <PageShell {...SCREENS.basketDemo} banner={<DemoBanner active="studio" returnTo="/studio" />}>
+      <Suspense fallback={<BasketSkeleton />}>
         <GuestBasket params={params} />
       </Suspense>
       <p className="text-xs text-muted-foreground">

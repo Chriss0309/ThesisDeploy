@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK, SnapTradeProblem } from "@/components/portfolio/snaptrade-problem";
+import { SCREENS, ThesesSkeleton } from "@/components/screens";
 import { ThesesView } from "@/components/theses/theses-view";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -68,12 +69,8 @@ async function SignedInTheses() {
 
 export default function ThesesPage() {
   return (
-    <PageShell
-      eyebrow="04 · My Theses"
-      title="My Theses"
-      description="Your saved baskets, valued at current prices against what you paid, with drift from each target and a one-click rebalance."
-    >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+    <PageShell {...SCREENS.theses}>
+      <Suspense fallback={<ThesesSkeleton />}>
         <SignedInTheses />
       </Suspense>
     </PageShell>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { PendingLink } from "@/components/loader/pending";
+
 const TABS = [
   { key: "xray", href: "/demo", label: "Portfolio X-Ray" },
   { key: "studio", href: "/demo/studio", label: "Thesis Studio" },
@@ -13,12 +15,13 @@ export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]
         <p>
           <span className="eyebrow mr-2">Demo</span>
           Fictional data: no brokerage, no SnapTrade account, no sign-in.{" "}
-          <a
+          <PendingLink
             href={`/api/auth/login?returnTo=${returnTo}`}
             className="font-medium underline underline-offset-4 hover:text-foreground"
+            pendingLabel="Opening SnapTrade…"
           >
             Sign in with SnapTrade
-          </a>{" "}
+          </PendingLink>{" "}
           to use your own accounts.
         </p>
         <nav aria-label="Demo screens" className="flex gap-1">

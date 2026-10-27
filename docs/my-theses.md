@@ -31,6 +31,10 @@ Confirming posts to `POST /api/executions` with `kind` and `preflightId`. That r
 
 `/demo/theses` lists the guest's baskets (the `td_guest` cookie). Fixture prices never move on their own, so the page has a reviewer tool, "Simulate a market move", which scales one ticker's price by +50%, +100%, or −40% (`POST /api/baskets/:id/simulate`), and "Reset prices". It only changes the demo price multipliers stored on the basket. Rebalance and Close then work as above. Guest rebalances count toward the existing daily paper-run limits.
 
+## Loading states
+
+All waits use the shared loader (`docs/design-system.md` section 11); this page adds no three.js. `loading.tsx` for `/theses` and `/demo/theses` shows the `scan` loader under the page header, and the pages' own Suspense fallback is the same component, so nothing moves on the handoff. The pre-flight dialog's pricing step is the `stacks` loop (`execution-loader.tsx`), and the paced run uses the shared stepper. After a rebalance, close, or simulated move, the Rebalance, Close and Apply buttons show a `LoaderGlyph` until the refreshed valuation arrives. Links into the basket record, My Theses, and the nav show `LinkPendingStatus` toasts.
+
 ## Telemetry
 
 | Event | When | Properties |

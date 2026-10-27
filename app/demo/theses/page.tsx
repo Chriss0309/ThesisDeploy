@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { DemoBanner } from "@/components/portfolio/demo-banner";
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
+import { SCREENS, ThesesSkeleton } from "@/components/screens";
 import { ThesesView } from "@/components/theses/theses-view";
 import { serverEnv } from "@/lib/env";
 import { describeError } from "@/lib/errors";
@@ -34,12 +35,10 @@ async function GuestTheses() {
 export default function DemoThesesPage() {
   return (
     <PageShell
-      eyebrow="04 · Guest demo"
-      title="My Theses"
-      description="Your saved demo baskets, valued at fictional quotes against what you paid, with drift from each target and a one-click rebalance."
+      {...SCREENS.thesesDemo}
       banner={<DemoBanner active="theses" returnTo="/theses" />}
     >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+      <Suspense fallback={<ThesesSkeleton demo />}>
         <GuestTheses />
       </Suspense>
       <p className="text-xs text-muted-foreground">Demo baskets belong to this browser and use paper money only.</p>

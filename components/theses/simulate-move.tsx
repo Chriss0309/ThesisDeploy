@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
+import { LoaderGlyph } from "@/components/loader/loader";
 import { Button } from "@/components/ui/button";
 
 const FIELD =
@@ -20,10 +21,12 @@ const MOVES = [
  */
 export function SimulateMove({ basketId, symbols, moves }: { basketId: string; symbols: string[]; moves: Record<string, number> | null }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const [symbol, setSymbol] = useState(symbols[0] ?? "");
   const [change, setChange] = useState(MOVES[1].value);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const working = pending || refreshing;
   const applied = Object.entries(moves ?? {}).filter(([, factor]) => factor !== 1);
 
   async function send(body: object) {
@@ -40,7 +43,7 @@ export function SimulateMove({ basketId, symbols, moves }: { basketId: string; s
         setError(parsed?.error?.message ?? `Request failed (HTTP ${response.status}).`);
         return;
       }
-      router.refresh();
+      startRefresh(() => router.refresh());
     } catch {
       setError("Couldn't reach ThesisDeploy. Try again.");
     } finally {
@@ -67,10 +70,11 @@ export function SimulateMove({ basketId, symbols, moves }: { basketId: string; s
             </option>
           ))}
         </select>
-        <Button size="sm" variant="outline" disabled={pending || !symbol} onClick={() => void send({ symbol, change: Number(change) })}>
+        <Button size="sm" variant="outline" disabled={working || !symbol} onClick={() => void send({ symbol, change: Number(change) })}>
+          {working && <LoaderGlyph />}
           Apply
         </Button>
-        <Button size="sm" variant="ghost" disabled={pending || applied.length === 0} onClick={() => void send({ reset: true })}>
+        <Button size="sm" variant="ghost" disabled={working || applied.length === 0} onClick={() => void send({ reset: true })}>
           Reset prices
         </Button>
       </div>

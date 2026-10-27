@@ -3,10 +3,10 @@ import { Suspense, type ReactNode } from "react";
 import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
 
 const NAV = [
-  { href: "/portfolio", label: "Portfolio X-Ray" },
-  { href: "/studio", label: "Thesis Studio" },
-  { href: "/theses", label: "My Theses" },
-  { href: "/demo", label: "Demo" },
+  { href: "/portfolio", children: "Portfolio X-Ray", pendingLabel: "Opening Portfolio X-Ray…" },
+  { href: "/studio", children: "Thesis Studio", pendingLabel: "Opening Thesis Studio…" },
+  { href: "/theses", children: "My Theses", pendingLabel: "Opening My Theses…" },
+  { href: "/demo", children: "Demo" },
 ];
 
 export function PageShell({
@@ -30,22 +30,18 @@ export function PageShell({
           <nav aria-label="Primary" className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
             <Suspense
               fallback={NAV.map((link) => (
-                <NavLinkFallback key={link.href} href={link.href}>
-                  {link.label}
-                </NavLinkFallback>
+                <NavLinkFallback key={link.href} {...link} />
               ))}
             >
               {NAV.map((link) => (
-                <NavLink key={link.href} href={link.href}>
-                  {link.label}
-                </NavLink>
+                <NavLink key={link.href} {...link} />
               ))}
             </Suspense>
           </nav>
         </div>
       </header>
       {banner}
-      <main className="mx-auto flex w-full max-w-page flex-1 flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 sm:pt-10">
+      <main className="mx-auto flex min-h-(--page-main-min) w-full max-w-page flex-1 flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 sm:pt-10">
         <div className="flex flex-col gap-2">
           <p className="eyebrow text-muted-foreground">► {eyebrow}</p>
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h1>

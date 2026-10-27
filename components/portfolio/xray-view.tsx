@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Loader } from "@/components/loader/loader";
+import { LinkPendingStatus, PendingForm } from "@/components/loader/pending";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,10 +53,12 @@ function AccountSelector({
   overview,
   selectedId,
   basePath,
+  mode,
 }: {
   overview: PortfolioOverview;
   selectedId: string;
   basePath: string;
+  mode: "live" | "demo";
 }) {
   return (
     <nav aria-label="Accounts" className="flex min-w-0 flex-col gap-2">
@@ -65,8 +69,12 @@ function AccountSelector({
             key={account.id}
             href={`${basePath}?account=${encodeURIComponent(account.id)}`}
             aria-current={account.id === selectedId ? "page" : undefined}
-            className="flex w-64 shrink-0 snap-start flex-col gap-1.5 rounded-md border border-border bg-card px-3 py-3 text-sm transition-colors outline-none hover:border-border-strong hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/30 aria-[current=page]:border-foreground aria-[current=page]:shadow-sm lg:w-auto"
+            className="flex w-64 shrink-0 snap-start flex-col gap-1.5 rounded-md border border-border bg-card px-3 py-3 text-sm transition-colors outline-none hover:border-border-strong hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/30 has-data-link-pending:opacity-70 aria-[current=page]:border-foreground aria-[current=page]:shadow-sm lg:w-auto"
           >
+            <LinkPendingStatus
+              variant="scan"
+              label={mode === "live" ? `Loading ${account.name} from SnapTrade…` : `Loading ${account.name}…`}
+            />
             <span className="flex items-baseline justify-between gap-2">
               <span className="font-semibold">{account.name}</span>
               <span className="text-xs text-muted-foreground tabular-nums">
@@ -276,7 +284,7 @@ export function XRayView({
   const concentration = result ? concentrationByCurrency(result.snapshot) : [];
   return (
     <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10">
-      <AccountSelector overview={overview} selectedId={selected.id} basePath={basePath} />
+      <AccountSelector overview={overview} selectedId={selected.id} basePath={basePath} mode={mode} />
 
       <section className="flex min-w-0 flex-col gap-5" aria-labelledby="account-heading">
         <div className="flex flex-col gap-2">
@@ -311,11 +319,16 @@ export function XRayView({
                   ` · ${result.source === "cache" ? "cached" : "fetched"} ${formatTimestamp(result.snapshot.fetchedAt)}`}
               </span>
               {mode === "live" && (
-                <form method="post" action={`/api/accounts/${encodeURIComponent(selected.id)}/refresh`}>
+                <PendingForm
+                  method="post"
+                  action={`/api/accounts/${encodeURIComponent(selected.id)}/refresh`}
+                  variant="scan"
+                  pendingLabel={`Refreshing ${selected.name} from SnapTrade…`}
+                >
                   <Button type="submit" variant="outline" size="xs">
                     Refresh
                   </Button>
-                </form>
+                </PendingForm>
               )}
             </div>
           )}
@@ -365,19 +378,24 @@ export function XRayView({
   );
 }
 
-export function XRaySkeleton() {
+export function XRaySkeleton({
+  label = "Reading your accounts from SnapTrade…",
+  detail = "Balances and positions for each account, cached for 10 minutes after this.",
+}: {
+  label?: string;
+  detail?: string;
+}) {
   return (
-    <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10" aria-hidden>
-      <div className="flex gap-2 overflow-hidden lg:flex-col">
-        {[0, 1, 2].map((key) => (
-          <div key={key} className="h-24 w-64 shrink-0 animate-pulse rounded-md bg-muted lg:w-auto" />
-        ))}
+    <div className="grid gap-6 lg:grid-cols-(--grid-xray) lg:gap-10">
+      <div className="flex flex-col gap-2" aria-hidden>
+        <div className="h-4" />
+        <div className="flex gap-2 overflow-hidden lg:flex-col">
+          {[0, 1, 2].map((key) => (
+            <div key={key} className="h-24 w-64 shrink-0 rounded-md bg-muted lg:w-auto" />
+          ))}
+        </div>
       </div>
-      <div className="flex flex-col gap-4">
-        <div className="h-8 w-1/3 animate-pulse rounded-sm bg-muted" />
-        <div className="h-32 animate-pulse rounded-lg bg-muted" />
-        <div className="h-48 animate-pulse rounded-lg bg-muted" />
-      </div>
+      <Loader variant="scan" label={label} detail={detail} />
     </div>
   );
 }

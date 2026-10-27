@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BasketExecution } from "@/components/execution/basket-execution";
+import { LinkPendingStatus } from "@/components/loader/pending";
 import { formatMoney, formatMoneyDelta, formatPercent, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -145,6 +146,7 @@ export function BasketRecord({
         See this basket&apos;s value, drift, and rebalance options in{" "}
         <Link href={thesesPath} className={cn(buttonVariants({ variant: "link", size: "xs" }), "px-0")}>
           My Theses
+          <LinkPendingStatus variant="scan" label="Opening My Theses…" />
         </Link>
         .
       </p>

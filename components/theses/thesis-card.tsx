@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
 
 import { BasketExecution } from "@/components/execution/basket-execution";
 import { PreflightDialog, type BasketAction } from "@/components/execution/preflight-dialog";
+import { LoaderGlyph } from "@/components/loader/loader";
+import { LinkPendingStatus } from "@/components/loader/pending";
 import {
   deltaTone,
   formatMoney,
@@ -149,6 +151,7 @@ function Lines({ card, valuation }: { card: ThesisCardData; valuation: ThesisVal
 
 export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const [action, setAction] = useState<BasketAction | null>(null);
   const [open, setOpen] = useState(false);
   const { valuation } = card;
@@ -166,7 +169,7 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
   const onOpenChange = useCallback(
     (next: boolean) => {
       setOpen(next);
-      if (!next) router.refresh();
+      if (!next) startRefresh(() => router.refresh());
     },
     [router],
   );
@@ -253,13 +256,25 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
       <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t bg-surface-sunken py-4">
         <Link href={card.basketPath} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
           Open basket record
+          <LinkPendingStatus variant="scan" label="Opening the basket record…" />
         </Link>
         {card.status === "active" && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="destructive" className="border-destructive" disabled={busy} onClick={() => start("close")}>
+            <Button
+              variant="destructive"
+              className="border-destructive"
+              disabled={busy || refreshing}
+              onClick={() => start("close")}
+            >
+              {refreshing && action?.kind === "close" && <LoaderGlyph />}
               Close basket
             </Button>
-            <Button variant={flagged ? "brand" : "outline"} disabled={busy || !valuation} onClick={() => start("rebalance")}>
+            <Button
+              variant={flagged ? "brand" : "outline"}
+              disabled={busy || refreshing || !valuation}
+              onClick={() => start("rebalance")}
+            >
+              {refreshing && action?.kind === "rebalance" && <LoaderGlyph />}
               {flagged ? "Rebalance" : "Rebalance anyway"}
             </Button>
           </div>

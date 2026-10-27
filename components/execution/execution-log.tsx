@@ -2,10 +2,11 @@
 
 import { RotateCcw } from "lucide-react";
 
+import { LoaderGlyph } from "@/components/loader/loader";
 import { formatMoney } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { elapsedLabel } from "@/lib/execution/client-state";
+import { elapsedLabel, pacingLegId } from "@/lib/execution/client-state";
 import { isRetryable, latestAttempts, summarizeLegs, summaryLine } from "@/lib/execution/summary";
 import type { ExecutionStatus, ExecutionView, LegView } from "@/lib/execution/types";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ function LegRow({
   pacing,
   retryable,
   busy,
+  retrying,
   onRetry,
 }: {
   leg: LegView;
@@ -83,6 +85,8 @@ function LegRow({
   pacing: boolean;
   retryable: boolean;
   busy: boolean;
+  /** This leg's retry request is in flight. */
+  retrying: boolean;
   onRetry?: (legId: string) => void;
 }) {
   const { currency } = execution;
@@ -126,7 +130,7 @@ function LegRow({
             disabled={busy}
             onClick={() => onRetry(leg.id)}
           >
-            <RotateCcw /> Retry failed leg
+            {retrying ? <LoaderGlyph fallback={<RotateCcw />} /> : <RotateCcw />} Retry failed leg
           </Button>
         )}
       </div>
@@ -157,8 +161,8 @@ export function ExecutionLog({
   const summary = summarizeLegs(execution.legs);
   const settled = summary.orders - summary.pending;
   const claimed = latest.find((leg) => leg.status === "claimed");
-  const nextPending = latest.find((leg) => leg.status === "pending");
-  const current = claimed ?? (draining ? nextPending : undefined);
+  const pacing = pacingLegId(execution, draining);
+  const current = claimed ?? latest.find((leg) => leg.id === pacing);
   const started = execution.legs.some((leg) => leg.claimedAt);
   const startedAt =
     execution.startedAt ??
@@ -223,9 +227,10 @@ export function ExecutionLog({
             execution={execution}
             startedAt={startedAt}
             current={current?.id === leg.id}
-            pacing={draining && !claimed && nextPending?.id === leg.id}
+            pacing={leg.id === pacing}
             retryable={execution.status !== "canceled" && isRetryable(leg, execution.legs)}
             busy={busyLeg === leg.id || draining}
+            retrying={busyLeg === leg.id}
             onRetry={onRetry}
           />
         ))}

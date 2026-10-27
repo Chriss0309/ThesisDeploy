@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import { z } from "zod";
 
 import { BasketRecord } from "@/components/execution/basket-record";
+import { PendingLink } from "@/components/loader/pending";
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK } from "@/components/portfolio/snaptrade-problem";
+import { BasketSkeleton, SCREENS } from "@/components/screens";
 import { isAuthConfigured } from "@/lib/auth/config";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { findBasketView } from "@/lib/execution/store";
@@ -19,9 +21,13 @@ async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketI
     return (
       <MessageCard title="Sign in to see this basket">
         <p>
-          <a href={`/api/auth/login?returnTo=/baskets/${encodeURIComponent(basketId)}`} className={LINK}>
+          <PendingLink
+            href={`/api/auth/login?returnTo=/baskets/${encodeURIComponent(basketId)}`}
+            className={LINK}
+            pendingLabel="Opening SnapTrade…"
+          >
             Sign in with SnapTrade
-          </a>{" "}
+          </PendingLink>{" "}
           to open your saved baskets.
         </p>
       </MessageCard>
@@ -35,12 +41,8 @@ async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketI
 
 export default function BasketPage({ params }: PageProps<"/baskets/[basketId]">) {
   return (
-    <PageShell
-      eyebrow="03 · Saved basket"
-      title="Virtual basket"
-      description="The orders you confirmed, the fills they produced, and the execution that placed them."
-    >
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" aria-hidden />}>
+    <PageShell {...SCREENS.basket}>
+      <Suspense fallback={<BasketSkeleton />}>
         <SignedInBasket params={params} />
       </Suspense>
     </PageShell>
