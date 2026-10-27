@@ -6,7 +6,7 @@ export const maxDuration = 10;
 
 export async function GET() {
   await connection();
-  const report = getHealth();
+  const report = await getHealth();
   return Response.json(report, {
     status: report.status === "ok" ? 200 : 503,
     headers: { "Cache-Control": "no-store" },

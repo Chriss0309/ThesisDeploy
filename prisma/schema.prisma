@@ -1,0 +1,107 @@
+// Row-level security cannot be expressed here: every migration that creates a
+// table must also `ENABLE ROW LEVEL SECURITY` on it (see the init migration).
+// No policies are defined, so Supabase's anon/authenticated roles get nothing;
+// the app connects as the table owner and is unaffected.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AppUser {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// OIDC `sub` from the SnapTrade id_token.
+  snaptradeUserId String   @unique @map("snaptrade_user_id")
+  email           String?
+  emailVerified   Boolean? @map("email_verified")
+  name            String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt     DateTime @default(now()) @map("last_login_at") @db.Timestamptz(6)
+
+  sessions Session[]
+  grant    OauthGrant?
+  events   Event[]
+  apiCalls ApiCall[]
+
+  @@map("app_users")
+}
+
+model Session {
+  /// SHA-256 (hex) of the opaque cookie token; the raw token is never stored.
+  id        String    @id
+  userId    String    @map("user_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Single-use PKCE/OIDC state, consumed with DELETE ... RETURNING.
+model OauthLoginAttempt {
+  state           String   @id
+  codeVerifierEnc String   @map("code_verifier_enc")
+  nonce           String
+  returnTo        String?  @map("return_to")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@map("oauth_login_attempts")
+}
+
+/// Refresh tokens rotate: update this row under SELECT ... FOR UPDATE.
+model OauthGrant {
+  userId          String   @id @map("user_id") @db.Uuid
+  accessTokenEnc  String   @map("access_token_enc")
+  refreshTokenEnc String   @map("refresh_token_enc")
+  accessExpiresAt DateTime @map("access_expires_at") @db.Timestamptz(6)
+  scope           String
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("oauth_grants")
+}
+
+model Event {
+  id        BigInt   @id @default(autoincrement())
+  userId    String?  @map("user_id") @db.Uuid
+  name      String
+  props     Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([name, createdAt])
+  @@index([userId])
+  @@map("events")
+}
+
+model ApiCall {
+  id               BigInt   @id @default(autoincrement())
+  userId           String?  @map("user_id") @db.Uuid
+  operation        String
+  brokerageSlug    String?  @map("brokerage_slug")
+  /// Hashed account ID; raw account IDs and numbers never reach telemetry.
+  accountHash      String?  @map("account_hash")
+  /// Null when no response arrived (timeout or network error).
+  httpStatus       Int?     @map("http_status")
+  latencyMs        Int      @map("latency_ms")
+  requestId        String?  @map("request_id")
+  accountRemaining Int?     @map("account_remaining")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([operation, createdAt])
+  @@index([userId])
+  @@map("api_calls")
+}
