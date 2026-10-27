@@ -85,7 +85,7 @@ function TelemetryPanel() {
           <div className="flex flex-col gap-1">
             <DrawerTitle className="font-display text-2xl font-semibold">How ThesisDeploy is used</DrawerTitle>
             <DrawerDescription className="text-sm text-muted-foreground">
-              The activation funnel, how much people trust Claude&apos;s baskets, and how SnapTrade behaves, from the{" "}
+              The activation funnel, how much people trust ThesisDeploy&apos;s baskets, and how SnapTrade behaves, from the{" "}
               <code className="font-mono text-xs">events</code> and <code className="font-mono text-xs">api_calls</code>{" "}
               tables.
             </DrawerDescription>
@@ -251,7 +251,7 @@ function Metrics({ snapshot, scope, viewer }: { snapshot: TelemetrySnapshot; sco
 
       <Section
         title="Symbol resolution hit rate"
-        note="Tickers Claude proposed that grounding resolved to a tradeable, priced listing in the basket currency, per basket shown."
+        note="Tickers ThesisDeploy proposed that grounding resolved to a tradeable, priced listing in the basket currency, per basket shown."
       >
         {resolution.length === 0 ? (
           <Empty>No baskets generated yet.</Empty>

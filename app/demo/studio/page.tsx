@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description: "Turn a thesis into a whole-share basket on a fictional portfolio, no sign-in required.",
 };
 
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
+
 function generationNote() {
   const env = serverEnv();
   const live = configuredFeatures(env).anthropic && Boolean(env.DATABASE_URL) && env.GUEST_GENERATIONS_PER_DAY > 0;
@@ -22,7 +25,7 @@ function generationNote() {
     ? {
         presets: true,
         custom: true,
-        note: `Presets are generated once per account, currency, and overlap setting, then served from cache. Custom prompts call Claude live: ${GUEST_GENERATIONS_PER_CLIENT_PER_DAY} per visitor per day.`,
+        note: `Presets are generated once per account, currency, and overlap setting, then served from cache. Custom prompts call ThesisDeploy's AI live: ${GUEST_GENERATIONS_PER_CLIENT_PER_DAY} per visitor per day.`,
       }
     : {
         presets: true,

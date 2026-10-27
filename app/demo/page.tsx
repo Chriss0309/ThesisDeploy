@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   description: "Portfolio X-Ray on fictional fixture data, no sign-in required.",
 };
 
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
+
 async function DemoXRay({ searchParams }: { searchParams: PageProps<"/demo">["searchParams"] }) {
   const { account } = await searchParams;
   const overview = demoOverview();

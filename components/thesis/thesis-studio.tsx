@@ -109,7 +109,7 @@ function GenerationLoader({
       label={settled ? "Basket ready" : "Building your basket…"}
       detail={
         seconds >= SLOW_SECONDS
-          ? "Taking longer than usual: Claude is still working. The request stops after about a minute."
+          ? "Taking longer than usual: ThesisDeploy's AI is still working. The request stops after about a minute."
           : "Usually 10–40 seconds. Cached presets come back almost at once."
       }
       settled={settled}
@@ -117,7 +117,7 @@ function GenerationLoader({
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-1">
         <ol className="flex list-decimal flex-col gap-1 pl-5 text-xs text-muted-foreground">
-          <li>Claude reads your holdings and proposes 6–8 candidates.</li>
+          <li>ThesisDeploy reads your holdings and proposes 6–8 candidates.</li>
           <li>SnapTrade checks every ticker and quotes it in one call.</li>
           <li>Names you already hold are trimmed, then whole shares are sized.</li>
         </ol>
@@ -262,7 +262,7 @@ export function ThesisStudio({
           <p className="eyebrow text-muted-foreground">► Conviction</p>
           <CardTitle className="font-display text-xl font-semibold">Thesis</CardTitle>
           <CardDescription>
-            Claude proposes stocks for your conviction, SnapTrade checks every ticker and price, and the solver sizes
+            ThesisDeploy proposes stocks for your conviction, SnapTrade checks every ticker and price, and the solver sizes
             whole shares around what you already own.
           </CardDescription>
         </CardHeader>

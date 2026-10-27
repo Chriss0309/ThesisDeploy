@@ -21,6 +21,8 @@ export const metadata: Metadata = { title: "Thesis Studio · ThesisDeploy" };
 
 // Rendering this page calls SnapTrade, so links never prefetch it.
 export const prefetch = "force-disabled";
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
 
 const SIGN_IN = "/api/auth/login?returnTo=/studio";
 
@@ -104,7 +106,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
       initialPresetKey={typeof preset === "string" ? preset : null}
       generation={
         anthropic
-          ? { presets: true, custom: true, note: `Each generation calls Claude; up to ${USER_GENERATIONS_PER_DAY} per day.` }
+          ? { presets: true, custom: true, note: `Each generation calls ThesisDeploy's AI; up to ${USER_GENERATIONS_PER_DAY} per day.` }
           : {
               presets: false,
               custom: false,

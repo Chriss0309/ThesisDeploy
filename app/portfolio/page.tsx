@@ -23,6 +23,8 @@ export const metadata: Metadata = { title: "Portfolio X-Ray · ThesisDeploy" };
 
 // Rendering this page calls SnapTrade, so links never prefetch it.
 export const prefetch = "force-disabled";
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
 
 type SearchParams = PageProps<"/portfolio">["searchParams"];
 

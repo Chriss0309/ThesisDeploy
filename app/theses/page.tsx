@@ -17,6 +17,8 @@ export const metadata: Metadata = { title: "My Theses · ThesisDeploy" };
 
 // Rendering this page calls SnapTrade for quotes, so links never prefetch it.
 export const prefetch = "force-disabled";
+// A page already opened in this tab stays up for 10 minutes, so switching back doesn't flash the skeleton.
+export const unstable_dynamicStaleTime = 600;
 
 async function SignedInTheses() {
   if (!isAuthConfigured()) {

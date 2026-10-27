@@ -80,9 +80,17 @@ async function generate(page, studioPath) {
 async function guestJourney() {
   const session = await newPage();
   await step(session, "landing and health", async (page) => {
+    const health = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/health");
     await page.goto(BASE);
-    await page.getByRole("heading", { level: 1 }).waitFor(WAIT);
-    await page.getByText(/Backend ready/).waitFor(WAIT);
+    await page.getByRole("heading", { level: 1, name: /Invest in a thesis/ }).waitFor(WAIT);
+    await health;
+    if ((await page.getByText(/Backend ready|Waking backend|Backend degraded|Backend unreachable/).count()) > 0) {
+      throw new Error("health status is visible on the landing page");
+    }
+    if ((await page.getByText(/Built on SnapTrade OAuth/i).count()) > 0) {
+      throw new Error("SnapTrade eyebrow is still on the landing page");
+    }
+    await page.getByText(/Sign in with SnapTrade/).first().waitFor(WAIT);
   });
   await step(session, "demo X-Ray", async (page) => {
     await page.goto(`${BASE}/demo`);
