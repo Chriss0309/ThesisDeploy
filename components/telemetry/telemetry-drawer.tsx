@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Loader } from "@/components/loader/loader";
+import { Mark } from "@/components/loader/mark";
 import { formatTimestamp } from "@/components/portfolio/format";
 import { dropReason, formatCount, formatMs, formatRate, kindBreakdown, rate } from "@/components/telemetry/format";
 import { Badge } from "@/components/ui/badge";
@@ -80,13 +81,17 @@ function TelemetryPanel() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        <div className="flex flex-col gap-1 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
-          <DrawerTitle className="font-display text-2xl font-semibold">How ThesisDeploy is used</DrawerTitle>
-          <DrawerDescription className="text-sm text-muted-foreground">
-            The activation funnel, how much people trust Claude&apos;s baskets, and how SnapTrade behaves, from the{" "}
-            <code className="font-mono text-xs">events</code> and <code className="font-mono text-xs">api_calls</code>{" "}
-            tables.
-          </DrawerDescription>
+        <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-3 sm:px-6 sm:pt-5">
+          <div className="flex flex-col gap-1">
+            <DrawerTitle className="font-display text-2xl font-semibold">How ThesisDeploy is used</DrawerTitle>
+            <DrawerDescription className="text-sm text-muted-foreground">
+              The activation funnel, how much people trust Claude&apos;s baskets, and how SnapTrade behaves, from the{" "}
+              <code className="font-mono text-xs">events</code> and <code className="font-mono text-xs">api_calls</code>{" "}
+              tables.
+            </DrawerDescription>
+          </div>
+          {/* Mounted with the numbers, so its one scan pass marks them landing. */}
+          <div className="h-(--mark-card-h) w-(--mark-card-w) shrink-0">{data && <Mark kind="metrics" />}</div>
         </div>
         <div className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-card px-5 py-3 sm:px-6">
           <Segmented
@@ -121,9 +126,10 @@ function TelemetryPanel() {
           <div className="flex flex-col items-start gap-3 px-5 py-6 sm:px-6">
             <p
               role="alert"
-              className="rounded-md border border-negative-border bg-negative-subtle px-3 py-2.5 text-xs text-negative-subtle-foreground"
+              className="flex items-center gap-2.5 rounded-md border border-negative-border bg-negative-subtle px-3 py-2 text-xs text-negative-subtle-foreground"
             >
-              {state.message}
+              <Mark kind="error" size="inline" />
+              <span>{state.message}</span>
             </p>
             <Button
               variant="outline"
@@ -161,7 +167,8 @@ function scopeNote(scope: Scope, viewer: Viewer, days: number) {
 
 function NothingYet() {
   return (
-    <div className="flex flex-col gap-3 px-5 py-6 text-sm text-muted-foreground sm:px-6">
+    <div className="flex flex-col items-start gap-3 px-5 py-6 text-sm text-muted-foreground sm:px-6">
+      <Mark kind="empty" />
       <p className="font-display text-xl font-semibold text-foreground">Nothing recorded for you yet.</p>
       <p>
         Generate a basket in the demo Studio or sign in with SnapTrade, then reopen this drawer to see your own funnel,

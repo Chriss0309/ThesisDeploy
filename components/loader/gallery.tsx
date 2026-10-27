@@ -31,6 +31,8 @@ const MARK_EXAMPLES = [
   { kind: "connected", label: "Connected", detail: "link · rings slide together" },
   { kind: "error", label: "Error or expired access", detail: "link · rings pull apart" },
   { kind: "rate-limit", label: "Rate limited", detail: "stacks · the next leg waits a beat" },
+  { kind: "awaiting", label: "Live orders open at the broker", detail: "stacks · waiting on fills" },
+  { kind: "metrics", label: "Telemetry numbers in", detail: "scan · one pass over the aggregates" },
   { kind: "lost", label: "404", detail: "coin · wobbles down and rests" },
 ] as const;
 const STEP_MS = 1000;

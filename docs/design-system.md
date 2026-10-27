@@ -245,10 +245,13 @@ One treatment per page type, so the same meaning always looks the same:
 | `/baskets/[id]`, `/demo/baskets/[id]` | `stacks` reveal with the basket's filled legs | — |
 | Sign in needed, not configured, no accounts, no database | The page's header mark | Message card mark: `apart` or `empty` |
 | SnapTrade problems | The page's header mark | `broken` (reconnect, couldn't load) or `paced` (rate limit) |
+| Pre-flight, Paper or Live (dialog) | — | Live banner (inverse panel): `connected` beside the Live badge. "Live is unavailable" reasons: `apart`. A failed brokerage preview: `broken`. The brokerage preview itself uses the `scan` loader |
+| Live run states | — | Orders open at the broker or unconfirmed (checked every 15 s): `awaiting`, the `paced` pulse. "Done" shows `success` only once nothing is left to reconcile |
+| Product telemetry drawer (footer toggle) | `scan` (`metrics`) mounts with the numbers, so its one pass marks them landing | Loading is the `scan` loader; "Nothing recorded for you yet" is `empty`; a failed load is `broken` |
 | 404 (`app/not-found.tsx`) | `coin` lost | — |
 | Errors (`app/error.tsx`) | — | `broken` in the error card |
 
-While a page is loading, its header mark holds its first frame (the scan plane at the top, the coin without candidates, empty slots) and the panel loader animates. When the content lands, the header mark plays its reveal and stops. Motion never runs beside numbers for long: content-time poses finish in 1.4–3.2 s and then hold a still frame; only loaders and the `paced` rate-limit pulse loop, and only while visible.
+While a page is loading, its header mark holds its first frame (the scan plane at the top, the coin without candidates, empty slots) and the panel loader animates. When the content lands, the header mark plays its reveal and stops. Motion never runs beside numbers for long: content-time poses finish in 1.4–3.2 s and then hold a still frame; only loaders and the `paced` pulse (rate limits, Live orders awaiting fills) loop, and only while visible.
 
 ### Behavior rules
 
@@ -284,7 +287,7 @@ Loaders: `--loader-inline` (1.25 rem), `--loader-dot` (0.875 rem), `--loader-sta
 // Marks (work in server components)
 <PageShell {...SCREENS.theses}>…</PageShell>              // SCREENS entries carry the page's `mark`
 <MessageCard title="Sign in to see your theses" mark="signin">…</MessageCard>
-<Mark kind="success" size="inline" />                      // kind: xray | studio | theses | basket | empty | success | signin | connected | error | rate-limit | lost
+<Mark kind="success" size="inline" />                      // kind: xray | studio | theses | basket | empty | success | signin | connected | error | rate-limit | awaiting | metrics | lost
 <Reveal legs={[18, 2, 1]} />                               // inside the page content: plays the header mark
 ```
 

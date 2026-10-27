@@ -65,12 +65,15 @@ export function ExecutionPanel({
           role="status"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5 text-xs text-warning-subtle-foreground"
         >
-          <p className="max-w-prose">
-            {summary.working > 0 && `${summary.working} ${summary.working === 1 ? "order is" : "orders are"} open at ${execution.institution}. `}
-            {summary.unknown > 0 &&
-              `${summary.unknown} ${summary.unknown === 1 ? "order wasn't" : "orders weren't"} confirmed by SnapTrade and won't be sent again on their own. `}
-            {execution.reconciledAt ? `Last checked ${formatTimestamp(execution.reconciledAt)}. ` : ""}
-            ThesisDeploy checks every 15 seconds while this page is open.
+          <p className="flex max-w-prose items-center gap-2.5">
+            <Mark kind="awaiting" size="inline" />
+            <span>
+              {summary.working > 0 && `${summary.working} ${summary.working === 1 ? "order is" : "orders are"} open at ${execution.institution}. `}
+              {summary.unknown > 0 &&
+                `${summary.unknown} ${summary.unknown === 1 ? "order wasn't" : "orders weren't"} confirmed by SnapTrade and won't be sent again on their own. `}
+              {execution.reconciledAt ? `Last checked ${formatTimestamp(execution.reconciledAt)}. ` : ""}
+              ThesisDeploy checks every 15 seconds while this page is open.
+            </span>
           </p>
           <Button variant="outline" size="xs" disabled={checking} onClick={() => void checkStatus()}>
             {checking ? <LoaderGlyph variant="scan" fallback={<RefreshCw />} /> : <RefreshCw />} Check status now
@@ -88,8 +91,8 @@ export function ExecutionPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!draining && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            {!active && execution.status === "completed" && <Mark kind="success" size="inline" />}
-            {!active && (execution.status === "partial" || execution.status === "failed") && (
+            {!active && !awaiting && execution.status === "completed" && <Mark kind="success" size="inline" />}
+            {!active && !awaiting && (execution.status === "partial" || execution.status === "failed") && (
               <Mark kind="error" size="inline" />
             )}
             {active

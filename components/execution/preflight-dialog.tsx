@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ExecutionLoader } from "@/components/execution/execution-loader";
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
 import { Loader, LoaderGlyph } from "@/components/loader/loader";
+import { Mark } from "@/components/loader/mark";
 import { LinkPendingStatus } from "@/components/loader/pending";
 import { formatMoney, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
@@ -184,7 +185,12 @@ function ImpactSummary({ preflight, impact }: { preflight: PreflightPayload; imp
     );
   }
   if (!result) {
-    return impact.error ? <p className="text-xs text-negative-subtle-foreground">{impact.error}</p> : null;
+    return impact.error ? (
+      <p className="flex items-center gap-2.5 text-xs text-negative-subtle-foreground">
+        <Mark kind="error" size="inline" />
+        <span>{impact.error}</span>
+      </p>
+    ) : null;
   }
   const previewed = result.legs.filter((leg) => leg.status === "ok").length;
   const source =
@@ -238,6 +244,7 @@ function LiveSection({
     <div className="flex flex-col gap-3">
       <div className="dark flex flex-col gap-1 rounded-md bg-background px-4 py-3 text-foreground">
         <p className="eyebrow flex items-center gap-2 text-muted-foreground">
+          <Mark kind="connected" size="inline" />
           <Badge tone="solid" dot>
             Live
           </Badge>
@@ -363,6 +370,7 @@ function PreflightBody({
         {!preflight.live.available && (
           <div className="flex flex-col gap-1 text-xs text-muted-foreground">
             <p className="flex items-center gap-2">
+              <Mark kind="signin" size="inline" />
               <Badge tone="solid">Live</Badge> is unavailable:
             </p>
             <ul className="flex list-disc flex-col gap-0.5 pl-5">

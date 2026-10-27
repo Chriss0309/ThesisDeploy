@@ -24,6 +24,8 @@ export const MARKS = {
   connected: { variant: "link", pose: "linked" },
   error: { variant: "link", pose: "broken" },
   "rate-limit": { variant: "stacks", pose: "paced" },
+  awaiting: { variant: "stacks", pose: "paced" },
+  metrics: { variant: "scan", pose: "reveal" },
   empty: { variant: "stacks", pose: "empty" },
   success: { variant: "coin", pose: "success" },
   lost: { variant: "coin", pose: "lost" },
