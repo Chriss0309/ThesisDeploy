@@ -18,7 +18,13 @@ import {
   saveDraftBasket,
   type Actor,
 } from "@/lib/execution/store";
-import { PREFLIGHT_TTL_MS, type ExecutionView, type PreflightPayload, type PreflightRequest } from "@/lib/execution/types";
+import {
+  PREFLIGHT_TTL_MS,
+  type ExecutionKind,
+  type ExecutionView,
+  type PreflightPayload,
+  type PreflightRequest,
+} from "@/lib/execution/types";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
@@ -251,6 +257,9 @@ export async function preflightForGuest(
 
 export type CreateExecutionInput = {
   basketId: string;
+  kind?: ExecutionKind;
+  /** Rebalance and close: the pre-flight shown to the user. */
+  preflightId?: string | null;
   mode: "paper" | "live";
   simulateRejectSeq: number | null;
   idempotencyKey: string;
@@ -275,16 +284,22 @@ export async function createExecution(
       : new ExecutionError("live_disabled", 403, "Live trading is switched off on this deployment. Use Paper.");
   }
 
-  const preflight = basket.preflight as unknown as PreflightPayload;
+  const kind = input.kind ?? "deploy";
+  const preflight = (kind === "deploy" ? basket.preflight : basket.actionPreflight) as unknown as PreflightPayload | null;
+  if (!preflight) throw new ExecutionError("preflight_stale", 409, "Run pre-flight before confirming.");
+  if (kind !== "deploy" && (preflight.kind !== kind || !input.preflightId || preflight.preflightId !== input.preflightId)) {
+    throw new ExecutionError("preflight_stale", 409, "This pre-flight was replaced or is out of date. Run pre-flight again.");
+  }
   if (input.simulateRejectSeq != null && input.simulateRejectSeq > preflight.orders.length) {
     throw new ExecutionError("invalid_request", 400, "There's no leg with that number to reject.");
   }
   const now = deps.now?.() ?? new Date();
-  if (basket.status === "draft" && now.getTime() - basket.preflightAt.getTime() > PREFLIGHT_TTL_MS) {
+  const preparedAt = kind === "deploy" ? basket.preflightAt : new Date(preflight.preparedAt);
+  if ((kind !== "deploy" || basket.status === "draft") && now.getTime() - preparedAt.getTime() > PREFLIGHT_TTL_MS) {
     throw new ExecutionError("preflight_stale", 409, "These prices are more than 5 minutes old. Refresh pre-flight.");
   }
 
-  if (guest && basket.guestClient && basket.status === "draft") {
+  if (guest && basket.guestClient && kind !== "close" && (kind === "rebalance" || basket.status === "draft")) {
     const usage = await guestUsage(basket.guestClient);
     if (usage.runs >= GUEST_PAPER_RUNS_PER_DAY || usage.allRuns >= GUEST_PAPER_RUNS_GLOBAL_PER_DAY) {
       throw new ExecutionError("guest_limit", 429, "The demo's paper runs for today are used up. Try again tomorrow.");
@@ -294,9 +309,12 @@ export async function createExecution(
   const { executionId, created } = await insertExecution({
     basketId: basket.id,
     accountKey: basket.accountKey,
+    kind,
+    preflightId: kind === "deploy" ? null : (input.preflightId ?? null),
     mode: input.mode,
     idempotencyKey: input.idempotencyKey,
     confirmation: {
+      kind,
       mode: input.mode,
       confirmedAt: now.toISOString(),
       preparedAt: preflight.preparedAt,
@@ -318,7 +336,7 @@ export async function createExecution(
         executionId,
         basketId: basket.id,
         mode: input.mode,
-        kind: "deploy",
+        kind,
         orders: preflight.orders.length,
         marketOpen: preflight.market.open,
         simulateReject: input.simulateRejectSeq != null,
@@ -326,6 +344,26 @@ export async function createExecution(
       },
       basket.userId ?? undefined,
     );
+    if (kind === "rebalance") {
+      await recordEvent(
+        "rebalance_confirmed",
+        {
+          executionId,
+          basketId: basket.id,
+          mode: input.mode,
+          sells: preflight.orders.filter((order) => order.action === "SELL").length,
+          buys: preflight.orders.filter((order) => order.action === "BUY").length,
+          driftBeforePoints: Math.round((preflight.rebalance?.maxDriftBefore ?? 0) * 1000) / 10,
+          driftAfterPoints: Math.round((preflight.rebalance?.maxDriftAfter ?? 0) * 1000) / 10,
+          sellProceeds: preflight.rebalance?.sellProceeds ?? 0,
+          buyCost: preflight.rebalance?.buyCost ?? 0,
+          currency: basket.currency,
+          marketOpen: preflight.market.open,
+          guest,
+        },
+        basket.userId ?? undefined,
+      );
+    }
   }
   return { execution: await loadExecutionView(executionId), created };
 }

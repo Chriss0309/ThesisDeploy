@@ -5,6 +5,7 @@ import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
 const NAV = [
   { href: "/portfolio", children: "Portfolio X-Ray", pendingLabel: "Opening Portfolio X-Ray…" },
   { href: "/studio", children: "Thesis Studio", pendingLabel: "Opening Thesis Studio…" },
+  { href: "/theses", children: "My Theses", pendingLabel: "Opening My Theses…" },
   { href: "/demo", children: "Demo" },
 ];
 
@@ -24,9 +25,9 @@ export function PageShell({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b bg-background">
-        <div className="mx-auto flex w-full max-w-page items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-6">
           <Wordmark />
-          <nav aria-label="Primary" className="flex items-center gap-3 sm:gap-5">
+          <nav aria-label="Primary" className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
             <Suspense
               fallback={NAV.map((link) => (
                 <NavLinkFallback key={link.href} {...link} />

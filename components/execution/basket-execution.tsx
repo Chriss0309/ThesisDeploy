@@ -10,7 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 import type { ExecutionView } from "@/lib/execution/types";
 
 /** The basket page's execution: resumes pending paper legs on open and refreshes the ledger once settled. */
-export function BasketExecution({ execution, studioPath }: { execution: ExecutionView; studioPath: string }) {
+export function BasketExecution({ execution, studioPath }: { execution: ExecutionView; studioPath?: string }) {
   const router = useRouter();
   const seen = useRef({ active: true, filled: -1 });
   const onStateChange = useCallback(
@@ -28,10 +28,12 @@ export function BasketExecution({ execution, studioPath }: { execution: Executio
       autoResume={execution.mode === "paper"}
       onStateChange={onStateChange}
       actions={
-        <Link href={studioPath} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          Build another basket
-          <LinkPendingStatus variant="scan" label="Opening Thesis Studio…" />
-        </Link>
+        studioPath ? (
+          <Link href={studioPath} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Build another basket
+            <LinkPendingStatus variant="scan" label="Opening Thesis Studio…" />
+          </Link>
+        ) : undefined
       }
     />
   );

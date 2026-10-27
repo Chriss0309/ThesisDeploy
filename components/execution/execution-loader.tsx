@@ -13,7 +13,8 @@ export function ExecutionLoader({
   onSettled,
 }: {
   label: string;
-  legs: ExecutionLeg[];
+  /** Omit when the legs aren't known yet (an action pre-flight): the stacks loop indeterminately. */
+  legs?: ExecutionLeg[];
   settled?: boolean;
   onSettled?: () => void;
 }) {
@@ -24,7 +25,7 @@ export function ExecutionLoader({
       framed={false}
       className="rounded-md bg-surface-sunken"
       label={label}
-      progress={{ legs }}
+      progress={legs && { legs }}
       settled={settled}
       onSettled={onSettled}
     />
