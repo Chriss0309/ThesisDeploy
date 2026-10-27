@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ExecutionLoader } from "@/components/execution/execution-loader";
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
-import { LoaderGlyph } from "@/components/loader/loader";
+import { Loader, LoaderGlyph } from "@/components/loader/loader";
 import { LinkPendingStatus } from "@/components/loader/pending";
 import { formatMoney, formatTimestamp } from "@/components/portfolio/format";
 import { Badge } from "@/components/ui/badge";
@@ -138,11 +138,150 @@ function OrderTable({ preflight }: { preflight: PreflightPayload }) {
   );
 }
 
-const RUN_LABEL: Record<ExecutionKind, { eyebrow: string; run: string; confirm: string; button: string }> = {
-  deploy: { eyebrow: "Pre-flight", run: "Paper run", confirm: "Confirm", button: "Run paper simulation" },
-  rebalance: { eyebrow: "Rebalance pre-flight", run: "Paper rebalance", confirm: "Rebalance", button: "Run paper rebalance" },
-  close: { eyebrow: "Close pre-flight", run: "Paper close", confirm: "Close basket", button: "Sell everything and close" },
+const RUN_LABEL: Record<
+  ExecutionKind,
+  { eyebrow: string; run: Record<ExecutionMode, string>; confirm: string; button: string; live: (count: number) => string }
+> = {
+  deploy: {
+    eyebrow: "Pre-flight",
+    run: { paper: "Paper run", live: "Live run" },
+    confirm: "Confirm",
+    button: "Run paper simulation",
+    live: (count) => `Submit ${count} live ${count === 1 ? "order" : "orders"}`,
+  },
+  rebalance: {
+    eyebrow: "Rebalance pre-flight",
+    run: { paper: "Paper rebalance", live: "Live rebalance" },
+    confirm: "Rebalance",
+    button: "Run paper rebalance",
+    live: (count) => `Submit live rebalance · ${count} ${count === 1 ? "order" : "orders"}`,
+  },
+  close: {
+    eyebrow: "Close pre-flight",
+    run: { paper: "Paper close", live: "Live close" },
+    confirm: "Close basket",
+    button: "Sell everything and close",
+    live: (count) => `Sell everything live · ${count} ${count === 1 ? "order" : "orders"}`,
+  },
 };
+
+type ImpactState = { phase: "idle" | "checking" | "error"; error: string | null };
+
+function ImpactSummary({ preflight, impact }: { preflight: PreflightPayload; impact: ImpactState }) {
+  const { currency } = preflight;
+  const institution = preflight.account.institution;
+  const result = preflight.impact;
+  const value = (amount: number | null | undefined) =>
+    amount == null ? <span className="text-muted-foreground">Not available</span> : formatMoney(amount, currency);
+  if (impact.phase === "checking") {
+    return (
+      <Loader
+        variant="scan"
+        size="inline"
+        delayMs={0}
+        label={`Asking ${institution} to preview ${preflight.orders.length} ${preflight.orders.length === 1 ? "order" : "orders"}…`}
+      />
+    );
+  }
+  if (!result) {
+    return impact.error ? <p className="text-xs text-negative-subtle-foreground">{impact.error}</p> : null;
+  }
+  const previewed = result.legs.filter((leg) => leg.status === "ok").length;
+  const source =
+    result.source === "brokerage"
+      ? "Brokerage preview"
+      : result.source === "unsupported"
+        ? "Not available"
+        : `Brokerage preview for ${previewed} of ${result.legs.length} orders`;
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      <p>
+        <span className="font-medium">Impact source: {source}</span>
+        {result.source === "unsupported" && ` (${institution} has no order preview through SnapTrade)`}
+      </p>
+      <dl className="grid grid-cols-(--grid-card-header) gap-x-4 gap-y-1 tabular-nums">
+        <dt className="text-muted-foreground">Estimated commissions</dt>
+        <dd className="text-right">{value(result.totalCommission)}</dd>
+        <dt className="text-muted-foreground">Foreign-exchange fees</dt>
+        <dd className="text-right">{value(result.totalForexFees)}</dd>
+        <dt className="text-muted-foreground">Cash after these orders ({institution} estimate)</dt>
+        <dd className="text-right">{value(result.remainingCash)}</dd>
+      </dl>
+      {result.source !== "brokerage" && (
+        <p className="text-muted-foreground">
+          Order impact unavailable. A reliable pre-trade impact or fee estimate is not available for{" "}
+          {result.source === "unsupported" ? "these orders" : "some of these orders"}. The final execution price, transaction
+          amount, commissions, fees, and cash impact may not be known until the order is submitted or executed. Fees may apply.
+          By submitting, you agree to proceed without these estimates.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LiveSection({
+  preflight,
+  impact,
+  onPreview,
+  acknowledged,
+  setAcknowledged,
+}: {
+  preflight: PreflightPayload;
+  impact: ImpactState;
+  onPreview: () => void;
+  acknowledged: boolean;
+  setAcknowledged: (value: boolean) => void;
+}) {
+  const { account } = preflight;
+  const count = preflight.orders.length;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="dark flex flex-col gap-1 rounded-md bg-background px-4 py-3 text-foreground">
+        <p className="eyebrow flex items-center gap-2 text-muted-foreground">
+          <Badge tone="solid" dot>
+            Live
+          </Badge>
+          Real market orders
+        </p>
+        <p className="text-sm">
+          Sends {count} whole-share market {count === 1 ? "order" : "orders"} to {account.name} at {account.institution}
+          {account.isPaper ? ", a paper-trading account" : ""}, one per second. They can&apos;t be canceled from ThesisDeploy.
+        </p>
+      </div>
+      {(preflight.live.notes ?? []).map((note) => (
+        <p
+          key={note}
+          className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5 text-xs text-warning-subtle-foreground"
+        >
+          {note}
+        </p>
+      ))}
+      <ImpactSummary preflight={preflight} impact={impact} />
+      {impact.phase === "error" && (
+        <Button variant="outline" size="sm" className="self-start" onClick={onPreview}>
+          Try the brokerage preview again
+        </Button>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Order values above: Application-generated estimate. This application calculated these amounts using the latest
+        available quote. They were not supplied or verified by SnapTrade or the brokerage.
+      </p>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4 accent-brand"
+          checked={acknowledged}
+          disabled={!preflight.impact}
+          onChange={(event) => setAcknowledged(event.target.checked)}
+        />
+        <span>
+          I understand these are real market orders on my {account.institution} account, filled at the next available
+          price, and that ThesisDeploy can&apos;t undo them.
+        </span>
+      </label>
+    </div>
+  );
+}
 
 function PreflightBody({
   preflight,
@@ -150,13 +289,16 @@ function PreflightBody({
   setMode,
   rejectSeq,
   setRejectSeq,
+  live,
 }: {
   preflight: PreflightPayload;
   mode: ExecutionMode;
   setMode: (mode: ExecutionMode) => void;
   rejectSeq: number | null;
   setRejectSeq: (seq: number | null) => void;
+  live: Omit<Parameters<typeof LiveSection>[0], "preflight">;
 }) {
+  const paperGate = preflight.paper ?? { available: true, reasons: [] };
   const { currency, totals } = preflight;
   return (
     <DialogSection className="flex flex-col gap-5 pb-6">
@@ -214,8 +356,8 @@ function PreflightBody({
           value={mode}
           onChange={setMode}
           options={[
-            { value: "paper", label: "Paper simulation" },
-            { value: "live", label: "Live brokerage", disabled: !preflight.live.available },
+            { value: "paper", label: "Paper simulation", disabled: !paperGate.available },
+            { value: "live", label: "Live brokerage", disabled: !preflight.live.available && mode !== "live" },
           ]}
         />
         {!preflight.live.available && (
@@ -230,7 +372,21 @@ function PreflightBody({
             </ul>
           </div>
         )}
+        {!paperGate.available && (
+          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-2">
+              <Badge tone="info">Paper</Badge> is unavailable:
+            </p>
+            <ul className="flex list-disc flex-col gap-0.5 pl-5">
+              {paperGate.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
+
+      {mode === "live" && <LiveSection preflight={preflight} {...live} />}
 
       {mode === "paper" && preflight.orders.length > 0 && (
         <fieldset className="flex flex-col gap-2 rounded-md border border-dashed border-border-strong p-3">
@@ -296,19 +452,60 @@ function PreflightFlow({
   const [rejectSeq, setRejectSeq] = useState<number | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [execution, setExecution] = useState<ExecutionView | null>(null);
+  const [impact, setImpact] = useState<ImpactState>({ phase: "idle", error: null });
+  const [acknowledged, setAcknowledged] = useState(false);
   const top = useRef<HTMLDivElement>(null);
 
-  const apply = useCallback((result: PreflightResult) => {
-    if (!result.ok) {
-      setError(result.message);
-      setPhase("error");
-      return;
+  /** Asks the broker to preview every leg; the result is saved on the pre-flight and returned with it. */
+  const preview = useCallback(async (target: PreflightPayload) => {
+    setImpact({ phase: "checking", error: null });
+    try {
+      const response = await fetch(`/api/baskets/${target.basketId}/impact`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: target.kind ?? "deploy", preflightId: target.preflightId ?? null }),
+      });
+      const body = await readJson<PreflightPayload>(response);
+      if (!response.ok || !body || "error" in body) {
+        setImpact({ phase: "error", error: failure(body, response.status).message });
+        return;
+      }
+      setPreflight(body);
+      setImpact({ phase: "idle", error: null });
+    } catch {
+      setImpact({ phase: "error", error: "Couldn't reach ThesisDeploy for the brokerage preview. Try again." });
     }
-    setPreflight(result.preflight);
-    setIdempotencyKey(crypto.randomUUID());
-    setError(null);
-    setPhase("ready");
   }, []);
+
+  const apply = useCallback(
+    (result: PreflightResult) => {
+      if (!result.ok) {
+        setError(result.message);
+        setPhase("error");
+        return;
+      }
+      const next = result.preflight;
+      // A Live basket is rebalanced and closed only Live.
+      const liveOnly = next.paper?.available === false;
+      setPreflight(next);
+      setMode(liveOnly ? "live" : "paper");
+      setAcknowledged(false);
+      setImpact({ phase: "idle", error: null });
+      setIdempotencyKey(crypto.randomUUID());
+      setError(null);
+      setPhase("ready");
+      if (liveOnly && next.live.available && !next.impact) void preview(next);
+    },
+    [preview],
+  );
+
+  const chooseMode = (next: ExecutionMode) => {
+    setMode(next);
+    setAcknowledged(false);
+    if (next === "live" && preflight && preflight.live.available && !preflight.impact && impact.phase !== "checking") {
+      void preview(preflight);
+    }
+  };
 
   const load = useCallback(
     async (basketId: string | null) => apply(await fetchPreflight(endpoint, request, basketId)),
@@ -339,6 +536,7 @@ function PreflightFlow({
           preflightId: preflight.preflightId ?? null,
           mode,
           simulateRejectSeq: mode === "paper" ? rejectSeq : null,
+          acknowledgeLive: mode === "live" && acknowledged,
         }),
       });
       const body = await readJson<ExecutionView>(response);
@@ -348,6 +546,11 @@ function PreflightFlow({
           setNotice("Those prices were out of date, so pre-flight ran again. Check the orders and confirm.");
           setPhase("loading");
           await load(preflight.basketId);
+          return;
+        }
+        if (code === "impact_required") {
+          setPhase("ready");
+          void preview(preflight);
           return;
         }
         setError(message);
@@ -368,12 +571,25 @@ function PreflightFlow({
   const count = preflight?.orders.length ?? 0;
   const kind: ExecutionKind = preflight?.kind ?? ("kind" in request ? request.kind : "deploy");
   const label = RUN_LABEL[kind];
+  const runMode = execution?.mode ?? mode;
+  const canSubmitLive =
+    phase === "ready" && Boolean(preflight?.live.available) && Boolean(preflight?.impact) && impact.phase !== "checking" && acknowledged;
   return (
     <>
       <DialogSection ref={top} className="flex flex-col gap-1 pt-6 pb-4">
-        <p className="eyebrow text-muted-foreground">
-          ► {execution ? label.run : label.eyebrow}
-          {preflight && ` · ${preflight.account.name}`}
+        <p className="eyebrow flex flex-wrap items-center gap-2 text-muted-foreground">
+          <span>
+            ► {execution ? label.run[runMode] : label.eyebrow}
+            {preflight && ` · ${preflight.account.name}`}
+          </span>
+          {preflight &&
+            (runMode === "live" ? (
+              <Badge tone="solid" dot>
+                Live
+              </Badge>
+            ) : (
+              <Badge tone="info">Paper</Badge>
+            ))}
         </p>
         <DialogTitle>
           {execution
@@ -437,9 +653,10 @@ function PreflightFlow({
           <PreflightBody
             preflight={preflight}
             mode={mode}
-            setMode={setMode}
+            setMode={chooseMode}
             rejectSeq={rejectSeq}
             setRejectSeq={setRejectSeq}
+            live={{ impact, onPreview: () => void preview(preflight), acknowledged, setAcknowledged }}
           />
         )
       )}
@@ -466,8 +683,9 @@ function PreflightFlow({
                 Try again
               </Button>
             ) : mode === "live" ? (
-              <Button variant="brand" disabled>
-                Submit {count} live {count === 1 ? "order" : "orders"}
+              <Button variant="brand" disabled={!canSubmitLive} onClick={() => void confirm()}>
+                {phase === "confirming" && <LoaderGlyph variant="stacks" />}
+                {phase === "confirming" ? "Sending…" : label.live(count)}
               </Button>
             ) : (
               <Button

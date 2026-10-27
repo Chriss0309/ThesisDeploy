@@ -242,7 +242,8 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
         {card.execution && !open && (
           <section aria-label="Rebalance or close run" className="flex flex-col gap-3 rounded-md border p-4">
             <p className="eyebrow text-muted-foreground">
-              ► {card.execution.kind === "close" ? "Closing" : "Rebalancing"} · paper run
+              ► {card.execution.kind === "close" ? "Closing" : card.execution.kind === "deploy" ? "Deploying" : "Rebalancing"} ·{" "}
+              {card.execution.mode === "live" ? "live" : "paper"} run
             </p>
             <BasketExecution execution={card.execution} />
           </section>

@@ -11,6 +11,7 @@ import {
   type Actor,
   type BasketRow,
 } from "@/lib/execution/store";
+import { latestAttempts, needsReconcile } from "@/lib/execution/summary";
 import type { PreflightPayload } from "@/lib/execution/types";
 import { PREFLIGHT_TTL_MS, type ExecutionView } from "@/lib/execution/types";
 import { Prisma } from "@/lib/generated/prisma/client";
@@ -38,7 +39,10 @@ const isGuestBasket = (row: Pick<BasketRow, "userId">) => row.userId == null;
 
 /** The latest rebalance or close run shows on its card until it settles cleanly. */
 function visibleExecution(execution: ExecutionView | null): ExecutionView | null {
-  if (!execution || execution.kind === "deploy") return null;
+  if (!execution) return null;
+  // A deploy shows only while Live orders are unsettled, since that blocks rebalance and close.
+  const unsettled = latestAttempts(execution.legs).some((leg) => needsReconcile(leg.status));
+  if (execution.kind === "deploy" && !unsettled) return null;
   return execution.status === "completed" || execution.status === "canceled" ? null : execution;
 }
 

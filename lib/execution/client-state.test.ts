@@ -39,7 +39,7 @@ describe("stacks loader legs", () => {
       { symbol: "S3", shares: 6, status: "pacing" },
       { symbol: "S4", shares: 8, status: "queued" },
       { symbol: "S5", shares: 10, status: "queued" },
-      { symbol: "S6", shares: 12, status: "failed" },
+      { symbol: "S6", shares: 12, status: "submitting" },
     ]);
     expect(stackLegs(run, false).map((stack) => stack.status)[2]).toBe("queued");
   });
