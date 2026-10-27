@@ -28,7 +28,7 @@ Every call goes through `callSnapTrade`, so it is recorded in `api_calls` and ch
 Edits run in the browser with the same solver (`lib/thesis/composer-state.ts`):
 
 - **Weight slider.** Sets one line's weight; the other lines scale proportionally to fill the rest, and every line is re-solved.
-- **Share stepper.** Overrides one line's shares and re-prices the basket. If manual shares exceed the spend cap, the summary turns red.
+- **Share stepper.** Overrides one line's shares and re-prices the basket. `+` is disabled once the next share would cost more than the cash left under the spend cap (budget less the 1.5% slippage reserve); it stays focusable and says why, e.g. "Needs $84.30 CAD, $40.79 CAD left after the slippage reserve", so the basket can't go over budget.
 - **Remove / Restore.** Removes a line, renormalizes the others, and re-solves; Restore brings it back.
 - **Overlap badges.** New exposure, Overlap adjusted (with the dollars held, the share of that currency's portfolio, the accounts, and the weight before and after), Already held at target, Held in another currency, or Overlap ignored.
 - The capital line reads "Deploying X of B across N whole-share orders; R stays in cash", with a bar per line. Candidates dropped by grounding and companies Claude excluded are listed with reasons.
