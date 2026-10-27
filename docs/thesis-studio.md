@@ -59,7 +59,7 @@ Signed-in users are limited to 30 generations per rolling 24 hours.
 | `GUEST_GENERATIONS_PER_DAY` | Optional; default 40. |
 | `ANTHROPIC_BASE_URL` | Local testing only: point it at `npm run dev:anthropic-stub`. |
 
-Apply the migration that adds `theses` and `thesis_candidates` before deploying: `DIRECT_URL=… npm run db:migrate`. `/api/health` reports the tables as missing until then.
+The migration `20261027001619_thesis_studio` adds `theses` and `thesis_candidates`; `/api/health` reports them as missing until it's applied.
 
 ## Testing locally without SnapTrade or Anthropic
 

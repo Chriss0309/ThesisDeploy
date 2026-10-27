@@ -10,7 +10,10 @@ const TABS = [
 
 export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]["key"]; returnTo: string }) {
   return (
-    <div className="border-b border-info-border bg-info-subtle px-4 py-2.5 text-xs text-info-subtle-foreground sm:px-6">
+    <aside
+      aria-label="Demo mode"
+      className="border-b border-info-border bg-info-subtle px-4 py-2.5 text-xs text-info-subtle-foreground sm:px-6"
+    >
       <div className="mx-auto flex w-full max-w-page flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <p>
           <span className="eyebrow mr-2">Demo</span>
@@ -37,6 +40,6 @@ export function DemoBanner({ active, returnTo }: { active: (typeof TABS)[number]
           ))}
         </nav>
       </div>
-    </div>
+    </aside>
   );
 }

@@ -729,6 +729,21 @@ export function PreflightDialog({
 }) {
   const [run, setRun] = useState<ExecutionState | null>(null);
   const submitting = run?.draining ?? false;
+  // Opened from state rather than a Base UI trigger, so Base UI doesn't know where to
+  // return focus. The last element focused while closed is the button that opened it.
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) return;
+    const record = (event: FocusEvent) => {
+      if (event.target instanceof HTMLElement && !event.target.closest("[role=dialog]")) opener.current = event.target;
+    };
+    document.addEventListener("focusin", record);
+    return () => document.removeEventListener("focusin", record);
+  }, [open]);
+  const returnFocus = () => {
+    const target = opener.current;
+    return target?.isConnected && !target.matches(":disabled") ? target : true;
+  };
   return (
     <Dialog
       open={open}
@@ -740,7 +755,7 @@ export function PreflightDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent>
+      <DialogContent finalFocus={returnFocus}>
         {open && request && (
           <PreflightFlow
             endpoint={"kind" in request ? `/api/baskets/${request.basketId}/preflight` : endpoint}

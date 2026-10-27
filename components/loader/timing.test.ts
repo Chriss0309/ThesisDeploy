@@ -41,6 +41,8 @@ describe("GPU budget", () => {
     expect(gpuBudget({ coarsePointer: true, viewportWidth: 390 }).fps).toBe(30);
     expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 8, memoryGb: 16 }).fps).toBe(60);
     expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 4 }).fps).toBe(30);
+    expect(gpuBudget({ coarsePointer: true, viewportWidth: 390 }).constrained).toBe(true);
+    expect(gpuBudget({ coarsePointer: false, viewportWidth: 1440, cores: 8, memoryGb: 16 }).constrained).toBe(false);
   });
 
   it("animates the largest loaders that fit the frame budget and freezes the rest", () => {

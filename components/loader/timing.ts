@@ -99,6 +99,8 @@ export type GpuBudget = {
   maxPixels: number;
   /** Pixels animated per frame across all loaders; the rest hold a still frame. */
   framePixels: number;
+  /** Phones and low-end machines: endless scenes (the landing hero) play once, then hold. */
+  constrained: boolean;
 };
 
 /** Mobile and low-end devices get fewer frames and pixels per loader and per frame. */
@@ -116,8 +118,8 @@ export function gpuBudget({
   const constrained =
     coarsePointer || viewportWidth < 768 || (cores != null && cores <= 4) || (memoryGb != null && memoryGb <= 4);
   return constrained
-    ? { fps: 30, maxDpr: 1.5, maxPixels: 420_000, framePixels: 750_000 }
-    : { fps: 60, maxDpr: 2, maxPixels: 1_200_000, framePixels: 3_000_000 };
+    ? { fps: 30, maxDpr: 1.5, maxPixels: 420_000, framePixels: 750_000, constrained }
+    : { fps: 60, maxDpr: 2, maxPixels: 1_200_000, framePixels: 3_000_000, constrained };
 }
 
 /** Backing-store size for a canvas, capped by the budget's pixel ratio and pixel count. */

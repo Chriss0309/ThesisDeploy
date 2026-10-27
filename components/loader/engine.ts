@@ -36,6 +36,7 @@ const budget = gpuBudget({
   cores: navigator.hardwareConcurrency,
   memoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
 });
+export const constrainedDevice = budget.constrained;
 
 let renderer: WebGLRenderer | null = null;
 let frame = 0;

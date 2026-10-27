@@ -32,7 +32,7 @@ function generationNote() {
 }
 
 async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/studio">["searchParams"] }) {
-  const { account, preset } = await searchParams;
+  const { account, preset, prompt } = await searchParams;
   const accounts = demoOverview().accounts.map((candidate) =>
     toStudioAccount({ account: candidate, snapshot: demoSnapshot(candidate.id) }),
   );
@@ -43,6 +43,7 @@ async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/stu
       accounts={accounts}
       initialAccountId={initialStudioAccount(accounts, account).id}
       initialPresetKey={typeof preset === "string" ? preset : null}
+      initialPrompt={typeof prompt === "string" ? prompt : null}
       generation={generationNote()}
     />
   );

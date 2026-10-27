@@ -160,8 +160,10 @@ function easeOutBack(x: number) {
 /**
  * The hero scene as a motif for the shared loader renderer, so the landing page never
  * needs a second WebGL context. `onTime` reports the timeline position each frame.
+ * Without `loop`, it plays one pass and stops on its settled frame, which is where
+ * the pass is at that moment, so there's no jump.
  */
-export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) => void) {
+export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) => void, { loop = true } = {}) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(28, 1, 0.1, 50);
   camera.position.set(0, 0.9, 7.2);
@@ -275,7 +277,7 @@ export function createCoinScene(palette: CoinPalette, onTime: (elapsed: number) 
     scene,
     camera,
     still: SETTLED_SECONDS,
-    duration: () => Infinity,
+    duration: () => (loop ? Infinity : SETTLED_SECONDS),
     update(time, state) {
       if (state.still) {
         last = null;

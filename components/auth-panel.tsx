@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { Loader } from "@/components/loader/loader";
 import { Mark } from "@/components/loader/mark";
 import { PendingForm, PendingLink } from "@/components/loader/pending";
@@ -34,6 +36,8 @@ async function loadSession() {
     const user = await getCurrentUser();
     return { user, grant: user ? await getGrantSummary(user.id) : null, unavailable: false };
   } catch (error) {
+    // cookies() and connection() abort prerendering by throwing; those must reach Next.js.
+    unstable_rethrow(error);
     console.error("[auth] session lookup failed", describeError(error));
     return { user: null, grant: null, unavailable: true };
   }

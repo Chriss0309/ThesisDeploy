@@ -102,14 +102,15 @@ export function CoinStage() {
 
     // The shared loader engine draws the hero too: one WebGL context per page.
     Promise.all([loadEngine(), import("./coin-scene")])
-      .then(([{ attachScene }, { createCoinScene }]) => {
+      .then(([{ attachScene, constrainedDevice }, { createCoinScene }]) => {
         if (cancelled) return;
         const palette: CoinPalette = {
           paper: readTokenColor(stage, "--illustration-paper"),
           ink: readTokenColor(stage, "--illustration-ink"),
           accent: readTokenColor(stage, "--illustration-accent"),
         };
-        scene = createCoinScene(palette, publish);
+        // An endless loop keeps a phone's main thread and battery busy for as long as the page is open.
+        scene = createCoinScene(palette, publish, { loop: !constrainedDevice });
         try {
           view = attachScene(canvas, scene);
         } catch {

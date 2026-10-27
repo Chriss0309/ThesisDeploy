@@ -70,7 +70,7 @@ A rejected leg doesn't stop the queue: the reason is recorded on the leg and the
 |---|---|
 | `baskets` | Owner (user, or guest cookie hash), thesis, account, `mode` (paper or live, never mixed), `status` (draft, deploying, active, closed), budget, currency, and the latest pre-flight |
 | `basket_constituents` | Symbol, universal symbol ID, target weight, planned shares, and the ledger: filled shares and cost, changed only together with a filled leg |
-| `executions` | Kind (`deploy`; rebalance and close come with My Theses), mode, status, idempotency key, confirmation snapshot, failure injection, and timestamps |
+| `executions` | Kind (`deploy`, or `rebalance` and `close` from [My Theses](my-theses.md)), mode, status, idempotency key, confirmation snapshot, failure injection, and timestamps |
 | `execution_legs` | One row per attempt: seq, attempt, action, symbol, units, estimated price, `client_order_id`, status, broker order ID, fill, error, and claim and submit times |
 | `account_pacing` | Last submission per account key |
 
@@ -101,7 +101,7 @@ Every table has row-level security enabled with no policies, like the rest of th
 
 ## Configuration
 
-No new environment variables. `LIVE_TRADING_ENABLED` (default `false`) remains the kill switch. Apply the migration that adds the five tables before deploying: `DIRECT_URL=… npm run db:migrate`. `/api/health` reports them as missing until then. Without a database, pre-flight answers `503` with a clear message.
+Paper needs only the database. `LIVE_TRADING_ENABLED` (default `false`) is the kill switch for Live. The migration `20261027050811_paper_execution` adds the five tables; `/api/health` reports them as missing until it's applied. Without a database, pre-flight answers `503` with a clear message.
 
 ## Tests
 
