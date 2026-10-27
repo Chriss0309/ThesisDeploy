@@ -1,16 +1,11 @@
 import type { NextRequest } from "next/server";
 
+import { clientIp } from "@/lib/auth/http";
 import { errorResponse, readThesisRequest, thesisErrorResponse } from "@/lib/thesis/http";
 import { guestClientKey } from "@/lib/thesis/rate-limit";
 import { createDemoThesis } from "@/lib/thesis/service";
 
 export const maxDuration = 60;
-
-// Vercel sets both headers from the connecting client and overwrites any
-// value the client sent, so they can't be spoofed there.
-function clientIp(request: NextRequest): string | null {
-  return request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-}
 
 export async function POST(request: NextRequest) {
   const parsed = await readThesisRequest(request);

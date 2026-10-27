@@ -33,6 +33,12 @@ export function publicOrigin(request: NextRequest): string {
   return `${proto.split(",")[0].trim()}://${host.split(",")[0].trim()}`;
 }
 
+// Vercel sets both headers from the connecting client and overwrites any
+// value the client sent, so they can't be spoofed there.
+export function clientIp(request: NextRequest): string | null {
+  return request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+}
+
 export function noStore<T extends Response>(response: T): T {
   response.headers.set("Cache-Control", "no-store");
   return response;
