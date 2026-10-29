@@ -384,8 +384,8 @@ export function ThesisStudio({
               label="Existing holdings"
               hint={
                 overlapMode === "auto"
-                  ? "Buys only the gap between each name's target and what you already hold across all accounts."
-                  : "Sizes the basket as if you held nothing; overlap is still shown."
+                  ? "Puts more of your budget into stocks you own less of, counting all your accounts."
+                  : "Splits the budget as if you owned nothing. Stocks you already own are still shown."
               }
             >
               <Segmented
