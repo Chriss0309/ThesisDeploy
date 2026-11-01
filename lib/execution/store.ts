@@ -303,11 +303,25 @@ export async function insertExecution(input: NewExecution): Promise<{ executionI
 
   try {
     const executionId = await db.$transaction(async (tx) => {
-      await tx.$queryRaw`select id from baskets where id = ${input.basketId}::uuid for update`;
+      const [locked] = await tx.$queryRaw<{ thesis_id: string | null }[]>`
+        select thesis_id from baskets where id = ${input.basketId}::uuid for update`;
       if (input.kind === "deploy") {
         const prior = await tx.execution.findFirst({ where: { basketId: input.basketId }, select: { id: true } });
         if (prior) {
           throw new ExecutionError("already_executed", 409, "This basket was already executed.", { executionId: prior.id });
+        }
+        const thesisId = locked?.thesis_id;
+        if (thesisId) {
+          await tx.$queryRaw`select id from theses where id = ${thesisId}::uuid for update`;
+          const deployed = await tx.execution.findFirst({
+            where: { kind: "deploy", basket: { thesisId } },
+            select: { id: true },
+          });
+          if (deployed) {
+            throw new ExecutionError("already_executed", 409, "This thesis was already deployed from another pre-flight.", {
+              executionId: deployed.id,
+            });
+          }
         }
       } else {
         const basket = await tx.basket.findUniqueOrThrow({

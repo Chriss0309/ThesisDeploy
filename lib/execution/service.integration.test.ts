@@ -256,10 +256,22 @@ describe.skipIf(!TEST_DATABASE_URL)("paper execution against stubs and Postgres"
     expect(results.at(-1)!.props).toMatchObject({ status: "executed", attempt: 2, mode: "paper", brokerage: "ALPACA-PAPER" });
   }, 30_000);
 
+  it("deploys a thesis once, whichever of its pre-flights is confirmed", async () => {
+    const { payload, preflight } = await signedInPreflight();
+    const again = await preflightForUser(ctx, preflightRequest(payload), { now });
+    const { execution } = await confirm(preflight.basketId);
+    expect((await drain(user, execution.id)).execution.status).toBe("completed");
+
+    const refused = await expectError(confirm(again.basketId), "already_executed", 409);
+    expect(refused.extra.executionId).toBe(execution.id);
+    expect(await getDb().execution.count()).toBe(1);
+    expect((await findBasketView(again.basketId, user))!.status).toBe("draft");
+  });
+
   it("allows one active execution per account until it is canceled", async () => {
     const a = await signedInPreflight();
     const first = await confirm(a.preflight.basketId);
-    const b = await preflightForUser(ctx, preflightRequest(a.payload), { now });
+    const b = (await signedInPreflight()).preflight;
     const conflict = await expectError(confirm(b.basketId), "execution_active", 409);
     expect(conflict.extra.executionId).toBe(first.execution.id);
 
