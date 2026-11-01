@@ -1,4 +1,7 @@
 import type { ExecutionStatus, LegStatus } from "@/lib/execution/types";
+import type { EditableLine } from "@/lib/thesis/composer-state";
+import type { BasketCurrency, OverlapMode } from "@/lib/thesis/constants";
+import type { ComposerPayload } from "@/lib/thesis/types";
 
 /**
  * Thesis Studio keeps the composed basket in client state. Cache Components
@@ -114,6 +117,116 @@ export function executionHasFill(execution: {
 }): boolean {
   if (execution.status === "completed" || execution.status === "partial") return true;
   return execution.legs.some((leg) => leg.status === "executed" || leg.status === "partial" || (leg.filledUnits ?? 0) > 0);
+}
+
+export type StudioScope = "demo" | `live:${string}`;
+
+export const STUDIO_SNAPSHOT_KEY = { demo: "thesisdeploy.studio.demo", live: "thesisdeploy.studio.live" } as const;
+
+export const STUDIO_SNAPSHOT_TTL_MS = 24 * 3600 * 1000;
+
+export type StudioForm = { accountId: string; currency: BasketCurrency; budget: number; overlapMode: OverlapMode };
+
+export type StudioSnapshot = {
+  v: 1;
+  scope: StudioScope;
+  savedAt: number;
+  prompt: string;
+  presetKey: string | null;
+  form: StudioForm;
+  interrupted: boolean;
+  payload: ComposerPayload | null;
+  lines: EditableLine[] | null;
+};
+
+export function studioSnapshot(studio: {
+  scope: StudioScope;
+  now: number;
+  prompt: string;
+  presetKey: string | null;
+  form: StudioForm;
+  generating: boolean;
+  cache: StudioCache;
+  payload: ComposerPayload | null;
+  arrived: ComposerPayload | null;
+  lines: EditableLine[] | null;
+}): StudioSnapshot | null {
+  const { scope, cache, payload, arrived } = studio;
+  const guestConfirming = scope === "demo" && cache.dialogOpen;
+  const keep = payload != null && canExecuteStudioBasket(cache) && !guestConfirming;
+  const basket = arrived ? { payload: arrived, lines: null } : keep ? { payload, lines: studio.lines } : null;
+  if (!basket && !studio.generating) return null;
+  return {
+    v: 1,
+    scope,
+    savedAt: studio.now,
+    prompt: studio.prompt,
+    presetKey: studio.presetKey,
+    form: studio.form,
+    interrupted: studio.generating && !arrived,
+    payload: basket?.payload ?? null,
+    lines: basket?.lines ?? null,
+  };
+}
+
+export function readStudioSnapshot(
+  raw: string | null,
+  expected: { scope: StudioScope; now: number; accountIds: readonly string[] },
+): StudioSnapshot | null {
+  let snapshot: StudioSnapshot | null;
+  try {
+    snapshot = JSON.parse(raw ?? "null");
+  } catch {
+    return null;
+  }
+  if (snapshot?.v !== 1 || snapshot.scope !== expected.scope) return null;
+  if (!(expected.now - snapshot.savedAt < STUDIO_SNAPSHOT_TTL_MS)) return null;
+  const { form, payload, lines } = snapshot;
+  const accountIds = payload ? [form?.accountId, payload.account?.id] : [form?.accountId];
+  if (!accountIds.every((id) => expected.accountIds.includes(id))) return null;
+  if (lines && !(payload && sameSymbols(lines, payload.lines))) return null;
+  return snapshot;
+}
+
+function sameSymbols(lines: readonly EditableLine[], generated: readonly { symbol: string }[]): boolean {
+  return (
+    Array.isArray(lines) &&
+    Array.isArray(generated) &&
+    lines.length === generated.length &&
+    lines.every((line, i) => line?.symbol === generated[i]?.symbol)
+  );
+}
+
+export function takeStudioSnapshot(key: string): string | null {
+  try {
+    const raw = localStorage.getItem(key);
+    localStorage.removeItem(key);
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+export function dropExpiredStudioSnapshots(now: number) {
+  for (const key of Object.values(STUDIO_SNAPSHOT_KEY)) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw != null && !(now - Number(JSON.parse(raw)?.savedAt) < STUDIO_SNAPSHOT_TTL_MS)) {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      writeStudioSnapshot(key, null);
+    }
+  }
+}
+
+export function writeStudioSnapshot(key: string, snapshot: StudioSnapshot | null) {
+  try {
+    if (snapshot) localStorage.setItem(key, JSON.stringify(snapshot));
+    else localStorage.removeItem(key);
+  } catch {
+    // Blocked or full storage: the basket still lives in this tab, it just won't survive a reload.
+  }
 }
 
 let world: StudioWorld = emptyStudioWorld();

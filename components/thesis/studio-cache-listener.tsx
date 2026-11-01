@@ -3,7 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { isMyThesesPath, noteThesesVisit } from "@/lib/thesis/studio-cache";
+import type { AuthNotice } from "@/lib/auth/http";
+import {
+  STUDIO_SNAPSHOT_KEY,
+  dropExpiredStudioSnapshots,
+  isMyThesesPath,
+  noteThesesVisit,
+  writeStudioSnapshot,
+} from "@/lib/thesis/studio-cache";
+
+const SIGNED_OUT: ReadonlySet<string> = new Set<AuthNotice>(["signed_out", "disconnected", "disconnect_partial"]);
 
 /**
  * My Theses lives outside Thesis Studio. The root layout stays mounted when
@@ -16,6 +25,10 @@ export function StudioCacheListener() {
     if (seen.current === pathname) return;
     seen.current = pathname;
     if (isMyThesesPath(pathname)) noteThesesVisit();
+    dropExpiredStudioSnapshots(Date.now());
+    if (SIGNED_OUT.has(new URLSearchParams(window.location.search).get("auth") ?? "")) {
+      writeStudioSnapshot(STUDIO_SNAPSHOT_KEY.live, null);
+    }
   }, [pathname]);
   return null;
 }

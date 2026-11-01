@@ -1,20 +1,28 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { removeLine, stepUnits, type EditableLine } from "@/lib/thesis/composer-state";
 import {
+  STUDIO_SNAPSHOT_KEY,
+  STUDIO_SNAPSHOT_TTL_MS,
   applyStudioWorld,
   basketIdFromPath,
   canExecuteStudioBasket,
   confirmStudioBasket,
+  dropExpiredStudioSnapshots,
   executionHasFill,
   getStudioWorld,
   isMyThesesPath,
   noteBasketFilled,
   noteThesesVisit,
+  readStudioSnapshot,
   resetStudioWorld,
   setStudioDialog,
   startStudioBasket,
+  studioSnapshot,
   type StudioCache,
+  type StudioScope,
 } from "@/lib/thesis/studio-cache";
+import type { ComposerLine, ComposerPayload } from "@/lib/thesis/types";
 
 beforeEach(() => resetStudioWorld());
 
@@ -141,6 +149,157 @@ describe("studio basket cache", () => {
     cache = applyStudioWorld(cache, true);
     expect(cache.draftKey).toBe("draft-1");
     expect(cache.submitted).toBe(true);
+  });
+});
+
+describe("studio snapshot", () => {
+  const NOW = Date.parse("2026-10-30T12:00:00Z");
+  const USER: StudioScope = "live:user-a";
+  const settings = { budget: 1000, slippageBuffer: 0 };
+
+  const line = (symbol: string, price: number, targetWeight: number, units: number): ComposerLine => ({
+    symbol,
+    companyName: `${symbol} Corp`,
+    exchange: "TSX",
+    universalSymbolId: `usid-${symbol}`,
+    rationale: "Fits the thesis.",
+    holdingNote: null,
+    price,
+    priceBasis: "last",
+    quote: { last: price, bid: null, ask: null },
+    llmWeight: targetWeight,
+    targetWeight,
+    units,
+    overlap: { status: "new", heldValue: 0, heldShare: null, holdings: [] },
+  });
+
+  const basket = (ref: string): ComposerPayload => ({
+    thesis: {
+      id: null,
+      ref,
+      title: "Canadian Power for AI",
+      summary: "Grid and nuclear names.",
+      riskProfile: "moderate",
+      prompt: "AI power",
+      presetKey: null,
+      model: "sample",
+      latencyMs: null,
+      source: "sample",
+      generatedAt: "2026-10-30T11:59:00Z",
+    },
+    account: { id: "acct-tfsa", name: "TFSA", institution: "Questrade", isPaper: false },
+    currency: "CAD",
+    budget: settings.budget,
+    overlapMode: "auto",
+    slippageBuffer: settings.slippageBuffer,
+    pricing: { source: "demo", market: "TSX", marketOpen: false, asOf: "2026-10-26T20:00:00Z" },
+    lines: [line("A", 100, 0.5, 5), line("B", 50, 0.3, 6), line("C", 20, 0.2, 10)],
+    dropped: [],
+    excluded: [],
+    notices: [],
+  });
+
+  const generated = (payload: ComposerPayload): EditableLine[] =>
+    payload.lines.map((l) => ({ symbol: l.symbol, price: l.price, weight: l.targetWeight, units: l.units, removed: false }));
+
+  const studio = (overrides: Partial<Parameters<typeof studioSnapshot>[0]> = {}) => {
+    const payload = basket("ref-1");
+    return studioSnapshot({
+      scope: USER,
+      now: NOW,
+      prompt: "AI power",
+      presetKey: null,
+      form: { accountId: "acct-tfsa", currency: "CAD", budget: 1000, overlapMode: "auto" },
+      generating: false,
+      cache: startStudioBasket(0, payload.thesis.ref),
+      payload,
+      arrived: null,
+      lines: generated(payload),
+      ...overrides,
+    });
+  };
+
+  const expected: Parameters<typeof readStudioSnapshot>[1] = {
+    scope: USER,
+    now: NOW + 60_000,
+    accountIds: ["acct-tfsa", "acct-rrsp"],
+  };
+  const read = (raw: string | null, overrides: Partial<typeof expected> = {}) =>
+    readStudioSnapshot(raw, { ...expected, ...overrides });
+
+  it("brings back the basket with the edits made in the composer", () => {
+    const edited = stepUnits(removeLine(generated(basket("ref-1")), "A", settings), "B", -1, settings);
+    const restored = read(JSON.stringify(studio({ lines: edited })));
+
+    expect(restored?.payload?.thesis.ref).toBe("ref-1");
+    expect(restored?.lines?.map((l) => [l.symbol, l.units, l.removed])).toEqual([
+      ["A", 0, true],
+      ["B", 11, false],
+      ["C", 20, false],
+    ]);
+  });
+
+  const saved = JSON.stringify(studio());
+  it.each<[string, string | null, Partial<typeof expected>]>([
+    ["another user", saved, { scope: "live:user-b" }],
+    ["the demo", saved, { scope: "demo" }],
+    ["a snapshot older than a day", saved, { now: NOW + STUDIO_SNAPSHOT_TTL_MS }],
+    ["an account that isn't connected anymore", saved, { accountIds: ["acct-rrsp"] }],
+    ["bad JSON", saved.slice(0, 40), {}],
+    ["another version", JSON.stringify({ ...JSON.parse(saved), v: 2 }), {}],
+    ["edits that don't match the basket", JSON.stringify({ ...JSON.parse(saved), lines: generated(basket("x")).slice(1) }), {}],
+    ["nothing saved", null, {}],
+  ])("reads nothing back from %s", (_, raw, overrides) => {
+    expect(read(raw, overrides)).toBeNull();
+  });
+
+  it("never saves a basket once it was confirmed", () => {
+    const confirmed = confirmStudioBasket(startStudioBasket(0, "ref-1"), "basket-1");
+    expect(studio({ cache: confirmed })).toBeNull();
+    expect(studio({ cache: confirmed, generating: true })?.payload).toBeNull();
+  });
+
+  it("keeps a signed-in basket while pre-flight is open, but not a guest one", () => {
+    const open = setStudioDialog(startStudioBasket(0, "ref-1"), true);
+    expect(studio({ cache: open })?.payload?.thesis.ref).toBe("ref-1");
+    expect(studio({ cache: open, scope: "demo" })).toBeNull();
+  });
+
+  it("saves the prompt, settings, and previous basket when the page goes away mid-generation", () => {
+    const snapshot = studio({ generating: true, prompt: "Critical minerals" });
+    expect(snapshot).toMatchObject({ interrupted: true, prompt: "Critical minerals", form: { accountId: "acct-tfsa" } });
+    expect(snapshot?.payload?.thesis.ref).toBe("ref-1");
+    expect(studio({ generating: true, payload: null, lines: null })).toMatchObject({ interrupted: true, payload: null });
+  });
+
+  it("saves a basket that arrived while the loader settles, with its own lines", () => {
+    const snapshot = studio({ generating: true, arrived: basket("ref-2") });
+    expect(snapshot).toMatchObject({ interrupted: false, lines: null });
+    expect(snapshot?.payload?.thesis.ref).toBe("ref-2");
+  });
+
+  it("saves nothing without a basket or a generation", () => {
+    expect(studio({ payload: null, lines: null })).toBeNull();
+  });
+
+  it("drops snapshots older than a day from storage and keeps fresh ones", () => {
+    const store = new Map<string, string>([
+      [STUDIO_SNAPSHOT_KEY.live, JSON.stringify({ savedAt: NOW - STUDIO_SNAPSHOT_TTL_MS })],
+      [STUDIO_SNAPSHOT_KEY.demo, JSON.stringify({ savedAt: NOW - 60_000 })],
+    ]);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      removeItem: (key: string) => store.delete(key),
+    });
+    try {
+      dropExpiredStudioSnapshots(NOW);
+      expect([...store.keys()]).toEqual([STUDIO_SNAPSHOT_KEY.demo]);
+      store.set(STUDIO_SNAPSHOT_KEY.live, "{not json");
+      dropExpiredStudioSnapshots(NOW);
+      expect(store.has(STUDIO_SNAPSHOT_KEY.live)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

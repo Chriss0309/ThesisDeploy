@@ -100,6 +100,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
   return (
     <ThesisStudio
       mode="live"
+      snapshotScope={`live:${user.id}`}
       endpoint="/api/theses"
       accounts={accounts}
       initialAccountId={initialStudioAccount(accounts, requested).id}
