@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import { PendingLink } from "@/components/loader/pending";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -22,7 +23,7 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
     ? `/demo/studio?preset=${chosen.key}`
     : custom.length >= 3
       ? `/demo/studio?${new URLSearchParams({ prompt: custom })}`
-      : null;
+      : "/demo/studio";
 
   return (
     <Card className="w-full shadow-md">
@@ -57,14 +58,17 @@ export function ThesisPreview({ footer }: { footer: ReactNode }) {
             </Button>
           ))}
         </div>
-        {studioHref && (
-          <a
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PendingLink
             href={studioHref}
-            className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
+            variant="scan"
+            pendingLabel="Opening the demo…"
+            className={buttonVariants({ size: "lg" })}
           >
-            ► Build this basket in the demo Studio
-          </a>
-        )}
+            Try the demo
+          </PendingLink>
+          <p className="text-xs text-muted-foreground">No sign-in needed.</p>
+        </div>
       </CardContent>
       <CardFooter>{footer}</CardFooter>
     </Card>

@@ -129,11 +129,6 @@ async function guestJourney() {
     await runAndClose(page);
     await page.getByText("Closed").first().waitFor(WAIT);
   });
-  await step(session, "telemetry drawer", async (page) => {
-    await page.getByRole("button", { name: /Product telemetry/ }).click();
-    await page.getByRole("dialog").getByText("How ThesisDeploy is used").waitFor(WAIT);
-    await page.keyboard.press("Escape");
-  });
   await session.context.close();
 }
 

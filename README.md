@@ -28,8 +28,7 @@ One authorization is both the sign-in (OpenID Connect) and the brokerage access 
 1. **Demo, no sign-in.** Open [`/demo/studio`](https://thesisdeploy.vercel.app/demo/studio), pick **AI power & nuclear**, and click **Generate basket**. Presets are cached; the first run for an account and currency calls ThesisDeploy's AI (10–40 seconds). Note the overlap badges: the demo TFSA already holds some of these names.
 2. **Pre-flight with a failure.** Click **Continue to pre-flight**. Live is listed as unavailable, with every reason (demo account, kill switch, market hours). Tick **Simulate a broker rejection on leg 2**, then **Run paper simulation**. Leg 2 is rejected and the queue carries on; click **Retry failed leg**.
 3. **Lifecycle.** Click **View saved basket**, then **My Theses** in the demo banner. Use **Simulate a market move** (+50%) to push a stock past 5 points of drift, then **Rebalance** and **Close basket**.
-4. **Telemetry.** Open **► Product telemetry** in the footer. "You" shows your own demo run: funnel, edit rate, symbol hit rate, order success.
-5. **With SnapTrade.** Click **Sign in with SnapTrade** to use your own accounts (X-Ray, Studio, Paper, My Theses). The OAuth app is a Test app, so at most 5 people can sign in. Live orders need a `trade` connection and the market's regular session; Alpaca Paper is the safe way to try them.
+4. **With SnapTrade.** Click **Sign in with SnapTrade** to use your own accounts (X-Ray, Studio, Paper, My Theses). The OAuth app is a Test app, so at most 5 people can sign in. Live orders need a `trade` connection and the market's regular session; Alpaca Paper is the safe way to try them.
 
 ## How SnapTrade is used
 
@@ -116,7 +115,7 @@ The landing hero is an original three.js scene: an engraved coin with a bull emb
 
 ## Telemetry
 
-**► Product telemetry** in every footer opens a drawer of how people move from signing in, to a basket, to an order, and how SnapTrade responds, for everyone and for "you" (your sign-in or demo cookie), over 30 days:
+The telemetry drawer (`components/telemetry/telemetry-drawer.tsx`) isn't linked from any page right now; render `TelemetryToggle` in a footer to bring it back. It shows how people move from signing in, to a basket, to an order, and how SnapTrade responds, for everyone and for "you" (your sign-in or demo cookie), over 30 days:
 
 - **Activation funnel:** connected → generated → deployed, then drift viewed, rebalanced, closed. Tells whether people drop at generation or at pre-flight.
 - **Basket edit rate:** suggested tickers removed or resized before pre-flight. A proxy for whether people trust the basket as suggested, and what to change in the prompt or the overlap rule.
