@@ -3,7 +3,7 @@
 import type { VariantProps } from "class-variance-authority";
 import { Minus, Plus, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PreflightDialog } from "@/components/execution/preflight-dialog";
 
@@ -280,6 +280,8 @@ function LineRow({
  */
 export function BasketComposer({
   payload,
+  restoredLines,
+  onLinesChange,
   onEdit,
   preflightEndpoint,
   executable = true,
@@ -287,6 +289,8 @@ export function BasketComposer({
   onDialogOpenChange,
 }: {
   payload: ComposerPayload;
+  restoredLines?: EditableLine[] | null;
+  onLinesChange?: (lines: EditableLine[]) => void;
   onEdit?: (action: EditAction, symbol: string) => void;
   /** Where pre-flight runs; without it the composer is read-only for execution. */
   preflightEndpoint?: string;
@@ -295,7 +299,10 @@ export function BasketComposer({
   onSubmitted?: (basketId: string) => void;
   onDialogOpenChange?: (open: boolean) => void;
 }) {
-  const [lines, setLines] = useState(() => initialLines(payload));
+  const [lines, setLines] = useState(() => restoredLines ?? initialLines(payload));
+  useEffect(() => {
+    onLinesChange?.(lines);
+  }, [lines, onLinesChange]);
   const [preflight, setPreflight] = useState<PreflightRequest | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [savedBasket, setSavedBasket] = useState<string | null>(null);

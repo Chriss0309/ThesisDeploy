@@ -42,6 +42,7 @@ async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/stu
   return (
     <ThesisStudio
       mode="demo"
+      snapshotScope="demo"
       endpoint="/api/demo/theses"
       accounts={accounts}
       initialAccountId={initialStudioAccount(accounts, account).id}

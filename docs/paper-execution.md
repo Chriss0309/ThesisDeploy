@@ -28,7 +28,7 @@ Quotes are valid for 5 minutes. Confirming an older pre-flight returns `409 pref
 Body `{ basketId, mode, simulateRejectSeq }`, plus an `Idempotency-Key` header. The key is a UUID that the modal generates once per pre-flight.
 
 - **Same key:** returns the existing execution (`200`, not `201`). A double click or a retried request can't create a second run.
-- **One deploy per basket:** a second confirmation with a new key returns `409 already_executed`.
+- **One deploy per basket and per thesis:** a second confirmation with a new key returns `409 already_executed`. Every pre-flight saves its own draft basket, so the confirmation also locks the basket's thesis and returns the same 409 once any basket of that thesis has a deploy execution, canceled ones included. Guest baskets have no thesis.
 - **One active execution per account:** `executions.active_account_key` equals `account_key` while the execution is queued or running and is NULL otherwise. Its unique index allows one active execution per account (NULLs never collide). A second one gets `409 execution_active` with the active execution's ID. This also covers guests: demo accounts are shared fixtures, so their account key is derived per guest.
 - **Live:** `403 live_disabled` while the kill switch is off; otherwise Live's own rules apply (acknowledgement, passed gate, brokerage preview, open market). See [Live execution](live-execution.md).
 - **Records:** the execution stores the confirmation snapshot (order list, quotes, market status, disclosures shown). Each order becomes a leg (`seq`, `attempt` 1, `client_order_id`, estimated price). Event: `execution_confirmed`.

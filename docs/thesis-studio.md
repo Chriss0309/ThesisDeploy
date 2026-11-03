@@ -35,6 +35,16 @@ Edits run in the browser with the same solver (`lib/thesis/composer-state.ts`):
 
 Signed-in edits send `basket_edited` (remove, restore, reweight, step) for the edit-rate metric; slider drags and repeated clicks are debounced into one event.
 
+## Reloads and new tabs keep the basket
+
+The Studio saves the prompt, the settings, the basket, and the composer edits to `localStorage` while a basket can still be confirmed or a generation is running (`lib/thesis/studio-cache.ts`). A typed prompt with nothing generated isn't saved. A reload, a new tab, or a return after Activity evicted the page brings them back. A link that names a preset or a prompt (`?preset=`, `?prompt=`) starts fresh instead; generating removes those parameters from the URL, so a reload after that restores. The demo and the signed-in Studio each keep one snapshot.
+
+- **One user per snapshot.** A snapshot belongs to `demo` or to `live:<appUserId>`. The Studio removes a snapshot that belongs to someone else when it reads it. Sign-out and disconnect (`/?auth=signed_out`, `disconnected`, or `disconnect_partial`) remove the signed-in one.
+- **24 hours.** The Studio doesn't restore a snapshot saved more than 24 hours ago. Every change and every restore saves it again.
+- **Only a basket that can still be confirmed.** After a confirm, a reload shows an empty Studio. A demo basket isn't saved while its pre-flight is open, because the server can't tie a guest basket to a thesis. Signed-in theses deploy once, whichever pre-flight is confirmed (see [Paper execution](paper-execution.md)).
+- **Prices from generation time.** Pre-flight quotes again, but it orders the restored share counts unchanged and only flags a total over budget.
+- **A reload during generation.** The prompt, the settings, and any previous basket come back with the alert "The page reloaded before your basket arrived. Generate again to retry." The Studio never generates again on its own, because a signed-in generation already counted against the daily limit.
+
 ## Guest demo and abuse limits
 
 `POST /api/demo/theses` never calls SnapTrade: holdings come from `lib/portfolio/demo-fixtures.json` and prices from `lib/thesis/demo-quotes.json` (93 fictional quotes in SnapTrade's response shape). The demo prompt lists the symbols the feed can price.

@@ -13,16 +13,23 @@ import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
+import type { EditableLine } from "@/lib/thesis/composer-state";
 import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/constants";
 import {
+  STUDIO_SNAPSHOT_KEY,
   applyStudioWorld,
   canExecuteStudioBasket,
   confirmStudioBasket,
   emptyStudioCache,
   getStudioWorld,
+  readStudioSnapshot,
   setStudioDialog,
   startStudioBasket,
+  studioSnapshot,
   subscribeStudioWorld,
+  takeStudioSnapshot,
+  writeStudioSnapshot,
+  type StudioScope,
 } from "@/lib/thesis/studio-cache";
 import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/lib/thesis/types";
 import { cn } from "@/lib/utils";
@@ -129,8 +136,17 @@ function GenerationLoader({
   );
 }
 
+function clearLinkRequest() {
+  const params = new URLSearchParams(window.location.search);
+  params.delete("preset");
+  params.delete("prompt");
+  const query = params.toString();
+  window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+}
+
 export function ThesisStudio({
   mode,
+  snapshotScope,
   endpoint,
   accounts,
   initialAccountId,
@@ -139,6 +155,7 @@ export function ThesisStudio({
   generation,
 }: {
   mode: "live" | "demo";
+  snapshotScope: StudioScope;
   endpoint: string;
   accounts: StudioAccount[];
   initialAccountId: string;
@@ -160,9 +177,11 @@ export function ThesisStudio({
   const [arrived, setArrived] = useState<ComposerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<ComposerPayload | null>(null);
+  const [lines, setLines] = useState<EditableLine[] | null>(null);
   const [cache, setCache] = useState(emptyStudioCache);
   const [run, setRun] = useState(0);
   const editTimers = useRef(new Map<string, number>());
+  const restored = useRef(false);
 
   // Activity keeps this page mounted after navigation. Re-apply My Theses visits
   // and fills on the way back in, before the preserved basket can paint.
@@ -171,6 +190,50 @@ export function ThesisStudio({
     setCache((current) => applyStudioWorld(current, true));
     return subscribeStudioWorld(() => setCache((current) => applyStudioWorld(current, false)));
   }, []);
+
+  useLayoutEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    if (initialPreset || initialPrompt) return;
+    const snapshot = readStudioSnapshot(takeStudioSnapshot(STUDIO_SNAPSHOT_KEY[mode]), {
+      scope: snapshotScope,
+      now: Date.now(),
+      accountIds: accounts.map((candidate) => candidate.id),
+    });
+    if (!snapshot) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- storage only exists in the browser, after hydration */
+    setPrompt(snapshot.prompt);
+    setPresetKey(snapshot.presetKey);
+    setAccountId(snapshot.form.accountId);
+    setCurrency(snapshot.form.currency);
+    setBudget(snapshot.form.budget);
+    setOverlapMode(snapshot.form.overlapMode);
+    if (snapshot.payload) {
+      setCache(startStudioBasket(getStudioWorld().thesesVisits, snapshot.payload.thesis.ref));
+      setPayload(snapshot.payload);
+      setLines(snapshot.lines);
+    }
+    if (snapshot.interrupted) setError("The page reloaded before your basket arrived. Generate again to retry.");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [mode, snapshotScope, accounts, initialPreset, initialPrompt]);
+
+  useEffect(() => {
+    writeStudioSnapshot(
+      STUDIO_SNAPSHOT_KEY[mode],
+      studioSnapshot({
+        scope: snapshotScope,
+        now: Date.now(),
+        prompt,
+        presetKey,
+        form: { accountId, currency, budget, overlapMode },
+        generating: pendingSince != null,
+        cache,
+        payload,
+        arrived,
+        lines,
+      }),
+    );
+  }, [mode, snapshotScope, prompt, presetKey, accountId, currency, budget, overlapMode, pendingSince, cache, payload, arrived, lines]);
 
   const cash = cashIn(account, currency);
   const { simulated } = defaultBudget(cash);
@@ -186,7 +249,9 @@ export function ThesisStudio({
     setAccountId(id);
     setCurrency(nextCurrency);
     setBudget(defaultBudget(cashIn(next, nextCurrency)).budget);
-    window.history.replaceState(null, "", `?account=${encodeURIComponent(id)}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set("account", id);
+    window.history.replaceState(null, "", `?${params}`);
   };
 
   const selectCurrency = (next: BasketCurrency) => {
@@ -197,6 +262,7 @@ export function ThesisStudio({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
+    clearLinkRequest();
     setPendingSince(Date.now());
     setError(null);
     try {
@@ -223,6 +289,7 @@ export function ThesisStudio({
     if (arrived) {
       setCache(startStudioBasket(getStudioWorld().thesesVisits, arrived.thesis.ref));
       setPayload(arrived);
+      setLines(null);
       setRun((count) => count + 1);
     }
     setArrived(null);
@@ -433,6 +500,8 @@ export function ThesisStudio({
             <BasketComposer
               key={run}
               payload={payload}
+              restoredLines={lines}
+              onLinesChange={setLines}
               onEdit={recordEdit}
               executable={canExecuteStudioBasket(cache)}
               onSubmitted={(basketId) => setCache((current) => confirmStudioBasket(current, basketId))}
