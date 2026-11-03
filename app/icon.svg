@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .tile { fill: #141a16 }
+    .glyph { fill: #f7f4ec }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #f7f4ec }
+      .glyph { fill: #141a16 }
+    }
+  </style>
+  <path class="tile" d="M8 0H24L32 8V24L24 32H8L0 24V8Z"/>
+  <path class="glyph" fill-rule="evenodd" d="M5 10H14V13H11V22H8V13H5Z M18 10H22C25.3 10 27 12.2 27 16C27 19.8 25.3 22 22 22H18Z M21 13V19H22C23.4 19 24 17.8 24 16C24 14.2 23.4 13 22 13Z"/>
+</svg>

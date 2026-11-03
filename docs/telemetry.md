@@ -1,6 +1,6 @@
 # Product telemetry
 
-"► Product telemetry" in every page footer opens a drawer with the numbers behind the product: whether people get from sign-in to a deployed basket, whether they trust ThesisDeploy's baskets as suggested, and how SnapTrade behaves. It reads the `events` and `api_calls` tables, covers the last 30 days, and shows two views:
+The telemetry drawer shows the numbers behind the product. No page links to it right now; render `TelemetryToggle` ("► Product telemetry") in a footer to bring it back. It answers whether people get from sign-in to a deployed basket, whether they trust ThesisDeploy's baskets as suggested, and how SnapTrade behaves. It reads the `events` and `api_calls` tables, covers the last 30 days, and shows two views:
 
 - **Everyone:** every signed-in user and demo visitor. It's cached for a minute per server instance.
 - **You:** the current SnapTrade sign-in plus this browser's demo cookie. A signed-out reviewer on `/demo` sees their own demo run here.

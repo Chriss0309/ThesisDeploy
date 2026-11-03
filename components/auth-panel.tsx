@@ -137,12 +137,12 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
             <PendingLink
               href="/api/auth/login"
               pendingLabel="Opening SnapTrade…"
-              className={buttonVariants({ size: "lg" })}
+              className={buttonVariants({ size: "lg", variant: "outline" })}
             >
               Sign in with SnapTrade
             </PendingLink>
           ) : (
-            <Button size="lg" disabled>
+            <Button size="lg" variant="outline" disabled>
               Sign in with SnapTrade
             </Button>
           )}

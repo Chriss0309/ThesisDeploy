@@ -3,7 +3,6 @@ import { Suspense, type ReactNode } from "react";
 import { Mark, Reveal } from "@/components/loader/mark";
 import type { MarkKind } from "@/components/loader/timing";
 import { NavLink, NavLinkFallback, Wordmark } from "@/components/site-chrome";
-import { TelemetryToggle } from "@/components/telemetry/telemetry-drawer";
 
 const NAV = [
   { href: "/portfolio", children: "Portfolio X-Ray", pendingLabel: "Opening Portfolio X-Ray…" },
@@ -64,7 +63,6 @@ export function PageShell({
             Not investment advice. ThesisDeploy reads your accounts through SnapTrade and never trades without your
             confirmation.
           </p>
-          <TelemetryToggle />
         </div>
       </footer>
     </div>

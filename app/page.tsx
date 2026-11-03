@@ -5,7 +5,6 @@ import { BackendStatus } from "@/components/backend-status";
 import { CoinStage } from "@/components/landing/coin-stage";
 import { LandingHeadline } from "@/components/landing/headline";
 import { Wordmark } from "@/components/site-chrome";
-import { TelemetryToggle } from "@/components/telemetry/telemetry-drawer";
 import { ThesisPreview } from "@/components/thesis-preview";
 
 const STEPS = [
@@ -44,21 +43,6 @@ export default function Home({ searchParams }: PageProps<"/">) {
                   ThesisDeploy turns a one-line conviction into a whole-share stock basket, checked against what you
                   already own, and places the orders in your own brokerage account, live or as a paper simulation.
                 </p>
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
-                  <a
-                    href="/demo/studio"
-                    className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
-                  >
-                    ► Try the Thesis Studio demo
-                  </a>
-                  <a
-                    href="/demo"
-                    className="eyebrow w-fit rounded-sm text-foreground underline decoration-brand decoration-2 underline-offset-6 outline-none hover:text-brand focus-visible:ring-3 focus-visible:ring-ring/30"
-                  >
-                    ► Explore the demo portfolio
-                  </a>
-                </div>
-                <p className="text-xs text-muted-foreground">No sign-in needed for either demo.</p>
                 <ThesisPreview
                   footer={
                     <Suspense fallback={<AuthPanelSkeleton />}>
@@ -101,15 +85,6 @@ export default function Home({ searchParams }: PageProps<"/">) {
       <footer className="border-t">
         <div className="mx-auto flex w-full max-w-page flex-col gap-3 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>Not investment advice. Paper mode never sends orders to a brokerage.</p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <TelemetryToggle />
-            <a
-              href="https://github.com/Chriss0309/ThesisDeploy"
-              className="underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Source on GitHub
-            </a>
-          </div>
         </div>
       </footer>
     </div>
