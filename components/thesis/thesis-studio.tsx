@@ -14,7 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
 import type { EditableLine } from "@/lib/thesis/composer-state";
-import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/constants";
+import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/constants/thesis";
 import {
   STUDIO_SNAPSHOT_KEY,
   applyStudioWorld,
@@ -31,7 +31,7 @@ import {
   writeStudioSnapshot,
   type StudioScope,
 } from "@/lib/thesis/studio-cache";
-import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/lib/thesis/types";
+import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/types/thesis";
 import { cn } from "@/lib/utils";
 
 export const PAPER_BUDGET = 2500;

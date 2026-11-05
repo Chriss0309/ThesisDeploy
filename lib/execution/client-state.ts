@@ -1,6 +1,6 @@
 import type { ExecutionLeg as StackLeg, LegStatus as StackStatus } from "@/components/loader/timing";
 import { latestAttempts } from "@/lib/execution/summary";
-import type { DrainEvent, ExecutionView, LegView } from "@/lib/execution/types";
+import type { DrainEvent, ExecutionView, LegView } from "@/types/execution";
 
 // Browser-side helpers for the drain stream. No server imports.
 

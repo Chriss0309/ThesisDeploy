@@ -6,7 +6,7 @@ import { describeError } from "@/lib/errors";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
 import { getSnapshot, loadOverview } from "@/lib/portfolio/service";
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import { THESIS_PRESETS, type ThesisPreset } from "@/lib/presets";
 import { SnapTradeError, hashAccountId, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { decideBudget, readBudgetWindow } from "@/lib/snaptrade/rate-budget";
@@ -33,7 +33,7 @@ import {
 import samples from "@/lib/thesis/sample-outputs.json";
 import { ThesisOutputSchema, type ThesisOutput, type ThesisRequest } from "@/lib/thesis/schema";
 import { findCachedGuestThesis, saveThesis } from "@/lib/thesis/store";
-import type { ComposerPayload, ThesisSource } from "@/lib/thesis/types";
+import type { ComposerPayload, ThesisSource } from "@/types/thesis";
 
 const PRESET_CACHE_MS = 7 * 24 * 3600 * 1000;
 const GUEST_PROMPT_CACHE_MS = 24 * 3600 * 1000;

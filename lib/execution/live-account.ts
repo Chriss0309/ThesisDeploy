@@ -3,7 +3,7 @@ import { liveTradingEnabled, serverEnv } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import type { LiveGateInput } from "@/lib/execution/live-gate";
 import { getSnapshot } from "@/lib/portfolio/service";
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import { callSnapTrade, type SnapTradeContext } from "@/lib/snaptrade/client";
 
 export function currentKillSwitch(): LiveGateInput["killSwitch"] {

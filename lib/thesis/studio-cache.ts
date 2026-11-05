@@ -1,7 +1,7 @@
-import type { ExecutionStatus, LegStatus } from "@/lib/execution/types";
+import type { BasketCurrency, OverlapMode } from "@/constants/thesis";
 import type { EditableLine } from "@/lib/thesis/composer-state";
-import type { BasketCurrency, OverlapMode } from "@/lib/thesis/constants";
-import type { ComposerPayload } from "@/lib/thesis/types";
+import type { ExecutionStatus, LegStatus } from "@/types/execution";
+import type { ComposerPayload } from "@/types/thesis";
 
 /**
  * Thesis Studio keeps the composed basket in client state. Cache Components

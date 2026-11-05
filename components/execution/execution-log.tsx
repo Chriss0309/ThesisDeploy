@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { elapsedLabel, pacingLegId } from "@/lib/execution/client-state";
 import { isRetryable, latestAttempts, summarizeLegs, summaryLine } from "@/lib/execution/summary";
-import type { ExecutionStatus, ExecutionView, LegView } from "@/lib/execution/types";
+import type { ExecutionStatus, ExecutionView, LegView } from "@/types/execution";
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<ExecutionStatus, { tone: "neutral" | "positive" | "warning" | "negative"; label: string }> = {

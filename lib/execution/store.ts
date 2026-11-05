@@ -10,7 +10,7 @@ import type {
   LegStatus,
   LegView,
   PreflightOrder,
-} from "@/lib/execution/types";
+} from "@/types/execution";
 import { Prisma, type ExecutionLeg } from "@/lib/generated/prisma/client";
 import type { RiskProfile } from "@/lib/thesis/schema";
 

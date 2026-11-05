@@ -6,7 +6,7 @@ import type {
   OperationLatency,
   ResolutionSource,
   TelemetrySnapshot,
-} from "@/lib/telemetry/types";
+} from "@/types/telemetry";
 
 export const WINDOW_DAYS = 30;
 const DAY_MS = 24 * 3600 * 1000;

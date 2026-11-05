@@ -1,6 +1,6 @@
 import type { Holding as OverlapHolding } from "@/lib/overlap";
-import type { AccountSnapshot, Holding, PortfolioAccount } from "@/lib/portfolio/types";
-import type { StudioAccount } from "@/lib/thesis/types";
+import type { AccountSnapshot, Holding, PortfolioAccount } from "@/types/portfolio";
+import type { StudioAccount } from "@/types/thesis";
 
 export type AccountWithSnapshot = { account: PortfolioAccount; snapshot: AccountSnapshot | null };
 

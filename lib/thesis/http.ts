@@ -5,7 +5,7 @@ import { ReauthRequiredError } from "@/lib/auth/vault";
 import { describeError } from "@/lib/errors";
 import { ThesisRequestSchema, type ThesisRequest } from "@/lib/thesis/schema";
 import { ThesisError } from "@/lib/thesis/service";
-import type { ThesisErrorBody } from "@/lib/thesis/types";
+import type { ThesisErrorBody } from "@/types/thesis";
 
 export function errorResponse(
   status: number,

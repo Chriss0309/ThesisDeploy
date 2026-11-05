@@ -22,7 +22,7 @@ import {
   type StudioCache,
   type StudioScope,
 } from "@/lib/thesis/studio-cache";
-import type { ComposerLine, ComposerPayload } from "@/lib/thesis/types";
+import type { ComposerLine, ComposerPayload } from "@/types/thesis";
 
 beforeEach(() => resetStudioWorld());
 

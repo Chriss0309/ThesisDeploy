@@ -12,7 +12,7 @@ import { reconcileExecution } from "@/lib/execution/reconcile";
 import { createExecution, preflightForUser, requireExecution, retryLeg } from "@/lib/execution/service";
 import { ExecutionError, findBasketView, type Actor } from "@/lib/execution/store";
 import { summarizeLegs } from "@/lib/execution/summary";
-import type { DrainEvent, PreflightPayload, PreflightRequest } from "@/lib/execution/types";
+import type { DrainEvent, PreflightPayload, PreflightRequest } from "@/types/execution";
 import { THESIS_PRESETS } from "@/lib/presets";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { telemetrySnapshot } from "@/lib/telemetry/metrics";
@@ -20,7 +20,7 @@ import { actionPreflight } from "@/lib/theses/service";
 import type { ThesisRequest } from "@/lib/thesis/schema";
 import { createThesis } from "@/lib/thesis/service";
 import { SAMPLE_OUTPUTS, mockCreateMessage } from "@/lib/thesis/testing";
-import type { ComposerPayload } from "@/lib/thesis/types";
+import type { ComposerPayload } from "@/types/thesis";
 import { startOAuthStub } from "@/scripts/oauth-stub.mjs";
 import { startSnapTradeApiStub } from "@/scripts/snaptrade-api-stub.mjs";
 

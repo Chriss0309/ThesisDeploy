@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { applyDrainEvent, elapsedLabel, readNdjson } from "@/lib/execution/client-state";
 import { paperSubmitter } from "@/lib/execution/submitters";
 import { deriveStatus, isRetryable, latestAttempts, summarizeLegs, summaryLine } from "@/lib/execution/summary";
-import type { ExecutionView, LegView } from "@/lib/execution/types";
+import type { ExecutionView, LegView } from "@/types/execution";
 
 const leg = (seq: number, status: LegView["status"], attempt = 1): LegView => ({
   id: `${seq}-${attempt}`,

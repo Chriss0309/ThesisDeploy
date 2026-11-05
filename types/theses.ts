@@ -1,4 +1,4 @@
-import type { ExecutionView } from "@/lib/execution/types";
+import type { ExecutionView } from "@/types/execution";
 import type { RiskProfile } from "@/lib/thesis/schema";
 
 // My Theses view models. Client components import these, so this module must

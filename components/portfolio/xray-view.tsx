@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatMoney, formatPercent, formatTimestamp, formatUnits } from "@/components/portfolio/format";
 import { concentrationByCurrency, type CurrencyConcentration } from "@/lib/portfolio/concentration";
 import type { SnapshotResult } from "@/lib/portfolio/service";
-import type { Capability, PortfolioAccount, PortfolioOverview } from "@/lib/portfolio/types";
+import type { Capability, PortfolioAccount, PortfolioOverview } from "@/types/portfolio";
 import { cn } from "@/lib/utils";
 
 export const SNAPTRADE_DASHBOARD_URL = "https://dashboard.snaptrade.com";

@@ -20,7 +20,7 @@ import type {
   ExecutionView,
   PreflightPayload,
   PreflightRequest,
-} from "@/lib/execution/types";
+} from "@/types/execution";
 
 type Phase = "loading" | "error" | "ready" | "confirming" | "running";
 

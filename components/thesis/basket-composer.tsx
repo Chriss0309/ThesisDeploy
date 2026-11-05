@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
-import type { PreflightRequest } from "@/lib/execution/types";
+import type { PreflightRequest } from "@/types/execution";
 import { basketIdFromPath } from "@/lib/thesis/studio-cache";
 import type { AllocatedLine } from "@/lib/solver";
 import {
@@ -28,7 +28,7 @@ import {
   type BasketSettings,
   type EditableLine,
 } from "@/lib/thesis/composer-state";
-import type { ComposerLine, ComposerPayload } from "@/lib/thesis/types";
+import type { ComposerLine, ComposerPayload } from "@/types/thesis";
 
 export type EditAction = "remove" | "restore" | "reweight" | "step";
 

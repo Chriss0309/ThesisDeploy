@@ -19,18 +19,13 @@ import {
   saveDraftBasket,
   type Actor,
 } from "@/lib/execution/store";
-import {
-  PREFLIGHT_TTL_MS,
-  type ExecutionKind,
-  type ExecutionView,
-  type PreflightPayload,
-  type PreflightRequest,
-} from "@/lib/execution/types";
+import { PREFLIGHT_TTL_MS } from "@/constants/execution";
+import type { ExecutionKind, ExecutionView, PreflightPayload, PreflightRequest } from "@/types/execution";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { demoOverview } from "@/lib/portfolio/fixtures";
 import { loadOverview } from "@/lib/portfolio/service";
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import { SnapTradeError, hashAccountId, type SnapTradeContext } from "@/lib/snaptrade/client";
 import type { Quote } from "@/lib/solver";
 import { recordEvent } from "@/lib/telemetry/events";

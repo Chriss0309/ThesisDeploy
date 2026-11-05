@@ -7,7 +7,7 @@ import { completeLogin, signOut, startLogin } from "@/lib/auth/flow";
 import { ReauthRequiredError, getGrantSummary } from "@/lib/auth/vault";
 import { closeDb, getDb } from "@/lib/db/client";
 import { getSnapshot, loadOverview } from "@/lib/portfolio/service";
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import {
   SnapTradeError,
   callSnapTrade,

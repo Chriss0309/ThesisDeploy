@@ -2,11 +2,11 @@ import { formatMoney } from "@/components/portfolio/format";
 import { computeDrift, planClose, planRebalance, type BasketPosition, type TradeLeg } from "@/lib/drift";
 import { liveDisclosures, liveGate, paperGate, type LiveGateInput } from "@/lib/execution/live-gate";
 import { marketNote } from "@/lib/execution/market-text";
-import type { ExecutionMode, PreflightOrder, PreflightPayload } from "@/lib/execution/types";
-import type { Capability } from "@/lib/portfolio/types";
+import type { ExecutionMode, PreflightOrder, PreflightPayload } from "@/types/execution";
+import type { Capability } from "@/types/portfolio";
 import type { MarketStatus } from "@/lib/market-hours";
 import { EPSILON } from "@/lib/solver";
-import type { Marks, PriceMark } from "@/lib/theses/types";
+import type { Marks, PriceMark } from "@/types/theses";
 import { positionsFrom, type HeldConstituent } from "@/lib/theses/valuation";
 
 // Pure pre-flight for rebalance and close: the exact sells and buys, at fresh

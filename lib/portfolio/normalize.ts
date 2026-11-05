@@ -13,7 +13,7 @@ import type {
   Holding,
   PortfolioAccount,
   PortfolioOverview,
-} from "@/lib/portfolio/types";
+} from "@/types/portfolio";
 
 function capabilityOf(
   connection: BrokerageAuthorization | undefined,

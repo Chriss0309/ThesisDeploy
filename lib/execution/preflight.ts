@@ -1,8 +1,8 @@
 import { liveDisclosures, liveGate, type LiveGateInput } from "@/lib/execution/live-gate";
 import { marketNote } from "@/lib/execution/market-text";
-import type { PreflightLine, PreflightOrder, PreflightPayload } from "@/lib/execution/types";
+import type { PreflightLine, PreflightOrder, PreflightPayload } from "@/types/execution";
 import type { MarketStatus } from "@/lib/market-hours";
-import type { Capability } from "@/lib/portfolio/types";
+import type { Capability } from "@/types/portfolio";
 import { EPSILON, normalizeWeights, type Quote } from "@/lib/solver";
 
 // Pure pre-flight: the exact order list at fresh prices, plus every reason

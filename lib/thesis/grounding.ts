@@ -3,7 +3,7 @@ import type { SymbolsQuotesInner, UniversalSymbol } from "snaptrade-typescript-s
 import { executionPrice } from "@/lib/solver";
 import { tickerForCurrency, type ProposedCandidate } from "@/lib/thesis/normalize";
 import type { BasketCurrency } from "@/lib/thesis/schema";
-import type { CandidateStatus, QuoteSnapshot } from "@/lib/thesis/types";
+import type { CandidateStatus, QuoteSnapshot } from "@/types/thesis";
 
 /** SnapTrade's getUserAccountQuotes accepts at most 10 symbols per call. */
 export const MAX_QUOTE_SYMBOLS = 10;

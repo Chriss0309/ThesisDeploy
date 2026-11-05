@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { applyDrainEvent, readNdjson } from "@/lib/execution/client-state";
 import { latestAttempts, needsReconcile } from "@/lib/execution/summary";
-import { RECONCILE_INTERVAL_MS, type DrainEvent, type ExecutionErrorBody, type ExecutionView } from "@/lib/execution/types";
+import { RECONCILE_INTERVAL_MS } from "@/constants/execution";
+import type { DrainEvent, ExecutionErrorBody, ExecutionView } from "@/types/execution";
 
 const isActive = (execution: ExecutionView) => execution.status === "queued" || execution.status === "running";
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

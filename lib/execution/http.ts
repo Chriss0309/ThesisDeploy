@@ -9,7 +9,7 @@ import { ReauthRequiredError } from "@/lib/auth/vault";
 import { serverEnv } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { ExecutionError, type Actor } from "@/lib/execution/store";
-import type { ExecutionErrorBody } from "@/lib/execution/types";
+import type { ExecutionErrorBody } from "@/types/execution";
 
 /** Owns guest demo baskets. Random, httpOnly; only its keyed hash is stored. */
 export const GUEST_COOKIE = "td_guest";

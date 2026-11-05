@@ -6,7 +6,7 @@ import {
   MAX_PROMPT_LENGTH,
   MIN_CANDIDATES,
   RISK_PROFILES,
-} from "@/lib/thesis/constants";
+} from "@/constants/thesis";
 
 export {
   BASKET_CURRENCIES,
@@ -17,7 +17,7 @@ export {
   type BasketCurrency,
   type OverlapMode,
   type RiskProfile,
-} from "@/lib/thesis/constants";
+} from "@/constants/thesis";
 
 /**
  * Claude's structured output. Structured outputs enforce types, enums, and

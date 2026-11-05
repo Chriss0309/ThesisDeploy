@@ -5,7 +5,7 @@ import { serverEnv } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { errorResponse, guestKeyFor, guestToken, noStoreJson } from "@/lib/execution/http";
 import { WINDOW_DAYS, globalTelemetry, telemetrySnapshot } from "@/lib/telemetry/metrics";
-import type { TelemetryPayload } from "@/lib/telemetry/types";
+import type { TelemetryPayload } from "@/types/telemetry";
 
 export const maxDuration = 10;
 

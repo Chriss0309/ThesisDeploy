@@ -17,13 +17,14 @@ import {
   retryLeg,
 } from "@/lib/execution/service";
 import { summarizeLegs } from "@/lib/execution/summary";
-import { PACE_MS, type DrainEvent, type ExecutionView, type PreflightRequest } from "@/lib/execution/types";
+import { PACE_MS } from "@/constants/execution";
+import type { DrainEvent, ExecutionView, PreflightRequest } from "@/types/execution";
 import { THESIS_PRESETS } from "@/lib/presets";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
 import type { ThesisRequest } from "@/lib/thesis/schema";
 import { createDemoThesis, createThesis } from "@/lib/thesis/service";
 import { SAMPLE_OUTPUTS, mockCreateMessage } from "@/lib/thesis/testing";
-import type { ComposerPayload } from "@/lib/thesis/types";
+import type { ComposerPayload } from "@/types/thesis";
 import { startOAuthStub } from "@/scripts/oauth-stub.mjs";
 import { startSnapTradeApiStub } from "@/scripts/snaptrade-api-stub.mjs";
 

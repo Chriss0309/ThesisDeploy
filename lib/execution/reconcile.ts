@@ -14,7 +14,8 @@ import {
   type Actor,
 } from "@/lib/execution/store";
 import { requireExecution } from "@/lib/execution/service";
-import { RECONCILE_INTERVAL_MS, type ExecutionView } from "@/lib/execution/types";
+import { RECONCILE_INTERVAL_MS } from "@/constants/execution";
+import type { ExecutionView } from "@/types/execution";
 import type { ExecutionLeg } from "@/lib/generated/prisma/client";
 import { SnapTradeError, callSnapTrade, snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
 

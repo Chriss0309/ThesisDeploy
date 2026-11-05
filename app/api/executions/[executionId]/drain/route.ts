@@ -6,7 +6,7 @@ import { drainExecution } from "@/lib/execution/drain";
 import { errorResponse, executionErrorResponse, guardRequest, resolveActor } from "@/lib/execution/http";
 import { liveSubmitter } from "@/lib/execution/live-orders";
 import { requireExecution } from "@/lib/execution/service";
-import type { DrainEvent } from "@/lib/execution/types";
+import type { DrainEvent } from "@/types/execution";
 import { snapTradeContext } from "@/lib/snaptrade/client";
 
 // The drain loop stops claiming legs after 45 seconds; the client re-POSTs to resume.

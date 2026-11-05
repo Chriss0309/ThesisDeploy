@@ -6,7 +6,7 @@ import { ReauthRequiredError } from "@/lib/auth/vault";
 import type { BasketRow } from "@/lib/execution/store";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { SnapTradeError, callSnapTrade, type SnapTradeContext } from "@/lib/snaptrade/client";
-import type { Marks, PriceMark } from "@/lib/theses/types";
+import type { Marks, PriceMark } from "@/types/theses";
 import { DEMO_QUOTES } from "@/lib/thesis/quote-sources";
 
 /** A basket's cached prices are reused for this long, so a busy dashboard stays inside the account's 10 requests a minute. */

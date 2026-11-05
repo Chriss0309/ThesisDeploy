@@ -5,7 +5,7 @@ import {
   type RiskProfile,
   type ThesisOutput,
 } from "@/lib/thesis/schema";
-import type { DroppedCandidate } from "@/lib/thesis/types";
+import type { DroppedCandidate } from "@/types/thesis";
 
 export const MAX_RATIONALE_LENGTH = 200;
 

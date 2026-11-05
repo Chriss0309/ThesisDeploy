@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { concentrationByCurrency } from "@/lib/portfolio/concentration";
 import { demoSnapshot } from "@/lib/portfolio/fixtures";
-import type { AccountSnapshot, Holding } from "@/lib/portfolio/types";
+import type { AccountSnapshot, Holding } from "@/types/portfolio";
 
 const holding = (symbol: string, marketValue: number | null, overrides: Partial<Holding> = {}): Holding => ({
   symbol,

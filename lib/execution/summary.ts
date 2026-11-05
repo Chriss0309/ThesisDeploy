@@ -1,4 +1,5 @@
-import { MAX_LEG_ATTEMPTS, type ExecutionStatus, type LegStatus } from "@/lib/execution/types";
+import { MAX_LEG_ATTEMPTS } from "@/constants/execution";
+import type { ExecutionStatus, LegStatus } from "@/types/execution";
 
 // Pure leg bookkeeping shared by the drain loop and the stepper UI.
 

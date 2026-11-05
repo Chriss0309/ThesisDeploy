@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Segmented } from "@/components/ui/segmented";
-import type { FunnelCohort, TelemetryPayload, TelemetrySnapshot, Viewer } from "@/lib/telemetry/types";
+import type { FunnelCohort, TelemetryPayload, TelemetrySnapshot, Viewer } from "@/types/telemetry";
 import { cn } from "@/lib/utils";
 
 type Scope = "global" | "you";
