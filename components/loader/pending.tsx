@@ -5,7 +5,6 @@ import {
   useEffect,
   useState,
   type AnchorHTMLAttributes,
-  type FormHTMLAttributes,
   type MouseEvent,
   type ReactNode,
 } from "react";
@@ -15,7 +14,7 @@ import { classes as cn } from "./classes";
 import { Loader } from "./loader";
 import type { LoaderVariant } from "./timing";
 
-// A page that's being navigated away from (sign-in redirect, native form post) shows a
+// A page that's being navigated away from (sign-in redirect, form submission) shows a
 // fixed toast, so nothing in the layout moves. A real navigation unloads the page; the
 // timeout and pageshow reset cover back-forward cache restores and stalled requests.
 const STALE_MS = 30_000;
@@ -85,28 +84,47 @@ export function PendingLink({
   );
 }
 
-/** A native form whose submission shows a loader toast until the next page arrives. */
+/** A form that submits through `run`, then does a full load of the location it answers, as a redirect would. */
 export function PendingForm({
+  run,
+  describeFailure,
   pendingLabel,
   variant = "link",
-  className,
-  onSubmit,
   children,
-  ...form
-}: FormHTMLAttributes<HTMLFormElement> & { pendingLabel: string; variant?: LoaderVariant; children: ReactNode }) {
+}: {
+  run: () => Promise<{ location: string }>;
+  describeFailure: (caught: unknown) => string;
+  pendingLabel: string;
+  variant?: LoaderVariant;
+  children: ReactNode;
+}) {
   const [pending, setPending] = usePending();
+  const [failure, setFailure] = useState<string | null>(null);
   return (
     <form
-      {...form}
       aria-busy={pending || undefined}
       data-pending={pending || undefined}
-      className={cn("group/pending", className)}
-      onSubmit={(event) => {
-        onSubmit?.(event);
-        if (!event.defaultPrevented) setPending(true);
+      className="group/pending"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (pending) return;
+        setPending(true);
+        setFailure(null);
+        try {
+          const { location } = await run();
+          window.location.assign(location);
+        } catch (caught) {
+          setPending(false);
+          setFailure(describeFailure(caught));
+        }
       }}
     >
       {children}
+      {failure && (
+        <p role="alert" className="mt-1.5 text-xs text-negative-subtle-foreground">
+          {failure}
+        </p>
+      )}
       {pending && <NavigationStatus variant={variant} label={pendingLabel} />}
     </form>
   );

@@ -1,10 +1,15 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
+import type { inferInput } from "@trpc/tanstack-react-query";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { UNREACHABLE_MESSAGE } from "@/constants/execution";
 import { LoaderGlyph } from "@/components/loader/loader";
 import { Button } from "@/components/ui/button";
+import { useTRPC } from "@/lib/trpc/client";
+import { readClientError } from "@/lib/trpc/errors";
 
 const FIELD =
   "rounded-md border border-input bg-card px-2 py-1 text-base text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 disabled:opacity-50 md:text-sm";
@@ -21,33 +26,22 @@ const MOVES = [
  */
 export function SimulateMove({ basketId, symbols, moves }: { basketId: string; symbols: string[]; moves: Record<string, number> | null }) {
   const router = useRouter();
+  const trpc = useTRPC();
+  const simulate = useMutation(trpc.baskets.simulate.mutationOptions());
   const [refreshing, startRefresh] = useTransition();
   const [symbol, setSymbol] = useState(symbols[0] ?? "");
   const [change, setChange] = useState(MOVES[1].value);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const working = pending || refreshing;
+  const working = simulate.isPending || refreshing;
   const applied = Object.entries(moves ?? {}).filter(([, factor]) => factor !== 1);
 
-  async function send(body: object) {
-    setPending(true);
+  async function send(body: inferInput<typeof trpc.baskets.simulate>["move"]) {
     setError(null);
     try {
-      const response = await fetch(`/api/baskets/${basketId}/simulate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const parsed = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(parsed?.error?.message ?? `Request failed (HTTP ${response.status}).`);
-        return;
-      }
+      await simulate.mutateAsync({ basketId, move: body });
       startRefresh(() => router.refresh());
-    } catch {
-      setError("Couldn't reach ThesisDeploy. Try again.");
-    } finally {
-      setPending(false);
+    } catch (caught) {
+      setError(readClientError(caught)?.message ?? UNREACHABLE_MESSAGE);
     }
   }
 

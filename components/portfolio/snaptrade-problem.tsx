@@ -1,6 +1,7 @@
 import { PendingLink } from "@/components/loader/pending";
 import { MessageCard } from "@/components/portfolio/page-shell";
 import { ReauthRequiredError } from "@/lib/auth/vault";
+import { procedureFailure } from "@/lib/errors";
 import { SnapTradeError } from "@/lib/snaptrade/client";
 
 export const LINK = "font-medium text-brand underline underline-offset-4 hover:text-brand-hover";
@@ -10,7 +11,8 @@ export function waitText(seconds: number | null | undefined) {
 }
 
 export function SnapTradeProblem({ error, returnTo }: { error: unknown; returnTo: string }) {
-  if (error instanceof ReauthRequiredError) {
+  const cause = procedureFailure(error);
+  if (cause instanceof ReauthRequiredError) {
     return (
       <MessageCard title="Reconnect SnapTrade" mark="error">
         <p>ThesisDeploy&apos;s access to SnapTrade expired or was revoked.</p>
@@ -27,10 +29,10 @@ export function SnapTradeProblem({ error, returnTo }: { error: unknown; returnTo
       </MessageCard>
     );
   }
-  if (error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")) {
+  if (cause instanceof SnapTradeError && (cause.code === "rate_limited" || cause.code === "budget_exhausted")) {
     return (
       <MessageCard title="SnapTrade rate limit reached" mark="rate-limit">
-        <p>{waitText(error.retryAfterSeconds)}</p>
+        <p>{waitText(cause.retryAfterSeconds)}</p>
       </MessageCard>
     );
   }

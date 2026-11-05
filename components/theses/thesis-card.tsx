@@ -284,7 +284,7 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
         )}
       </CardFooter>
 
-      <PreflightDialog open={open} onOpenChange={onOpenChange} endpoint="" request={action} onExecuted={noop} />
+      <PreflightDialog open={open} onOpenChange={onOpenChange} request={action} onExecuted={noop} />
     </Card>
   );
 }

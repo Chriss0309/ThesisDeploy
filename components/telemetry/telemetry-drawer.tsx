@@ -1,8 +1,9 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Loader } from "@/components/loader/loader";
 import { Mark } from "@/components/loader/mark";
@@ -12,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Segmented } from "@/components/ui/segmented";
-import type { FunnelCohort, TelemetryPayload, TelemetrySnapshot, Viewer } from "@/types/telemetry";
+import { useTRPC } from "@/lib/trpc/client";
+import { readClientError } from "@/lib/trpc/errors";
+import type { FunnelCohort, TelemetrySnapshot, Viewer } from "@/types/telemetry";
 import { cn } from "@/lib/utils";
 
 type Scope = "global" | "you";
@@ -36,39 +39,21 @@ export function TelemetryToggle({ className }: { className?: string }) {
   );
 }
 
-type LoadState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: TelemetryPayload };
-
-async function fetchTelemetry(signal: AbortSignal): Promise<{ data: TelemetryPayload } | { error: string }> {
-  try {
-    const response = await fetch("/api/telemetry", { cache: "no-store", signal });
-    const body = (await response.json().catch(() => null)) as TelemetryPayload | { error: { message: string } } | null;
-    if (response.ok && body && !("error" in body)) return { data: body };
-    return {
-      error: body && "error" in body ? body.error.message : `Telemetry couldn't be loaded (HTTP ${response.status}).`,
-    };
-  } catch {
-    return { error: "Couldn't reach ThesisDeploy. Check your connection and try again." };
-  }
-}
-
 /** Fetched each time the drawer opens; the loader settles before the numbers appear. */
 function TelemetryPanel() {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [arrived, setArrived] = useState<TelemetryPayload | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const trpc = useTRPC();
+  const telemetry = useQuery(
+    trpc.telemetry.get.queryOptions(undefined, {
+      gcTime: 0,
+      staleTime: 0,
+      // Closing the drawer drops the request.
+      trpc: { abortOnUnmount: true },
+    }),
+  );
+  const [landed, setLanded] = useState(false);
   const [scope, setScope] = useState<Scope>("global");
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetchTelemetry(controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      if ("data" in result) setArrived(result.data);
-      else setState({ status: "error", message: result.error });
-    });
-    return () => controller.abort();
-  }, [attempt]);
-
-  const data = state.status === "ready" ? state.data : null;
+  const data = landed ? telemetry.data : null;
   const snapshot = data ? (scope === "global" ? data.global : data.you) : null;
 
   return (
@@ -106,37 +91,29 @@ function TelemetryPanel() {
           </p>
         </div>
 
-        {state.status === "loading" && (
+        {!landed && !telemetry.isError && (
           <Loader
             variant="scan"
             framed={false}
             label="Reading telemetry…"
             detail="Counting sign-ins, baskets, orders, and SnapTrade responses."
-            settled={arrived != null}
-            onSettled={() => {
-              if (arrived) setState({ status: "ready", data: arrived });
-              setArrived(null);
-            }}
+            settled={telemetry.isSuccess}
+            onSettled={() => setLanded(true)}
           />
         )}
 
-        {state.status === "error" && (
+        {telemetry.isError && (
           <div className="flex flex-col items-start gap-3 px-5 py-6 sm:px-6">
             <p
               role="alert"
               className="flex items-center gap-2.5 rounded-md border border-negative-border bg-negative-subtle px-3 py-2 text-xs text-negative-subtle-foreground"
             >
               <Mark kind="error" size="inline" />
-              <span>{state.message}</span>
+              <span>
+                {readClientError(telemetry.error)?.message ?? "Couldn't reach ThesisDeploy. Check your connection and try again."}
+              </span>
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setState({ status: "loading" });
-                setAttempt((count) => count + 1);
-              }}
-            >
+            <Button variant="outline" size="sm" onClick={() => void telemetry.refetch()}>
               Try again
             </Button>
           </div>

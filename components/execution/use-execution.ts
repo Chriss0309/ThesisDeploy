@@ -1,11 +1,14 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { applyDrainEvent, readNdjson } from "@/lib/execution/client-state";
+import { applyDrainEvent } from "@/lib/execution/client-state";
 import { latestAttempts, needsReconcile } from "@/lib/execution/summary";
-import { RECONCILE_INTERVAL_MS } from "@/constants/execution";
-import type { DrainEvent, ExecutionErrorBody, ExecutionView } from "@/types/execution";
+import { useTRPC, useTRPCClient } from "@/lib/trpc/client";
+import { readClientError } from "@/lib/trpc/errors";
+import { RECONCILE_INTERVAL_MS, UNREACHABLE_MESSAGE } from "@/constants/execution";
+import type { DrainEvent, ExecutionView } from "@/types/execution";
 
 const isActive = (execution: ExecutionView) => execution.status === "queued" || execution.status === "running";
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,13 +19,6 @@ const MAX_STATUS_CHECKS = 20;
 /** The first check gives the broker a moment to fill a market order. */
 const FIRST_CHECK_MS = 3000;
 
-type ReconcileBody = { execution: ExecutionView; checked: boolean; nextCheckAt: string | null };
-
-async function errorMessage(response: Response): Promise<string> {
-  const body = (await response.json().catch(() => null)) as ExecutionErrorBody | null;
-  return body?.error.message ?? `Request failed (HTTP ${response.status}). Try again.`;
-}
-
 /**
  * Drives one execution from the browser: streams `drain`, re-drains while
  * legs are pending (time budget, dropped streams), and exposes retry and
@@ -30,6 +26,11 @@ async function errorMessage(response: Response): Promise<string> {
  * it checks open orders at the broker every 15 seconds while the page is open.
  */
 export function useExecution(initial: ExecutionView, { autoResume = false }: { autoResume?: boolean } = {}) {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const { mutateAsync: reconcile } = useMutation(trpc.executions.reconcile.mutationOptions());
+  const { mutateAsync: retryLeg } = useMutation(trpc.executions.retryLeg.mutationOptions());
+  const { mutateAsync: cancelRun } = useMutation(trpc.executions.cancel.mutationOptions());
   const [execution, setExecution] = useState(initial);
   const [draining, setDraining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +44,12 @@ export function useExecution(initial: ExecutionView, { autoResume = false }: { a
   const id = initial.id;
 
   const refresh = useCallback(async () => {
-    const response = await fetch(`/api/executions/${id}`, { cache: "no-store" });
-    if (response.ok) setExecution((await response.json()) as ExecutionView);
-  }, [id]);
+    try {
+      setExecution(await client.executions.get.query({ executionId: id }));
+    } catch (caught) {
+      if (!readClientError(caught)) throw caught;
+    }
+  }, [client, id]);
 
   const drain = useCallback(async () => {
     if (inflight.current && !inflight.current.signal.aborted) return;
@@ -55,14 +59,17 @@ export function useExecution(initial: ExecutionView, { autoResume = false }: { a
     setError(null);
     try {
       for (let round = 0; round < MAX_DRAIN_ROUNDS; round++) {
-        const response = await fetch(`/api/executions/${id}/drain`, { method: "POST", signal: controller.signal });
-        if (!response.ok || !response.body) {
-          setError(await errorMessage(response));
-          return;
+        let events;
+        try {
+          events = await client.executions.drain.mutate({ executionId: id }, { signal: controller.signal });
+        } catch (caught) {
+          const failure = readClientError(caught);
+          if (!failure) throw caught;
+          return setError(failure.message);
         }
         let done: Extract<DrainEvent, { type: "done" }> | null = null;
         try {
-          for await (const event of readNdjson<DrainEvent>(response.body)) {
+          for await (const event of events) {
             if (event.type === "error") setError(event.message);
             if (event.type === "done") done = event;
             setExecution((current) => applyDrainEvent(current, event));
@@ -91,22 +98,20 @@ export function useExecution(initial: ExecutionView, { autoResume = false }: { a
         setDraining(false);
       }
     }
-  }, [id, refresh]);
+  }, [client, id, refresh]);
 
   const checkStatus = useCallback(async () => {
     setChecking(true);
     try {
-      const response = await fetch(`/api/executions/${id}/reconcile`, { method: "POST" });
-      if (!response.ok) return setError(await errorMessage(response));
-      const body = (await response.json()) as ReconcileBody;
+      const body = await reconcile({ executionId: id });
       setExecution(body.execution);
       setNextCheckAt(body.nextCheckAt ? Date.parse(body.nextCheckAt) : null);
-    } catch {
-      setError("Couldn't reach ThesisDeploy to check order status. Try again.");
+    } catch (caught) {
+      setError(readClientError(caught)?.message ?? "Couldn't reach ThesisDeploy to check order status. Try again.");
     } finally {
       setChecking(false);
     }
-  }, [id]);
+  }, [reconcile, id]);
 
   const awaiting =
     execution.mode === "live" && !draining && latestAttempts(execution.legs).some((leg) => needsReconcile(leg.status));
@@ -125,27 +130,25 @@ export function useExecution(initial: ExecutionView, { autoResume = false }: { a
       setBusyLeg(legId);
       setError(null);
       try {
-        const response = await fetch(`/api/executions/${id}/legs/${legId}/retry`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(options),
-        });
-        if (!response.ok) return setError(await errorMessage(response));
-        setExecution((await response.json()) as ExecutionView);
+        setExecution(await retryLeg({ executionId: id, legId, options }));
+      } catch (caught) {
+        return setError(readClientError(caught)?.message ?? UNREACHABLE_MESSAGE);
       } finally {
         setBusyLeg(null);
       }
       await drain();
     },
-    [id, drain],
+    [retryLeg, id, drain],
   );
 
   const cancel = useCallback(async () => {
     setError(null);
-    const response = await fetch(`/api/executions/${id}/cancel`, { method: "POST" });
-    if (!response.ok) return setError(await errorMessage(response));
-    setExecution((await response.json()) as ExecutionView);
-  }, [id]);
+    try {
+      setExecution(await cancelRun({ executionId: id }));
+    } catch (caught) {
+      setError(readClientError(caught)?.message ?? UNREACHABLE_MESSAGE);
+    }
+  }, [cancelRun, id]);
 
   // Leaving the page aborts the stream, and the server stops claiming legs.
   useEffect(() => {
