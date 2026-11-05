@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { Suspense } from "react";
 
 import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
@@ -7,11 +6,9 @@ import { LINK, SnapTradeProblem } from "@/components/portfolio/snaptrade-problem
 import { SCREENS, ThesesSkeleton } from "@/components/screens";
 import { ThesesView } from "@/components/theses/theses-view";
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { serverEnv } from "@/lib/env";
-import { describeError } from "@/lib/errors";
-import { snapTradeContext } from "@/lib/snaptrade/client";
-import { loadTheses, recordDriftViewed } from "@/lib/theses/service";
+import { describeError, procedureFailure } from "@/lib/errors";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "My Theses · ThesisDeploy" };
 
@@ -34,8 +31,8 @@ async function SignedInTheses() {
       </MessageCard>
     );
   }
-  const user = await getCurrentUser();
-  if (!user) {
+  const caller = await createTrpcServerCaller();
+  if (!(await caller.auth.userId())) {
     return (
       <MessageCard title="Sign in to see your theses" mark="signin">
         <p>
@@ -60,14 +57,11 @@ async function SignedInTheses() {
   }
   let cards;
   try {
-    ({ cards } = await loadTheses({ userId: user.id, guestKey: null }, { ctx: snapTradeContext(user.id) }));
+    cards = await caller.theses.list();
   } catch (error) {
-    console.error("[theses] could not load", describeError(error));
+    console.error("[theses] could not load", describeError(procedureFailure(error)));
     return <SnapTradeProblem error={error} returnTo="/theses" />;
   }
-  after(() =>
-    recordDriftViewed(cards, { userId: user.id }).catch((error) => console.error("[theses] telemetry", describeError(error))),
-  );
   return <ThesesView cards={cards} demo={false} />;
 }
 

@@ -13,11 +13,9 @@ import {
   type XRayNotice,
 } from "@/components/portfolio/xray-view";
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { ReauthRequiredError } from "@/lib/auth/vault";
-import { describeError } from "@/lib/errors";
-import { getSnapshot, loadOverview, type SnapshotResult } from "@/lib/portfolio/service";
-import { SnapTradeError, snapTradeContext } from "@/lib/snaptrade/client";
+import { describeError, procedureFailure } from "@/lib/errors";
+import type { SnapshotResult } from "@/lib/portfolio/service";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Portfolio X-Ray · ThesisDeploy" };
 
@@ -73,8 +71,8 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const caller = await createTrpcServerCaller();
+  if (!(await caller.auth.userId())) {
     return (
       <MessageCard title="Sign in to see your portfolio" mark="signin">
         <p>
@@ -95,16 +93,17 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
-  const ctx = snapTradeContext(user.id);
-  let overview;
+  const requested = typeof params.account === "string" ? params.account : undefined;
+  let xray;
   try {
-    overview = await loadOverview(ctx);
+    xray = await caller.portfolio.xray({ accountId: requested });
   } catch (error) {
-    console.error("[portfolio] could not load accounts", describeError(error));
+    console.error("[portfolio] could not load accounts", describeError(procedureFailure(error)));
     return <SnapTradeProblem error={error} returnTo="/portfolio" />;
   }
+  const { overview, selected, result, failure } = xray;
 
-  if (overview.accounts.length === 0) {
+  if (!selected) {
     return (
       <MessageCard title="No investment accounts yet" mark="empty">
         <p>
@@ -118,20 +117,11 @@ async function LiveXRay({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
-  const requested = typeof params.account === "string" ? params.account : undefined;
-  const selected = overview.accounts.find((account) => account.id === requested) ?? overview.accounts[0];
-  let result: SnapshotResult | null = null;
-  let snapshotError: string | undefined;
-  try {
-    result = await getSnapshot(ctx, selected);
-  } catch (error) {
-    if (error instanceof ReauthRequiredError) return <SnapTradeProblem error={error} returnTo="/portfolio" />;
-    console.error("[portfolio] could not load snapshot", describeError(error));
-    snapshotError =
-      error instanceof SnapTradeError && (error.code === "rate_limited" || error.code === "budget_exhausted")
-        ? `This account's SnapTrade request limit (10 per minute) is used up. ${waitText(error.retryAfterSeconds)}`
-        : "SnapTrade couldn't return balances and positions for this account. Try again shortly.";
-  }
+  const snapshotError = failure?.limited
+    ? `This account's SnapTrade request limit (10 per minute) is used up. ${waitText(failure.retryAfterSeconds)}`
+    : failure
+      ? "SnapTrade couldn't return balances and positions for this account. Try again shortly."
+      : undefined;
 
   return (
     <XRayView

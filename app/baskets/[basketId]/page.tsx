@@ -9,8 +9,7 @@ import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK } from "@/components/portfolio/snaptrade-problem";
 import { BasketSkeleton, SCREENS } from "@/components/screens";
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { findBasketView } from "@/lib/execution/store";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Virtual basket · ThesisDeploy" };
 
@@ -19,8 +18,8 @@ export const unstable_dynamicStaleTime = 600;
 
 async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketId]">["params"] }) {
   const { basketId } = await params;
-  const user = isAuthConfigured() ? await getCurrentUser() : null;
-  if (!user) {
+  const caller = isAuthConfigured() ? await createTrpcServerCaller() : null;
+  if (!caller || !(await caller.auth.userId())) {
     return (
       <MessageCard title="Sign in to see this basket" mark="signin">
         <p>
@@ -37,7 +36,7 @@ async function SignedInBasket({ params }: { params: PageProps<"/baskets/[basketI
     );
   }
   if (!z.uuid().safeParse(basketId).success) notFound();
-  const basket = await findBasketView(basketId, { userId: user.id, guestKey: null });
+  const basket = await caller.baskets.view({ basketId });
   if (!basket) notFound();
   return <BasketRecord basket={basket} studioPath="/studio" thesesPath="/theses" />;
 }
