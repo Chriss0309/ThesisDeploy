@@ -211,7 +211,3 @@ export type DrainEvent =
       reason: "finished" | "time_budget" | "aborted" | "waiting";
     }
   | { type: "error"; code: string; message: string };
-
-export type ExecutionErrorBody = {
-  error: { code: string; message: string; retryAfterSeconds?: number | null; executionId?: string | null };
-};

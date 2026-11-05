@@ -102,7 +102,3 @@ export type StudioAccount = {
   /** Null when balances couldn't be loaded. */
   cash: { currency: string; amount: number }[] | null;
 };
-
-export type ThesisErrorBody = {
-  error: { code: string; message: string; retryAfterSeconds?: number | null };
-};

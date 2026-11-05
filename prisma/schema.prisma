@@ -275,7 +275,7 @@ model BasketConstituent {
 }
 
 /// One confirmed run of orders for a basket. Legs are drained at most one per
-/// 1.1 seconds per account by `POST /api/executions/:id/drain`.
+/// 1.1 seconds per account by the `executions.drain` procedure.
 model Execution {
   id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   basketId          String    @map("basket_id") @db.Uuid

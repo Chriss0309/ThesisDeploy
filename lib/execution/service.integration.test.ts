@@ -207,7 +207,7 @@ describe.skipIf(!TEST_DATABASE_URL)("paper execution against stubs and Postgres"
     expect(first.created).toBe(true);
     expect(first.execution).toMatchObject({ status: "queued", mode: "paper", simulateRejectSeq: 2 });
 
-    // Same Idempotency-Key: same execution. A second confirmation of the basket: refused.
+    // Same idempotency key: same execution. A second confirmation of the basket: refused.
     const repeat = await confirm(preflight.basketId, { key });
     expect(repeat).toMatchObject({ created: false, execution: { id: first.execution.id } });
     await expectError(confirm(preflight.basketId), "already_executed", 409);

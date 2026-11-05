@@ -19,7 +19,7 @@ import type { DrainEvent, ExecutionView } from "@/types/execution";
 import type { ExecutionLeg } from "@/lib/generated/prisma/client";
 import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 
-/** Leaves headroom under the drain route's 60-second maxDuration. */
+/** Leaves headroom under the tRPC handler's 60-second maxDuration. */
 export const DRAIN_BUDGET_MS = 45_000;
 
 export type DrainOptions = {
