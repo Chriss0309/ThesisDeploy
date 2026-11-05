@@ -6,6 +6,8 @@ import type { BasketCurrency, RiskProfile } from "@/lib/thesis/schema";
 export type ExecutionMode = "paper" | "live";
 /** A deploy buys a new basket; rebalance and close sell and buy against its ledger. */
 export type ExecutionKind = "deploy" | "rebalance" | "close";
+/** Which deploy pre-flight runs: the signed-in one, or the guest demo's. */
+export type PreflightMode = "live" | "demo";
 
 export type PreflightOrder = {
   seq: number;
@@ -198,7 +200,7 @@ export type BasketView = {
   execution: ExecutionView | null;
 };
 
-/** One NDJSON line from `POST /api/executions/:id/drain`. */
+/** One event streamed by `executions.drain`. */
 export type DrainEvent =
   | { type: "leg"; leg: LegView }
   | { type: "pacing"; waitMs: number }

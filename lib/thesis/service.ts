@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { ReauthRequiredError } from "@/lib/auth/vault";
 import { serverEnv } from "@/lib/env";
-import { describeError } from "@/lib/errors";
+import { AppError, describeError } from "@/lib/errors";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { demoOverview, demoSnapshot } from "@/lib/portfolio/fixtures";
 import { getSnapshot, loadOverview } from "@/lib/portfolio/service";
@@ -38,15 +38,15 @@ import type { ComposerPayload, ThesisSource } from "@/types/thesis";
 const PRESET_CACHE_MS = 7 * 24 * 3600 * 1000;
 const GUEST_PROMPT_CACHE_MS = 24 * 3600 * 1000;
 
-export class ThesisError extends Error {
+export class ThesisError extends AppError {
   name = "ThesisError";
   constructor(
-    readonly code: string,
-    readonly status: number,
+    code: string,
+    status: number,
     message: string,
     readonly retryAfterSeconds: number | null = null,
   ) {
-    super(message);
+    super(code, status, message, { retryAfterSeconds });
   }
 }
 

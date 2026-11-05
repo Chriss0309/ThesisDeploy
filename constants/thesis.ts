@@ -10,3 +10,6 @@ export const MAX_PROMPT_LENGTH = 500;
 export const BASKET_CURRENCIES = ["USD", "CAD"] as const;
 export type BasketCurrency = (typeof BASKET_CURRENCIES)[number];
 export type OverlapMode = "auto" | "ignore";
+
+export const INVALID_THESIS_MESSAGE = "Check the thesis, budget, and account, then try again.";
+export const THESIS_FAILURE_MESSAGE = "Something went wrong building this basket. Try again.";
