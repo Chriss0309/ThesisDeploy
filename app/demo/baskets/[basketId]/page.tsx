@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
@@ -10,8 +9,7 @@ import { MessageCard, PageShell } from "@/components/portfolio/page-shell";
 import { LINK } from "@/components/portfolio/snaptrade-problem";
 import { BasketSkeleton, SCREENS } from "@/components/screens";
 import { serverEnv } from "@/lib/env";
-import { GUEST_COOKIE, guestKeyFor } from "@/lib/execution/http";
-import { findBasketView } from "@/lib/execution/store";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Demo basket · ThesisDeploy" };
 
@@ -27,9 +25,9 @@ async function GuestBasket({ params }: { params: PageProps<"/demo/baskets/[baske
       </MessageCard>
     );
   }
-  const token = (await cookies()).get(GUEST_COOKIE)?.value;
-  if (!token || !z.uuid().safeParse(basketId).success) notFound();
-  const basket = await findBasketView(basketId, { userId: null, guestKey: guestKeyFor(token) });
+  if (!z.uuid().safeParse(basketId).success) notFound();
+  const caller = await createTrpcServerCaller();
+  const basket = await caller.demo.basket({ basketId });
   if (!basket) notFound();
   return <BasketRecord basket={basket} studioPath="/demo/studio" thesesPath="/demo/theses" />;
 }

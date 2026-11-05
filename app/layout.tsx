@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { MotionRuntime } from "@/components/loader/runtime";
 import { StudioCacheListener } from "@/components/thesis/studio-cache-listener";
+import { TRPCReactProvider } from "@/lib/trpc/client";
 import { fontVariables } from "./fonts";
 import "./globals.css";
 
@@ -16,7 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fontVariables} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        {children}
+        <TRPCReactProvider>{children}</TRPCReactProvider>
         <MotionRuntime />
         <Suspense fallback={null}>
           <StudioCacheListener />

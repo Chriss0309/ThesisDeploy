@@ -5,7 +5,7 @@ The telemetry drawer shows the numbers behind the product. No page links to it r
 - **Everyone:** every signed-in user and demo visitor. It's cached for a minute per server instance.
 - **You:** the current SnapTrade sign-in plus this browser's demo cookie. A signed-out reviewer on `/demo` sees their own demo run here.
 
-`GET /api/telemetry` returns both views in one response (aggregates only, `Cache-Control: no-store`), so switching between them is instant. Without a database it answers `503 not_configured`.
+`telemetry.get` returns both views in one response (aggregates only, `Cache-Control: no-store`), so switching between them is instant. Without a database it answers `503 not_configured`.
 
 ## Metrics
 
@@ -39,7 +39,7 @@ Three gaps that skewed the drawer were closed when it was built:
 
 - **Cached and sample demo baskets emitted nothing.** Most guests get a cached preset, so guests deployed baskets the funnel never saw generated. `thesis_generated` and `symbols_resolved` now fire once per basket shown, with a `source`. The guest path no longer emits them inside the shared generation job: a caller that joins someone else's in-flight generation records `cached`, so tokens are never counted twice.
 - **Guest events had no owner.** The demo cookie is now issued with the first demo basket (it used to come in that response, after the events were written), and every guest event records its hash in `events.guest_key`.
-- **Guest composer edits weren't recorded.** `POST /api/demo/edits` takes `{ ref, action, symbol }`. It accepts a `ref` only if `thesis_generated` served that basket to the same cookie in the last day. The signed-in route is unchanged.
+- **Guest composer edits weren't recorded.** `demo.recordEdit` takes `{ ref, action, symbol }`. It accepts a `ref` only if `thesis_generated` served that basket to the same cookie in the last day. The signed-in `theses.recordEdit` is unchanged.
 
 My Theses events follow the same ownership rule: on `/demo/theses`, `drift_viewed`, the rebalance and close pre-flights, confirmations, legs, and `basket_closed` all carry the demo cookie's hash, so a guest's whole lifecycle shows up in "You".
 

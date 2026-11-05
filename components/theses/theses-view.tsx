@@ -4,7 +4,7 @@ import { Mark, Reveal } from "@/components/loader/mark";
 import { ThesisCard } from "@/components/theses/thesis-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { ThesisCard as ThesisCardData } from "@/lib/theses/types";
+import type { ThesisCard as ThesisCardData } from "@/types/theses";
 import { cn } from "@/lib/utils";
 
 /** The My Theses dashboard: open baskets first, then closed ones. */

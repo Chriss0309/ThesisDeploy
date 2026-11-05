@@ -8,14 +8,11 @@ import { SNAPTRADE_DASHBOARD_URL } from "@/components/portfolio/xray-view";
 import { ThesisStudio } from "@/components/thesis/thesis-studio";
 import { SCREENS, STUDIO_LOADING, StudioSkeleton } from "@/components/screens";
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { ReauthRequiredError } from "@/lib/auth/vault";
 import { configuredFeatures, serverEnv } from "@/lib/env";
-import { describeError } from "@/lib/errors";
-import { getSnapshot, loadOverview } from "@/lib/portfolio/service";
-import { snapTradeContext } from "@/lib/snaptrade/client";
+import { describeError, procedureFailure } from "@/lib/errors";
 import { USER_GENERATIONS_PER_DAY } from "@/lib/thesis/rate-limit";
-import { initialStudioAccount, toStudioAccount } from "@/lib/thesis/portfolio";
+import { initialStudioAccount } from "@/lib/thesis/portfolio";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Thesis Studio · ThesisDeploy" };
 
@@ -41,8 +38,9 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
       </MessageCard>
     );
   }
-  const user = await getCurrentUser();
-  if (!user) {
+  const caller = await createTrpcServerCaller();
+  const userId = await caller.auth.userId();
+  if (!userId) {
     return (
       <MessageCard title="Sign in to build a basket on your portfolio" mark="signin">
         <p>
@@ -62,23 +60,11 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
     );
   }
 
-  const ctx = snapTradeContext(user.id);
   let accounts;
   try {
-    const overview = await loadOverview(ctx);
-    // The overlap check needs every account anyway; snapshots are cached for 10 minutes,
-    // so the generate request that follows reuses them.
-    const snapshots = await Promise.allSettled(overview.accounts.map((account) => getSnapshot(ctx, account)));
-    accounts = overview.accounts.map((account, i) => {
-      const result = snapshots[i];
-      if (result.status === "rejected") {
-        if (result.reason instanceof ReauthRequiredError) throw result.reason;
-        console.error("[studio] snapshot unavailable", describeError(result.reason));
-      }
-      return toStudioAccount({ account, snapshot: result.status === "fulfilled" ? result.value.snapshot : null });
-    });
+    accounts = await caller.portfolio.studioAccounts();
   } catch (error) {
-    console.error("[studio] could not load accounts", describeError(error));
+    console.error("[studio] could not load accounts", describeError(procedureFailure(error)));
     return <SnapTradeProblem error={error} returnTo="/studio" />;
   }
 
@@ -100,8 +86,7 @@ async function LiveStudio({ searchParams }: { searchParams: PageProps<"/studio">
   return (
     <ThesisStudio
       mode="live"
-      snapshotScope={`live:${user.id}`}
-      endpoint="/api/theses"
+      snapshotScope={`live:${userId}`}
       accounts={accounts}
       initialAccountId={initialStudioAccount(accounts, requested).id}
       initialPresetKey={typeof preset === "string" ? preset : null}

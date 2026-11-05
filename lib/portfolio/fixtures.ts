@@ -7,7 +7,7 @@ import type {
 
 import raw from "@/lib/portfolio/demo-fixtures.json";
 import { normalizeAccounts, normalizeSnapshot } from "@/lib/portfolio/normalize";
-import type { AccountSnapshot, PortfolioOverview } from "@/lib/portfolio/types";
+import type { AccountSnapshot, PortfolioOverview } from "@/types/portfolio";
 
 // Fictional data in SnapTrade's response shapes, so the guest demo, the stub
 // API server, and live data all go through the same normalization.

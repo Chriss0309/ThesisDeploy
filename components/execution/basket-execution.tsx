@@ -7,7 +7,7 @@ import { useCallback, useRef } from "react";
 import { ExecutionPanel, type ExecutionState } from "@/components/execution/execution-panel";
 import { LinkPendingStatus } from "@/components/loader/pending";
 import { buttonVariants } from "@/components/ui/button";
-import type { ExecutionView } from "@/lib/execution/types";
+import type { ExecutionView } from "@/types/execution";
 
 /** The basket page's execution: resumes pending paper legs on open and refreshes the ledger once settled. */
 export function BasketExecution({ execution, studioPath }: { execution: ExecutionView; studioPath?: string }) {

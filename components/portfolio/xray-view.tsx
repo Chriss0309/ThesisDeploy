@@ -3,14 +3,15 @@ import type { ReactNode } from "react";
 
 import { Loader } from "@/components/loader/loader";
 import { Mark, Reveal } from "@/components/loader/mark";
-import { LinkPendingStatus, PendingForm } from "@/components/loader/pending";
+import { LinkPendingStatus } from "@/components/loader/pending";
+import { RefreshAccountForm } from "@/components/location-forms";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney, formatPercent, formatTimestamp, formatUnits } from "@/components/portfolio/format";
 import { concentrationByCurrency, type CurrencyConcentration } from "@/lib/portfolio/concentration";
 import type { SnapshotResult } from "@/lib/portfolio/service";
-import type { Capability, PortfolioAccount, PortfolioOverview } from "@/lib/portfolio/types";
+import type { Capability, PortfolioAccount, PortfolioOverview } from "@/types/portfolio";
 import { cn } from "@/lib/utils";
 
 export const SNAPTRADE_DASHBOARD_URL = "https://dashboard.snaptrade.com";
@@ -329,16 +330,15 @@ export function XRayView({
                   ` · ${result.source === "cache" ? "cached" : "fetched"} ${formatTimestamp(result.snapshot.fetchedAt)}`}
               </span>
               {mode === "live" && (
-                <PendingForm
-                  method="post"
-                  action={`/api/accounts/${encodeURIComponent(selected.id)}/refresh`}
+                <RefreshAccountForm
+                  accountId={selected.id}
                   variant="scan"
                   pendingLabel={`Refreshing ${selected.name} from SnapTrade…`}
                 >
                   <Button type="submit" variant="outline" size="xs">
                     Refresh
                   </Button>
-                </PendingForm>
+                </RefreshAccountForm>
               )}
             </div>
           )}

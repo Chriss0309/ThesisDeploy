@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/client";
+import { AppError } from "@/lib/errors";
 import type { SubmitResult } from "@/lib/execution/submitters";
 import { deriveStatus, isRetryable, latestAttempts, needsReconcile } from "@/lib/execution/summary";
 import type {
@@ -10,7 +11,7 @@ import type {
   LegStatus,
   LegView,
   PreflightOrder,
-} from "@/lib/execution/types";
+} from "@/types/execution";
 import { Prisma, type ExecutionLeg } from "@/lib/generated/prisma/client";
 import type { RiskProfile } from "@/lib/thesis/schema";
 
@@ -19,16 +20,8 @@ type Tx = Prisma.TransactionClient;
 /** Who is asking: a signed-in user, a guest demo cookie, or both (a signed-in user on /demo). */
 export type Actor = { userId: string | null; guestKey: string | null };
 
-export class ExecutionError extends Error {
+export class ExecutionError extends AppError {
   name = "ExecutionError";
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    message: string,
-    readonly extra: { retryAfterSeconds?: number | null; executionId?: string | null } = {},
-  ) {
-    super(message);
-  }
 }
 
 /** Baskets are visible only to their owner; an actor without identity sees nothing. */
@@ -381,7 +374,7 @@ export async function insertExecution(input: NewExecution): Promise<{ executionI
 
 /**
  * Legs claimed by an invocation that died before recording a result. Longer
- * than the drain route's maxDuration, so the claiming invocation is gone.
+ * than the tRPC handler's maxDuration, so the claiming invocation is gone.
  * Paper legs never reached a broker and go back to pending; a live leg may
  * have, so it becomes unknown and is never resubmitted automatically.
  */

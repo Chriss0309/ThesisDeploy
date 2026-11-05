@@ -4,7 +4,7 @@
 
 `/demo/studio` runs the same flow for guests on the fictional demo portfolio, and their baskets open at `/demo/baskets/:id`. Signed-in baskets open at `/baskets/:id`.
 
-## Pre-flight (`POST /api/preflight`, `POST /api/demo/preflight`)
+## Pre-flight (`executions.preflight`, `demo.preflight`)
 
 1. **Lines.** The composer sends its current lines: symbol, target weight, and whole shares. Signed in, every symbol must be a resolved candidate of the user's own thesis, and the account and currency must match it. Company names and universal symbol IDs come from the thesis, not the browser. Guest lines must be in the demo price feed in the basket currency.
 2. **Account.** Signed in, the account list is re-read from SnapTrade. These calls aren't account-limited.
@@ -23,27 +23,27 @@
 
 Quotes are valid for 5 minutes. Confirming an older pre-flight returns `409 preflight_stale`, and the modal re-runs pre-flight in place, updating the same draft.
 
-## Confirming (`POST /api/executions`)
+## Confirming (`executions.create`)
 
-Body `{ basketId, mode, simulateRejectSeq }`, plus an `Idempotency-Key` header. The key is a UUID that the modal generates once per pre-flight.
+Input `{ basketId, mode, simulateRejectSeq, idempotencyKey }`. The `idempotencyKey` is a UUID that the modal generates once per pre-flight.
 
-- **Same key:** returns the existing execution (`200`, not `201`). A double click or a retried request can't create a second run.
+- **Same key:** returns the same execution. A double click or a retried request can't create a second run.
 - **One deploy per basket and per thesis:** a second confirmation with a new key returns `409 already_executed`. Every pre-flight saves its own draft basket, so the confirmation also locks the basket's thesis and returns the same 409 once any basket of that thesis has a deploy execution, canceled ones included. Guest baskets have no thesis.
 - **One active execution per account:** `executions.active_account_key` equals `account_key` while the execution is queued or running and is NULL otherwise. Its unique index allows one active execution per account (NULLs never collide). A second one gets `409 execution_active` with the active execution's ID. This also covers guests: demo accounts are shared fixtures, so their account key is derived per guest.
 - **Live:** `403 live_disabled` while the kill switch is off; otherwise Live's own rules apply (acknowledgement, passed gate, brokerage preview, open market). See [Live execution](live-execution.md).
 - **Records:** the execution stores the confirmation snapshot (order list, quotes, market status, disclosures shown). Each order becomes a leg (`seq`, `attempt` 1, `client_order_id`, estimated price). Event: `execution_confirmed`.
 
-## The paced queue (`POST /api/executions/:id/drain`)
+## The paced queue (`executions.drain`)
 
-Vercel functions can't run in the background, so the browser drives the queue. The drain route streams NDJSON progress and loops:
+Vercel functions can't run in the background, so the browser drives the queue. `executions.drain` yields each progress event as it happens, and the browser reads them through tRPC's `httpBatchStreamLink`. The procedure loops:
 
-1. **Recover stale claims.** A leg left in `claimed` for more than 2 minutes means the invocation that claimed it died (the route's `maxDuration` is 60s). A paper leg never reached a broker, so it goes back to `pending`. A live leg may have, so it becomes `unknown` and is never resubmitted automatically.
-2. **Reserve a pacing slot** in `account_pacing`. The `INSERT … ON CONFLICT DO UPDATE … WHERE last_submit_at <= clock_timestamp() - 1.1s` succeeds only if this account's last submission was at least 1.1 seconds ago, across every execution, tab, and serverless instance. Otherwise the route streams a `pacing` event and sleeps for the remainder.
+1. **Recover stale claims.** A leg left in `claimed` for more than 2 minutes means the invocation that claimed it died (the tRPC handler's `maxDuration` is 60s). A paper leg never reached a broker, so it goes back to `pending`. A live leg may have, so it becomes `unknown` and is never resubmitted automatically.
+2. **Reserve a pacing slot** in `account_pacing`. The `INSERT … ON CONFLICT DO UPDATE … WHERE last_submit_at <= clock_timestamp() - 1.1s` succeeds only if this account's last submission was at least 1.1 seconds ago, across every execution, tab, and serverless instance. Otherwise the procedure streams a `pacing` event and sleeps for the remainder.
 3. **Claim the next pending leg** in order with `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED)`. Concurrent drains never claim the same leg.
 4. **Submit** through the mode's submitter. The kill switch is checked on every leg. **Paper** fills the whole leg at its pre-flight price and records `brokerage_order_id = paper_<uuid>` and status `EXECUTED`.
 5. **Record the result** in one transaction: the leg is written only if it's still `claimed`, and a fill also increments the basket ledger (`ledger_units`, `cost_total`). A fill can't be applied twice. Event: `leg_result`.
 
-The loop stops when no leg is pending, after a 45-second budget, or when the client disconnects. The request's abort signal stops it from claiming another leg, so nothing runs unattended. The final `done` event carries the execution. While legs are still pending, the browser POSTs `drain` again; a dropped stream is recovered the same way. Re-POSTing is always safe, because only pending legs can be claimed. A closed tab resumes the next time the basket page is opened.
+The loop stops when no leg is pending, after a 45-second budget, or when the client disconnects. The request's abort signal stops it from claiming another leg, so nothing runs unattended. The final `done` event carries the execution. While legs are still pending, the browser calls `executions.drain` again; a dropped stream is recovered the same way. Calling it again is always safe, because only pending legs can be claimed. A closed tab resumes the next time the basket page is opened.
 
 **Finalizing** locks the execution row. If nothing is pending or claimed, it sets `completed`, `partial` (some legs failed), or `failed` (none filled), and clears `active_account_key`. The basket becomes `active` on its first fill, which emits `basket_deployed` once. A basket with no fills goes back to `draft`.
 
@@ -53,14 +53,14 @@ The loop stops when no leg is pending, after a 45-second budget, or when the cli
 
 ## Partial failures and retry
 
-A rejected leg doesn't stop the queue: the reason is recorded on the leg and the remaining legs are submitted. The stepper shows the rejection with a **Retry failed leg** button. `POST /api/executions/:id/legs/:legId/retry`:
+A rejected leg doesn't stop the queue: the reason is recorded on the leg and the remaining legs are submitted. The stepper shows the rejection with a **Retry failed leg** button. `executions.retryLeg`:
 
 - Only the latest attempt of a `rejected` or `failed` leg can be retried, up to 3 attempts.
 - The retry is a new leg row with the same `seq`, the next `attempt`, and a new `client_order_id`. The rejected attempt stays as history.
 - The execution goes back to `running`, which is subject to the one-active-per-account rule.
 - The retry fills at the original pre-flight price, so a paper ledger never mixes quotes from two different moments.
 
-`POST /api/executions/:id/cancel` skips the remaining pending legs. Filled legs stay in the basket. Event: `execution_canceled`.
+`executions.cancel` skips the remaining pending legs. Filled legs stay in the basket. Event: `execution_canceled`.
 
 **Failure injection.** The pre-flight modal has a Paper-only reviewer toggle, "Simulate a broker rejection on leg N". It rejects the first attempt of that leg the way a broker would, so the retry fills.
 
@@ -78,7 +78,7 @@ Every table has row-level security enabled with no policies, like the rest of th
 
 ## Guest demo
 
-- **Ownership:** guest baskets belong to an httpOnly `td_guest` cookie (random, 30 days, `SameSite=Lax`). It's issued by the first demo thesis or pre-flight request, and only its keyed hash is stored. The same execution routes serve signed-in users and guests, and ownership is checked on every request: another visitor, or a signed-in user, gets a 404.
+- **Ownership:** guest baskets belong to an httpOnly `td_guest` cookie (random, 30 days, `SameSite=Lax`). It's issued by the first demo thesis or pre-flight request, and only its keyed hash is stored. The same `executions` procedures serve signed-in users and guests, and ownership is checked on every request: another visitor, or a signed-in user, gets a 404.
 - **Limits:** per visitor (keyed IP hash, like the thesis demo), per rolling 24 hours, 60 pre-flights and 20 paper runs. Across all guests, 1,000 paper runs. Guest pre-flight never calls SnapTrade.
 
 ## Telemetry
@@ -106,10 +106,10 @@ Paper needs only the database. `LIVE_TRADING_ENABLED` (default `false`) is the k
 ## Tests
 
 - `lib/execution/preflight.test.ts`: order list, price basis, the reasons Live is unavailable, and disclosures.
-- `lib/execution/summary.test.ts`: leg bookkeeping, status derivation, retry rules, the paper submitter, and NDJSON parsing.
+- `lib/execution/summary.test.ts`: leg bookkeeping, status derivation, retry rules, the paper submitter, and merging drain events.
 - `lib/execution/service.integration.test.ts`: runs against Postgres and the SnapTrade and OAuth stubs. It covers:
   - one quotes call per pre-flight;
-  - Idempotency-Key replay;
+  - `idempotencyKey` replay;
   - real 1.1-second spacing between legs;
   - a rejected leg that doesn't stop the queue, then its retry;
   - a ledger written from fills only;

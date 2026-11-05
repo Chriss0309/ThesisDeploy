@@ -1,8 +1,8 @@
 import { formatMoney } from "@/components/portfolio/format";
 import { closedWhy, opensText } from "@/lib/execution/market-text";
-import type { ExecutionKind, ExecutionMode, ImpactCheck, ModeGate } from "@/lib/execution/types";
+import type { ExecutionKind, ExecutionMode, ImpactCheck, ModeGate } from "@/types/execution";
 import type { MarketStatus } from "@/lib/market-hours";
-import type { Capability } from "@/lib/portfolio/types";
+import type { Capability } from "@/types/portfolio";
 import { EPSILON } from "@/lib/solver";
 
 // Every reason Live is unavailable for one pre-flight, in the order a user

@@ -1,5 +1,5 @@
 import { computeDrift, DEFAULT_DRIFT_THRESHOLD, type BasketPosition } from "@/lib/drift";
-import type { Marks, PriceMark, ThesisLine, ThesisValuation } from "@/lib/theses/types";
+import type { Marks, PriceMark, ThesisLine, ThesisValuation } from "@/types/theses";
 
 export type HeldConstituent = {
   symbol: string;

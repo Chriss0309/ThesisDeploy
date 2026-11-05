@@ -7,7 +7,7 @@ import { formatMoney, formatMoneyDelta, formatPercent, formatTimestamp } from "@
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { BasketView } from "@/lib/execution/types";
+import type { BasketView } from "@/types/execution";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<BasketView["status"], { tone: "neutral" | "warning" | "positive"; label: string }> = {

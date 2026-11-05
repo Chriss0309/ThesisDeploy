@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -13,28 +14,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogSection, DialogTitle } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
+import { useTRPC } from "@/lib/trpc/client";
+import { readClientError } from "@/lib/trpc/errors";
 import type {
-  ExecutionErrorBody,
   ExecutionKind,
   ExecutionMode,
   ExecutionView,
+  PreflightMode,
   PreflightPayload,
   PreflightRequest,
-} from "@/lib/execution/types";
+} from "@/types/execution";
 
 type Phase = "loading" | "error" | "ready" | "confirming" | "running";
 
 const FIELD =
   "rounded-md border border-input bg-card px-2 py-1 text-base text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 disabled:opacity-50 md:text-sm";
-
-async function readJson<T>(response: Response): Promise<T | ExecutionErrorBody | null> {
-  return (await response.json().catch(() => null)) as T | ExecutionErrorBody | null;
-}
-
-const failure = (body: unknown, status: number) =>
-  body && typeof body === "object" && "error" in body
-    ? (body as ExecutionErrorBody).error
-    : { code: "http_error", message: `Request failed (HTTP ${status}). Try again.` };
 
 /** A rebalance or close of a saved basket; a deploy is the default and needs no description. */
 export type BasketAction = { kind: "rebalance" | "close"; basketId: string };
@@ -42,25 +36,6 @@ export type BasketAction = { kind: "rebalance" | "close"; basketId: string };
 const pts = (fraction: number) => `${(Math.abs(fraction) * 100).toFixed(1)} pts`;
 
 type PreflightResult = { ok: true; preflight: PreflightPayload } | { ok: false; message: string };
-
-async function fetchPreflight(
-  endpoint: string,
-  request: PreflightRequest | BasketAction,
-  basketId: string | null,
-): Promise<PreflightResult> {
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...request, basketId }),
-    });
-    const body = await readJson<PreflightPayload>(response);
-    if (!response.ok || !body || "error" in body) return { ok: false, message: failure(body, response.status).message };
-    return { ok: true, preflight: body };
-  } catch {
-    return { ok: false, message: "Couldn't reach ThesisDeploy. Check your connection and try again." };
-  }
-}
 
 const BASIS_LABEL = { ask: "ask", bid: "bid", last: "last trade" } as const;
 
@@ -437,21 +412,27 @@ function PreflightBody({
 }
 
 /**
- * Loads pre-flight when mounted, then confirms it with an Idempotency-Key that
+ * Loads pre-flight when mounted, then confirms it with an idempotency key that
  * is fixed per pre-flight, so a double click or a retried request can't create
  * a second execution.
  */
 function PreflightFlow({
-  endpoint,
+  preflightMode,
   request,
   onRunState,
   onExecuted,
 }: {
-  endpoint: string;
+  preflightMode?: PreflightMode;
   request: PreflightRequest | BasketAction;
   onRunState: (state: ExecutionState) => void;
   onExecuted: (basketPath: string) => void;
 }) {
+  const trpc = useTRPC();
+  const { mutateAsync: basketPreflight } = useMutation(trpc.baskets.preflight.mutationOptions());
+  const { mutateAsync: demoPreflight } = useMutation(trpc.demo.preflight.mutationOptions());
+  const { mutateAsync: livePreflight } = useMutation(trpc.executions.preflight.mutationOptions());
+  const { mutateAsync: checkImpact } = useMutation(trpc.baskets.impact.mutationOptions());
+  const { mutateAsync: createExecution } = useMutation(trpc.executions.create.mutationOptions());
   const [phase, setPhase] = useState<Phase>("loading");
   const [preflight, setPreflight] = useState<PreflightPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -465,25 +446,44 @@ function PreflightFlow({
   const top = useRef<HTMLDivElement>(null);
 
   /** Asks the broker to preview every leg; the result is saved on the pre-flight and returned with it. */
-  const preview = useCallback(async (target: PreflightPayload) => {
-    setImpact({ phase: "checking", error: null });
-    try {
-      const response = await fetch(`/api/baskets/${target.basketId}/impact`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: target.kind ?? "deploy", preflightId: target.preflightId ?? null }),
-      });
-      const body = await readJson<PreflightPayload>(response);
-      if (!response.ok || !body || "error" in body) {
-        setImpact({ phase: "error", error: failure(body, response.status).message });
-        return;
+  const preview = useCallback(
+    async (target: PreflightPayload) => {
+      setImpact({ phase: "checking", error: null });
+      try {
+        const checked = await checkImpact({
+          basketId: target.basketId,
+          kind: target.kind ?? "deploy",
+          preflightId: target.preflightId ?? null,
+        });
+        setPreflight(checked);
+        setImpact({ phase: "idle", error: null });
+      } catch (caught) {
+        setImpact({
+          phase: "error",
+          error: readClientError(caught)?.message ?? "Couldn't reach ThesisDeploy for the brokerage preview. Try again.",
+        });
       }
-      setPreflight(body);
-      setImpact({ phase: "idle", error: null });
-    } catch {
-      setImpact({ phase: "error", error: "Couldn't reach ThesisDeploy for the brokerage preview. Try again." });
-    }
-  }, []);
+    },
+    [checkImpact],
+  );
+
+  const fetchPreflight = useCallback(
+    async (basketId: string | null): Promise<PreflightResult> => {
+      try {
+        if ("kind" in request) {
+          return { ok: true, preflight: await basketPreflight({ kind: request.kind, basketId: request.basketId }) };
+        }
+        const run = preflightMode === "demo" ? demoPreflight : livePreflight;
+        return { ok: true, preflight: await run({ ...request, basketId }) };
+      } catch (caught) {
+        return {
+          ok: false,
+          message: readClientError(caught)?.message ?? "Couldn't reach ThesisDeploy. Check your connection and try again.",
+        };
+      }
+    },
+    [basketPreflight, demoPreflight, livePreflight, preflightMode, request],
+  );
 
   const apply = useCallback(
     (result: PreflightResult) => {
@@ -516,62 +516,53 @@ function PreflightFlow({
   };
 
   const load = useCallback(
-    async (basketId: string | null) => apply(await fetchPreflight(endpoint, request, basketId)),
-    [apply, endpoint, request],
+    async (basketId: string | null) => apply(await fetchPreflight(basketId)),
+    [apply, fetchPreflight],
   );
 
   useEffect(() => {
     let current = true;
-    void fetchPreflight(endpoint, request, null).then((result) => {
+    void fetchPreflight(null).then((result) => {
       if (current) apply(result);
     });
     return () => {
       current = false;
     };
-  }, [apply, endpoint, request]);
+  }, [apply, fetchPreflight]);
 
   async function confirm() {
     if (!preflight) return;
     setPhase("confirming");
     setError(null);
     try {
-      const response = await fetch("/api/executions", {
-        method: "POST",
-        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
-        body: JSON.stringify({
-          basketId: preflight.basketId,
-          kind: preflight.kind ?? "deploy",
-          preflightId: preflight.preflightId ?? null,
-          mode,
-          simulateRejectSeq: mode === "paper" ? rejectSeq : null,
-          acknowledgeLive: mode === "live" && acknowledged,
-        }),
+      const created = await createExecution({
+        basketId: preflight.basketId,
+        kind: preflight.kind ?? "deploy",
+        preflightId: preflight.preflightId ?? null,
+        mode,
+        simulateRejectSeq: mode === "paper" ? rejectSeq : null,
+        acknowledgeLive: mode === "live" && acknowledged,
+        idempotencyKey,
       });
-      const body = await readJson<ExecutionView>(response);
-      if (!response.ok || !body || "error" in body) {
-        const { code, message } = failure(body, response.status);
-        if (code === "preflight_stale") {
-          setNotice("Those prices were out of date, so pre-flight ran again. Check the orders and confirm.");
-          setPhase("loading");
-          await load(preflight.basketId);
-          return;
-        }
-        if (code === "impact_required") {
-          setPhase("ready");
-          void preview(preflight);
-          return;
-        }
-        setError(message);
-        setPhase("ready");
-        return;
-      }
-      setExecution(body);
+      setExecution(created);
       setPhase("running");
-      onExecuted(body.basketPath);
+      onExecuted(created.basketPath);
       // The run starts at the top of the dialog, wherever pre-flight was scrolled to.
       requestAnimationFrame(() => top.current?.scrollIntoView({ block: "start" }));
-    } catch {
-      setError("Couldn't reach ThesisDeploy. Your confirmation is safe to retry.");
+    } catch (caught) {
+      const failure = readClientError(caught);
+      if (failure?.code === "preflight_stale") {
+        setNotice("Those prices were out of date, so pre-flight ran again. Check the orders and confirm.");
+        setPhase("loading");
+        await load(preflight.basketId);
+        return;
+      }
+      if (failure?.code === "impact_required") {
+        setPhase("ready");
+        void preview(preflight);
+        return;
+      }
+      setError(failure?.message ?? "Couldn't reach ThesisDeploy. Your confirmation is safe to retry.");
       setPhase("ready");
     }
   }
@@ -716,14 +707,14 @@ function PreflightFlow({
 export function PreflightDialog({
   open,
   onOpenChange,
-  endpoint,
+  mode,
   request,
   onExecuted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The deploy pre-flight route; rebalance and close use the basket's own. */
-  endpoint: string;
+  /** Which deploy pre-flight runs; rebalance and close use the basket's own. */
+  mode?: PreflightMode;
   request: PreflightRequest | BasketAction | null;
   onExecuted: (basketPath: string) => void;
 }) {
@@ -757,12 +748,7 @@ export function PreflightDialog({
     >
       <DialogContent finalFocus={returnFocus}>
         {open && request && (
-          <PreflightFlow
-            endpoint={"kind" in request ? `/api/baskets/${request.basketId}/preflight` : endpoint}
-            request={request}
-            onRunState={setRun}
-            onExecuted={onExecuted}
-          />
+          <PreflightFlow preflightMode={mode} request={request} onRunState={setRun} onExecuted={onExecuted} />
         )}
       </DialogContent>
     </Dialog>

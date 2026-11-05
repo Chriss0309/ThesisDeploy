@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
-import type { PreflightRequest } from "@/lib/execution/types";
+import type { PreflightMode, PreflightRequest } from "@/types/execution";
 import { basketIdFromPath } from "@/lib/thesis/studio-cache";
 import type { AllocatedLine } from "@/lib/solver";
 import {
@@ -28,7 +28,7 @@ import {
   type BasketSettings,
   type EditableLine,
 } from "@/lib/thesis/composer-state";
-import type { ComposerLine, ComposerPayload } from "@/lib/thesis/types";
+import type { ComposerLine, ComposerPayload } from "@/types/thesis";
 
 export type EditAction = "remove" | "restore" | "reweight" | "step";
 
@@ -283,7 +283,7 @@ export function BasketComposer({
   restoredLines,
   onLinesChange,
   onEdit,
-  preflightEndpoint,
+  preflightMode,
   executable = true,
   onSubmitted,
   onDialogOpenChange,
@@ -293,7 +293,7 @@ export function BasketComposer({
   onLinesChange?: (lines: EditableLine[]) => void;
   onEdit?: (action: EditAction, symbol: string) => void;
   /** Where pre-flight runs; without it the composer is read-only for execution. */
-  preflightEndpoint?: string;
+  preflightMode?: PreflightMode;
   /** False once this composed basket was confirmed, or after it was invalidated. */
   executable?: boolean;
   onSubmitted?: (basketId: string) => void;
@@ -316,7 +316,7 @@ export function BasketComposer({
   const edited = lines.some((line, i) => line.removed || line.units !== payload.lines[i].units || line.weight !== payload.lines[i].targetWeight);
   const { thesis } = payload;
   const orders = allocation.lines.filter((line) => line.units > 0).length;
-  const canPreflight = Boolean(preflightEndpoint) && orders > 0 && executable;
+  const canPreflight = Boolean(preflightMode) && orders > 0 && executable;
 
   const openPreflight = () => {
     if (!executable) return;
@@ -492,14 +492,14 @@ export function BasketComposer({
           </Button>
         </div>
       </CardFooter>
-      {preflightEndpoint && (
+      {preflightMode && (
         <PreflightDialog
           open={dialogOpen}
           onOpenChange={(open) => {
             setDialogOpen(open);
             onDialogOpenChange?.(open);
           }}
-          endpoint={preflightEndpoint}
+          mode={preflightMode}
           request={preflight}
           onExecuted={(path) => {
             setSavedBasket(path);

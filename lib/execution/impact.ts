@@ -4,14 +4,8 @@ import { getDb } from "@/lib/db/client";
 import { liveTradingEnabled } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { ExecutionError, findOwnedBasket, reservePacingSlot, type Actor } from "@/lib/execution/store";
-import {
-  PACE_MS,
-  PREFLIGHT_TTL_MS,
-  type ExecutionKind,
-  type ImpactCheck,
-  type ImpactLeg,
-  type PreflightPayload,
-} from "@/lib/execution/types";
+import { PACE_MS, PREFLIGHT_TTL_MS } from "@/constants/execution";
+import type { ExecutionKind, ImpactCheck, ImpactLeg, PreflightPayload } from "@/types/execution";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { SnapTradeError, callSnapTrade, snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { recordEvent } from "@/lib/telemetry/events";

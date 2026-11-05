@@ -2,7 +2,7 @@
 
 Thesis Studio (`/studio`) turns a one-line conviction into a whole-share stock basket on the signed-in user's portfolio. `/demo/studio` runs the same pipeline on the fictional demo portfolio with no sign-in. Nothing is ordered here: "Continue to pre-flight" hands the edited basket to [paper execution](paper-execution.md).
 
-## Pipeline (`POST /api/theses`)
+## Pipeline (`theses.create`)
 
 1. **Portfolio context.** Balances and positions for every connected account come from the 10-minute snapshot cache (`lib/portfolio/service.ts`), so the page load and the generate request share them. `lib/thesis/prompt.ts` serializes up to 30 holdings merged by symbol across accounts (value, currency, share of that currency's holdings and cash, accounts), cash per account, the budget and its currency, the selected account, and the overlap mode. Values are never converted between currencies.
 2. **Generation.** One ThesisDeploy AI call with structured outputs (`output_config.format` from `zodOutputFormat`), model `ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), at most 3,000 output tokens. The schema asks for 6–8 candidates with ticker, listing (US or TSX), company, a one-sentence rationale, a percent weight, and a holding note, plus a title, summary, risk profile, `on_topic` flag, and excluded names. The thesis text sits inside `<thesis>` tags and the system prompt treats it as data. `stop_reason` is checked before parsing: `refusal`, `max_tokens`, unparseable JSON, and schema mismatches each become a clear error.
@@ -47,7 +47,7 @@ The Studio saves the prompt, the settings, the basket, and the composer edits to
 
 ## Guest demo and abuse limits
 
-`POST /api/demo/theses` never calls SnapTrade: holdings come from `lib/portfolio/demo-fixtures.json` and prices from `lib/thesis/demo-quotes.json` (93 fictional quotes in SnapTrade's response shape). The demo prompt lists the symbols the feed can price.
+`demo.createThesis` never calls SnapTrade: holdings come from `lib/portfolio/demo-fixtures.json` and prices from `lib/thesis/demo-quotes.json` (93 fictional quotes in SnapTrade's response shape). The demo prompt lists the symbols the feed can price.
 
 ThesisDeploy's AI is called only on a cache miss and within these limits:
 
@@ -55,7 +55,7 @@ ThesisDeploy's AI is called only on a cache miss and within these limits:
 - **Custom prompts** are cached for 24 hours by prompt and context, and limited to 3 per visitor per rolling 24 hours (the IP from Vercel's `x-real-ip`, stored only as an HMAC keyed with `SESSION_SECRET`).
 - **All guest generations** (presets included) share a cap of `GUEST_GENERATIONS_PER_DAY` per rolling 24 hours (default 40; `0` turns guest generation off). When it's reached, presets fall back to committed sample output and custom prompts get a 429.
 - Limits are counted in `events`, shared by every serverless instance. Each request inserts its row first and then counts, so concurrent requests can't overshoot; rejected requests delete their row so spam can't use up the allowance. Identical concurrent requests share one in-flight generation.
-- Both routes accept only same-origin `application/json` POSTs, so another site can't spend generations from a visitor's browser.
+- Both procedures accept only same-origin `application/json` POSTs, so another site can't spend generations from a visitor's browser.
 - Without `ANTHROPIC_API_KEY` or a database, presets show the committed sample baskets in `lib/thesis/sample-outputs.json` (labeled as samples in the UI), and custom prompts are disabled.
 
 Signed-in users are limited to 30 generations per rolling 24 hours.

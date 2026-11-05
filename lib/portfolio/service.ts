@@ -8,7 +8,7 @@ import type {
   Holding,
   PortfolioAccount,
   PortfolioOverview,
-} from "@/lib/portfolio/types";
+} from "@/types/portfolio";
 import { SnapTradeError, callSnapTrade, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { recordEvent } from "@/lib/telemetry/events";
 

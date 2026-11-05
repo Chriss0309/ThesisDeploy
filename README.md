@@ -49,9 +49,9 @@ All calls go through one wrapper, `callSnapTrade` in [`lib/snaptrade/client.ts`]
 
 **401s.** Refresh once and retry once. The refresh runs under a row lock so SnapTrade's rotating refresh token is spent exactly once across concurrent requests. A second 401 or an `invalid_grant` deletes the grant and the page asks the user to reconnect.
 
-**Pacing.** One order per 1.1 seconds per account, enforced by a conditional upsert on `account_pacing` in Postgres, so it holds across executions, tabs, and serverless instances. Vercel can't run background work, so the browser drives the queue: `POST /api/executions/:id/drain` streams progress for up to 45 seconds, and the browser re-posts it until no leg is pending. Re-posting is always safe, and a closed tab resumes when the basket is reopened. Nothing trades unattended.
+**Pacing.** One order per 1.1 seconds per account, enforced by a conditional upsert on `account_pacing` in Postgres, so it holds across executions, tabs, and serverless instances. Vercel can't run background work, so the browser drives the queue: `executions.drain` streams progress for up to 45 seconds, and the browser calls it again until no leg is pending. Calling it again is always safe, and a closed tab resumes when the basket is reopened. Nothing trades unattended.
 
-**Idempotency.** Each confirmation carries an `Idempotency-Key` (a UUID fixed per pre-flight), so a double click returns the same execution. A basket deploys once, and a partial unique index allows one active execution per account. Each order attempt has its own `client_order_id`; a retry is a new attempt with a new ID.
+**Idempotency.** Each confirmation carries an `idempotencyKey` (a UUID fixed per pre-flight), so a double click returns the same execution. A basket deploys once, and a partial unique index allows one active execution per account. Each order attempt has its own `client_order_id`; a retry is a new attempt with a new ID.
 
 **Reconciliation.** A Live leg that SnapTrade accepted but hasn't filled is checked from recent orders (matched by `brokerage_order_id`), first after 3 seconds and then every 15 seconds while the page is open. Fills are applied as deltas, so a fill reported in pieces is counted once. A placement that timed out or returned a 5xx becomes `unknown`: it may have reached the broker, so it's matched by symbol, side, quantity, and time, and it's never resent until the user confirms it isn't at the broker.
 
@@ -65,7 +65,7 @@ Details: [sign-in](docs/sign-in.md), [X-Ray and the client](docs/portfolio-xray.
 Browser (React, same-origin fetch only; CSP connect-src 'self')
    │  httpOnly session cookie
    ▼
-Next.js 16 route handlers and server components on Vercel (Node runtime)
+Next.js 16 tRPC routers and server components on Vercel (Node runtime)
    ├─ lib/auth        SnapTrade OAuth + OIDC, PKCE, sessions, encrypted token vault
    ├─ lib/snaptrade   Bearer-only SDK client, per-account budget, api_calls
    ├─ lib/thesis      AI structured output → validation → grounding → overlap → solver
@@ -77,6 +77,7 @@ Supabase Postgres       api.snaptrade.com      api.anthropic.com
 (Prisma 7, pg adapter)  (OAuth + API)          (ThesisDeploy's AI)
 ```
 
+- **tRPC routers** in [`server/routers`](server/routers) wrap the libraries above, and both the browser (at `/api/trpc`) and server components call them. Only sign-in (`/api/auth/login`, `/api/auth/callback`) and `/api/health` stay plain route handlers.
 - **Pure libraries** (`lib/solver.ts`, `lib/overlap.ts`, `lib/drift.ts`, `lib/market-hours.ts`) run in the browser for instant recompute in the composer and again on the server at pre-flight.
 - **Thesis generation** uses ThesisDeploy's AI for structured outputs, then re-checks everything the schema can't enforce (counts, bounds, duplicate tickers, weights) in code. The thesis text is passed as data inside tags. Grounding drops anything SnapTrade can't price in the basket's currency, and ETFs.
 - **Next.js 16** with Cache Components: static shells are prerendered and SnapTrade data streams in; pages that call SnapTrade are never prefetched.
@@ -101,9 +102,9 @@ Schema: [`prisma/schema.prisma`](prisma/schema.prisma). Migrations: [`prisma/mig
 - **Secrets stay on the server.** The browser talks only to ThesisDeploy; the Content-Security-Policy's `connect-src 'self'` enforces that no page can call SnapTrade or Anthropic directly.
 - **OAuth.** PKCE S256; `state` bound to an httpOnly cookie (login CSRF); a single-use, encrypted login attempt; `nonce`; `id_token` verified with RS256 against JWKS (`iss`, `aud`, `azp`, `exp`, `iat`); a mismatched callback `iss` rejected (RFC 9207). Disconnect revokes the refresh token at SnapTrade.
 - **Storage.** Tokens and PKCE verifiers are encrypted with AES-256-GCM, with the user and column bound as associated data. Sessions store only HMAC-SHA256 of the cookie token.
-- **Cookies and CSRF.** `httpOnly`, `SameSite=Lax`, `Secure` on HTTPS. Every mutating route rejects a foreign `Origin`; JSON routes also require `application/json`, which a cross-site form can't send without a CORS preflight that's never granted.
+- **Cookies and CSRF.** `httpOnly`, `SameSite=Lax`, `Secure` on HTTPS. The tRPC handler rejects a foreign `Origin` on every request, and mutations also require `application/json`, which a cross-site form can't send without a CORS preflight that's never granted.
 - **Headers.** CSP (`frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP, and HSTS ([`next.config.ts`](next.config.ts)).
-- **Input.** Every route validates its body with Zod. The server never trusts the browser's prices, symbols, or company names: pre-flight re-reads the thesis, the account, and quotes from its own sources.
+- **Input.** Every procedure validates its input with Zod. The server never trusts the browser's prices, symbols, or company names: pre-flight re-reads the thesis, the account, and quotes from its own sources.
 - **Privacy.** Account IDs reach telemetry only as keyed hashes; guests are keyed by a hash of their demo cookie and, for rate limits, an HMAC of their IP. Tokens, codes, and account numbers are never logged.
 - **Abuse limits.** The guest demo caps AI generations (40 per day across all visitors, 3 custom prompts per visitor), pre-flights, and paper runs; signed-in users get 30 generations a day.
 
@@ -126,7 +127,7 @@ Aggregates only. Details: [`docs/telemetry.md`](docs/telemetry.md).
 
 ## Quality
 
-- **Tests.** 282 Vitest tests: the solver, overlap, drift, rebalance, and market-hours libraries; ticker normalization and grounding; the Live gate and order-status mapping; and integration tests against real Postgres and local stand-ins for SnapTrade's OAuth and API and for Anthropic (sign-in, refresh races, rate limits, the paced queue, concurrent drains, retries, reconciliation, unknown orders, telemetry math). One test applies every migration to an in-memory Postgres.
+- **Tests.** 341 Vitest tests: the solver, overlap, drift, rebalance, and market-hours libraries; ticker normalization and grounding; the Live gate and order-status mapping; and integration tests against real Postgres and local stand-ins for SnapTrade's OAuth and API and for Anthropic (sign-in, refresh races, rate limits, the paced queue, concurrent drains, retries, reconciliation, unknown orders, telemetry math). One test applies every migration to an in-memory Postgres.
 - **CI** (GitHub Actions) runs lint, typecheck, migrations plus a schema drift check on a fresh Postgres, the tests, and a production build on every PR.
 - **End-to-end smoke test.** `npm run smoke` walks the whole reviewer journey above in Chrome, guest and signed in, including a rejected leg and its retry, a 401 refresh, the rate-limit notice, and a revoked grant. It fails on any console error, CSP violation, or 5xx.
 - **Accessibility.** axe reports no violations on any page or dialog at desktop and 390 px widths. Dialogs trap focus and return it to the control that opened them; every chart has a text equivalent; badges never rely on color alone; touch targets for primary actions are 44 px.

@@ -2,12 +2,12 @@ import { unstable_rethrow } from "next/navigation";
 
 import { Loader } from "@/components/loader/loader";
 import { Mark } from "@/components/loader/mark";
-import { PendingForm, PendingLink } from "@/components/loader/pending";
+import { PendingLink } from "@/components/loader/pending";
+import { SignOutForm } from "@/components/location-forms";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { isAuthConfigured } from "@/lib/auth/config";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { getGrantSummary } from "@/lib/auth/vault";
-import { describeError } from "@/lib/errors";
+import { describeError, procedureFailure } from "@/lib/errors";
+import { createTrpcServerCaller } from "@/lib/trpc/server";
 import { cn } from "@/lib/utils";
 
 const NOTICES: Record<string, { error: boolean; text: string }> = {
@@ -33,12 +33,13 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 async function loadSession() {
   try {
-    const user = await getCurrentUser();
-    return { user, grant: user ? await getGrantSummary(user.id) : null, unavailable: false };
+    const caller = await createTrpcServerCaller();
+    const { user, snaptrade } = await caller.auth.me();
+    return { user, grant: snaptrade, unavailable: false };
   } catch (error) {
     // cookies() and connection() abort prerendering by throwing; those must reach Next.js.
     unstable_rethrow(error);
-    console.error("[auth] session lookup failed", describeError(error));
+    console.error("[auth] session lookup failed", describeError(procedureFailure(error)));
     return { user: null, grant: null, unavailable: true };
   }
 }
@@ -115,20 +116,16 @@ export async function AuthPanel({ searchParams }: { searchParams: SearchParams }
                 Reconnect SnapTrade
               </PendingLink>
             )}
-            <PendingForm action="/api/auth/logout" method="post" pendingLabel="Signing out…">
+            <SignOutForm disconnect={false} pendingLabel="Signing out…">
               <Button type="submit" variant="outline" size="sm">
                 Sign out
               </Button>
-            </PendingForm>
-            <PendingForm
-              action="/api/auth/logout?disconnect=1"
-              method="post"
-              pendingLabel="Disconnecting SnapTrade…"
-            >
+            </SignOutForm>
+            <SignOutForm disconnect pendingLabel="Disconnecting SnapTrade…">
               <Button type="submit" variant="destructive" size="sm">
                 Disconnect SnapTrade
               </Button>
-            </PendingForm>
+            </SignOutForm>
           </div>
         </>
       ) : (

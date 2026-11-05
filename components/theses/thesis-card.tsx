@@ -23,7 +23,7 @@ import { SimulateMove } from "@/components/theses/simulate-move";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ThesisCard as ThesisCardData, ThesisLine, ThesisValuation } from "@/lib/theses/types";
+import type { ThesisCard as ThesisCardData, ThesisLine, ThesisValuation } from "@/types/theses";
 import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
@@ -284,7 +284,7 @@ export function ThesisCard({ card, demo }: { card: ThesisCardData; demo: boolean
         )}
       </CardFooter>
 
-      <PreflightDialog open={open} onOpenChange={onOpenChange} endpoint="" request={action} onExecuted={noop} />
+      <PreflightDialog open={open} onOpenChange={onOpenChange} request={action} onExecuted={noop} />
     </Card>
   );
 }

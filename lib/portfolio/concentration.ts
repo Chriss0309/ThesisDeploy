@@ -1,4 +1,4 @@
-import type { AccountSnapshot, Holding } from "@/lib/portfolio/types";
+import type { AccountSnapshot, Holding } from "@/types/portfolio";
 
 export type ConcentrationSegment = {
   label: string;

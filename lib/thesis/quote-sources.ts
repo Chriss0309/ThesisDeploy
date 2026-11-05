@@ -1,6 +1,6 @@
 import type { SymbolsQuotesInner, UniversalSymbol } from "snaptrade-typescript-sdk";
 
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import { SnapTradeError, callSnapTrade, type SnapTradeContext } from "@/lib/snaptrade/client";
 import raw from "@/lib/thesis/demo-quotes.json";
 import { QuoteBatchRejectedError, type QuoteSource } from "@/lib/thesis/grounding";

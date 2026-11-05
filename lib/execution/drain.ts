@@ -14,11 +14,12 @@ import {
 } from "@/lib/execution/store";
 import { liveUnavailable, paperSubmitter, type SubmitResult, type Submitter } from "@/lib/execution/submitters";
 import { summarizeLegs } from "@/lib/execution/summary";
-import { PACE_MS, type DrainEvent, type ExecutionView } from "@/lib/execution/types";
+import { PACE_MS } from "@/constants/execution";
+import type { DrainEvent, ExecutionView } from "@/types/execution";
 import type { ExecutionLeg } from "@/lib/generated/prisma/client";
 import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 
-/** Leaves headroom under the drain route's 60-second maxDuration. */
+/** Leaves headroom under the tRPC handler's 60-second maxDuration. */
 export const DRAIN_BUDGET_MS = 45_000;
 
 export type DrainOptions = {

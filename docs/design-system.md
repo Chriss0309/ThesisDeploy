@@ -281,7 +281,7 @@ Loaders: `--loader-inline` (1.25 rem), `--loader-dot` (0.875 rem), `--loader-sta
 <Loader variant="stacks" size="panel" label="3 of 4 legs submitted · 1 failed" progress={{ legs: [{ symbol: "CCJ", shares: 12, status: "submitted" }, …] }} />
 <LoaderGlyph variant="coin" fallback={<Sparkles />} />   // inline icon-sized loader for buttons
 <PendingLink href="/api/auth/login" variant="link" pendingLabel="Opening SnapTrade…">Sign in</PendingLink>
-<PendingForm action="/api/…" variant="scan" pendingLabel="Refreshing…">…</PendingForm>
+<PendingForm run={() => refresh.mutateAsync({ accountId })} describeFailure={describeFailure} variant="scan" pendingLabel="Refreshing…">…</PendingForm>   // runs a mutation that returns a location, then loads it (components/location-forms.tsx)
 <LinkPendingStatus variant="scan" label="Loading TFSA…" />   // inside a next/link, uses useLinkStatus
 
 // Marks (work in server components)

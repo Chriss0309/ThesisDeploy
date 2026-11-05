@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { applyDrainEvent, elapsedLabel, readNdjson } from "@/lib/execution/client-state";
+import { applyDrainEvent, elapsedLabel } from "@/lib/execution/client-state";
 import { paperSubmitter } from "@/lib/execution/submitters";
 import { deriveStatus, isRetryable, latestAttempts, summarizeLegs, summaryLine } from "@/lib/execution/summary";
-import type { ExecutionView, LegView } from "@/lib/execution/types";
+import type { ExecutionView, LegView } from "@/types/execution";
 
 const leg = (seq: number, status: LegView["status"], attempt = 1): LegView => ({
   id: `${seq}-${attempt}`,
@@ -79,23 +79,6 @@ describe("paper submitter", () => {
 });
 
 describe("drain stream client", () => {
-  it("parses NDJSON split across chunks", async () => {
-    const encoder = new TextEncoder();
-    const chunks = ['{"type":"pacing","wa', 'itMs":900}\n{"type":"pac', 'ing","waitMs":5}\n'];
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
-        controller.close();
-      },
-    });
-    const events = [];
-    for await (const event of readNdjson(body)) events.push(event);
-    expect(events).toEqual([
-      { type: "pacing", waitMs: 900 },
-      { type: "pacing", waitMs: 5 },
-    ]);
-  });
-
   it("merges leg updates and takes the final snapshot", () => {
     const execution = {
       status: "queued",

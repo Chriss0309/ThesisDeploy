@@ -2,7 +2,7 @@ import type { VariantProps } from "class-variance-authority";
 
 import { formatMoney, formatPercent } from "@/components/portfolio/format";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
-import type { ComposerLine } from "@/lib/thesis/types";
+import type { ComposerLine } from "@/types/thesis";
 
 type Tone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
 

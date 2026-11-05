@@ -43,7 +43,6 @@ async function DemoStudio({ searchParams }: { searchParams: PageProps<"/demo/stu
     <ThesisStudio
       mode="demo"
       snapshotScope="demo"
-      endpoint="/api/demo/theses"
       accounts={accounts}
       initialAccountId={initialStudioAccount(accounts, account).id}
       initialPresetKey={typeof preset === "string" ? preset : null}

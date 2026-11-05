@@ -27,7 +27,7 @@ Every pre-flight computes each reason Live is unavailable. The dialog lists them
 
 The account calls happen only when nothing cheaper already blocks Live. A Live pre-flight costs 2 account-limited calls for a deploy (quotes and balance) and 3 for a rebalance or close (quotes, balance, and positions). Each call goes through the shared per-account budget (8 of SnapTrade's 10 per minute).
 
-## Brokerage preview (`POST /api/baskets/:id/impact`)
+## Brokerage preview (`baskets.impact`)
 
 Choosing Live runs SnapTrade's `getOrderImpact` for each leg. Impact isn't account-limited, so each call reserves the same 1.1-second per-account pacing slot as orders. Nothing is placed. The result is saved on the pre-flight and labeled the way SnapTrade's [order impact guide](https://docs.snaptrade.com/docs/order-impact-and-confirmation) recommends:
 
@@ -38,9 +38,9 @@ Choosing Live runs SnapTrade's `getOrderImpact` for each leg. Impact isn't accou
 
 The order values themselves are labeled "Application-generated estimate". Confirming Live requires that a preview was attempted (`409 impact_required`).
 
-## Confirming (`POST /api/executions` with `mode: "live"`)
+## Confirming (`executions.create` with `mode: "live"`)
 
-On top of Paper's rules (Idempotency-Key, a pre-flight from the last 5 minutes, one active execution per account), Live requires:
+On top of Paper's rules (`idempotencyKey`, a pre-flight from the last 5 minutes, one active execution per account), Live requires:
 
 - the basket's signed-in owner (`403 live_signed_in_only`);
 - the kill switch (`403 live_disabled`);
@@ -77,7 +77,7 @@ The drain loop is unchanged; the Live submitter calls `placeForceOrder` for each
 
 After every leg is sent, a run with orders still open is `working` (a new execution status). It frees the account for other baskets, but My Theses won't rebalance or close the basket until its orders settle (`409 orders_open`).
 
-## Reconciliation (`POST /api/executions/:id/reconcile`)
+## Reconciliation (`executions.reconcile`)
 
 While a Live run has `accepted`, `partial`, or `unknown` legs, the browser asks for a status check: first after 3 seconds, then every 15 seconds, for about 5 minutes. The user can also click "Check status now". Each check:
 

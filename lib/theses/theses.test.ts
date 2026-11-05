@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { marketStatus } from "@/lib/market-hours";
 import { ActionPlanError, buildActionPreflight } from "@/lib/theses/action-preflight";
-import type { Marks } from "@/lib/theses/types";
+import type { Marks } from "@/types/theses";
 import { markPrice, valueBasket, type HeldConstituent } from "@/lib/theses/valuation";
 
 const OPEN = marketStatus("NYSE", new Date("2026-10-26T15:00:00Z"));

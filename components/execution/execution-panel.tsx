@@ -12,7 +12,7 @@ import { formatTimestamp } from "@/components/portfolio/format";
 import { Button } from "@/components/ui/button";
 import { stackLegs } from "@/lib/execution/client-state";
 import { summarizeLegs, summaryLine } from "@/lib/execution/summary";
-import type { ExecutionView } from "@/lib/execution/types";
+import type { ExecutionView } from "@/types/execution";
 import { executionHasFill, noteBasketFilled } from "@/lib/thesis/studio-cache";
 
 export type ExecutionState = { execution: ExecutionView; active: boolean; draining: boolean };

@@ -12,12 +12,13 @@ import {
   type BasketRow,
 } from "@/lib/execution/store";
 import { latestAttempts, needsReconcile } from "@/lib/execution/summary";
-import type { PreflightPayload } from "@/lib/execution/types";
-import { PREFLIGHT_TTL_MS, type ExecutionView } from "@/lib/execution/types";
+import type { PreflightPayload } from "@/types/execution";
+import { PREFLIGHT_TTL_MS } from "@/constants/execution";
+import type { ExecutionView } from "@/types/execution";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { marketForCurrency, marketStatus } from "@/lib/market-hours";
 import { loadOverview } from "@/lib/portfolio/service";
-import type { PortfolioAccount } from "@/lib/portfolio/types";
+import type { PortfolioAccount } from "@/types/portfolio";
 import { snapTradeContext, type SnapTradeContext } from "@/lib/snaptrade/client";
 import { recordEvent, type EventOwner } from "@/lib/telemetry/events";
 import { ActionPlanError, buildActionPreflight } from "@/lib/theses/action-preflight";
@@ -31,7 +32,7 @@ import {
   simulatedMovesOf,
   storedMarks,
 } from "@/lib/theses/marks";
-import type { Marks, ThesisCard } from "@/lib/theses/types";
+import type { Marks, ThesisCard } from "@/types/theses";
 import { valueBasket } from "@/lib/theses/valuation";
 import type { RiskProfile } from "@/lib/thesis/schema";
 

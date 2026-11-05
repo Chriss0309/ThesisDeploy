@@ -77,6 +77,13 @@ async function generate(page, studioPath) {
   await page.getByRole("button", { name: "Continue to pre-flight" }).waitFor({ timeout: 90_000 });
 }
 
+async function recordsAnEdit(page, procedure) {
+  const recorded = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/trpc/${procedure}`, WAIT);
+  await page.getByRole("button", { name: /^Remove / }).first().click();
+  const response = await recorded;
+  if (!response.ok()) throw new Error(`${procedure} answered ${response.status()}`);
+}
+
 async function guestJourney() {
   const session = await newPage();
   await step(session, "landing and health", async (page) => {
@@ -97,6 +104,7 @@ async function guestJourney() {
     await page.getByRole("table").first().waitFor(WAIT);
   });
   await step(session, "demo Studio generates a basket", (page) => generate(page, "/demo/studio"));
+  await step(session, "a demo composer edit is recorded", (page) => recordsAnEdit(page, "demo.recordEdit"));
   await step(session, "paper run with a rejected leg", async (page) => {
     await page.getByRole("button", { name: "Continue to pre-flight" }).click();
     const dialog = page.getByRole("dialog");
@@ -108,7 +116,10 @@ async function guestJourney() {
   });
   await step(session, "retry the failed leg", async (page) => {
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: /Retry failed leg/ }).click();
+    const retry = dialog.getByRole("button", { name: /Retry failed leg/ });
+    await retry.click();
+    // The summary still reads "Done" until the retry lands, and leaving now would pause the queue.
+    await retry.waitFor({ state: "hidden", ...RUN_WAIT });
     await done(dialog);
     await dialog.getByRole("link", { name: "View saved basket" }).click();
     await page.waitForURL(/\/demo\/baskets\//, WAIT);
@@ -129,6 +140,16 @@ async function guestJourney() {
     await runAndClose(page);
     await page.getByText("Closed").first().waitFor(WAIT);
   });
+  await step(session, "canceling a run skips the remaining legs", async (page) => {
+    await generate(page, "/demo/studio");
+    await page.getByRole("button", { name: "Continue to pre-flight" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Run paper simulation" }).click(WAIT);
+    await dialog.getByRole("button", { name: "Cancel remaining legs" }).click(WAIT);
+    await dialog.getByText(/^Canceled\. Filled legs stay in the basket\./).waitFor(RUN_WAIT);
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await dialog.waitFor({ state: "hidden", ...WAIT });
+  });
   await session.context.close();
 }
 
@@ -146,6 +167,7 @@ async function signedInJourney() {
     await page.getByRole("table").first().waitFor(WAIT);
   });
   await step(session, "Studio generates on SnapTrade quotes", (page) => generate(page, "/studio"));
+  await step(session, "a composer edit is recorded", (page) => recordsAnEdit(page, "theses.recordEdit"));
   await step(session, "pre-flight lists why Live is unavailable, paper run", async (page) => {
     await page.getByRole("button", { name: "Continue to pre-flight" }).click();
     const dialog = page.getByRole("dialog");
@@ -181,9 +203,10 @@ async function signedInJourney() {
   await step(session, "the account budget turns refreshes into a wait notice, not a 429", async (page) => {
     await page.goto(`${BASE}/portfolio`);
     for (let i = 0; i < 6; i++) {
+      const loaded = page.waitForEvent("load", WAIT);
       await page.getByRole("button", { name: /Refresh/ }).first().click();
+      await loaded;
       await page.waitForURL(/notice=/, WAIT);
-      await page.waitForLoadState("load");
     }
     await page.getByText(/request limit \(10 per minute\) is used up/).first().waitFor(WAIT);
   });
@@ -192,6 +215,18 @@ async function signedInJourney() {
     await post(`${API_STUB}/__stub/fail-next?status=401`);
     await page.goto(`${BASE}/studio`);
     await page.getByText("Reconnect SnapTrade").waitFor(WAIT);
+  });
+  await step(session, "signing out ends the session", async (page) => {
+    await page.goto(BASE);
+    await page.getByRole("button", { name: /Sign out/ }).first().click(WAIT);
+    await page.waitForURL(/auth=signed_out/, WAIT);
+    await page.getByRole("link", { name: /Sign in with SnapTrade/ }).first().waitFor(WAIT);
+  });
+  await step(session, "disconnecting revokes access and ends the session", async (page) => {
+    await page.getByRole("link", { name: /Sign in with SnapTrade/ }).first().click();
+    await page.getByRole("button", { name: /Disconnect SnapTrade/ }).first().click(WAIT);
+    await page.waitForURL(/auth=disconnect/, WAIT);
+    await page.getByRole("link", { name: /Sign in with SnapTrade/ }).first().waitFor(WAIT);
   });
   await session.context.close();
 }

@@ -3,7 +3,7 @@ import { DEFAULT_SLIPPAGE_BUFFER, executionPrice, solveWholeShares, type Allocat
 import type { GroundedCandidate } from "@/lib/thesis/grounding";
 import type { PortfolioView } from "@/lib/thesis/portfolio";
 import type { BasketCurrency, OverlapMode } from "@/lib/thesis/schema";
-import type { ComposerLine, DroppedCandidate, QuoteSnapshot } from "@/lib/thesis/types";
+import type { ComposerLine, DroppedCandidate, QuoteSnapshot } from "@/types/thesis";
 
 export type ComposeInput = {
   candidates: readonly GroundedCandidate[];

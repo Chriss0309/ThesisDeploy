@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
@@ -14,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { THESIS_PRESETS } from "@/lib/presets";
 import type { EditableLine } from "@/lib/thesis/composer-state";
-import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/lib/thesis/constants";
+import { BASKET_CURRENCIES, MAX_PROMPT_LENGTH, type BasketCurrency, type OverlapMode } from "@/constants/thesis";
 import {
   STUDIO_SNAPSHOT_KEY,
   applyStudioWorld,
@@ -31,7 +32,9 @@ import {
   writeStudioSnapshot,
   type StudioScope,
 } from "@/lib/thesis/studio-cache";
-import type { ComposerPayload, StudioAccount, ThesisErrorBody } from "@/lib/thesis/types";
+import { useTRPC, useTRPCClient } from "@/lib/trpc/client";
+import { readClientError } from "@/lib/trpc/errors";
+import type { ComposerPayload, StudioAccount } from "@/types/thesis";
 import { cn } from "@/lib/utils";
 
 export const PAPER_BUDGET = 2500;
@@ -147,7 +150,6 @@ function clearLinkRequest() {
 export function ThesisStudio({
   mode,
   snapshotScope,
-  endpoint,
   accounts,
   initialAccountId,
   initialPresetKey,
@@ -156,7 +158,6 @@ export function ThesisStudio({
 }: {
   mode: "live" | "demo";
   snapshotScope: StudioScope;
-  endpoint: string;
   accounts: StudioAccount[];
   initialAccountId: string;
   initialPresetKey?: string | null;
@@ -182,6 +183,10 @@ export function ThesisStudio({
   const [run, setRun] = useState(0);
   const editTimers = useRef(new Map<string, number>());
   const restored = useRef(false);
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const createLive = useMutation(trpc.theses.create.mutationOptions());
+  const createDemo = useMutation(trpc.demo.createThesis.mutationOptions());
 
   // Activity keeps this page mounted after navigation. Re-apply My Theses visits
   // and fills on the way back in, before the preserved basket can paint.
@@ -266,21 +271,12 @@ export function ThesisStudio({
     setPendingSince(Date.now());
     setError(null);
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, presetKey: isPreset ? presetKey : null, accountId, currency, budget, overlapMode }),
-      });
-      const body = (await response.json().catch(() => null)) as ComposerPayload | ThesisErrorBody | null;
-      if (!response.ok || !body || "error" in body) {
-        setError(body && "error" in body ? body.error.message : `Request failed (HTTP ${response.status}). Try again.`);
-        setPendingSince(null);
-        return;
-      }
+      const input = { prompt, presetKey: isPreset ? presetKey : null, accountId, currency, budget, overlapMode };
+      const created = await (mode === "live" ? createLive : createDemo).mutateAsync(input);
       // The loader plays its settle (skipped if it never appeared), then reveal() shows the basket.
-      setArrived(body);
-    } catch {
-      setError("Couldn't reach ThesisDeploy. Check your connection and try again.");
+      setArrived(created);
+    } catch (caught) {
+      setError(readClientError(caught)?.message ?? "Couldn't reach ThesisDeploy. Check your connection and try again.");
       setPendingSince(null);
     }
   }
@@ -300,25 +296,20 @@ export function ThesisStudio({
   const ref = payload?.thesis.ref ?? null;
   const recordEdit = useCallback(
     (action: EditAction, symbol: string) => {
-      const target =
+      const options = { context: { keepalive: true } };
+      const send =
         mode === "live"
-          ? thesisId && { url: `/api/theses/${thesisId}/edits`, body: { action, symbol } }
-          : ref && { url: "/api/demo/edits", body: { ref, action, symbol } };
-      if (!target) return;
-      const post = () =>
-        void fetch(target.url, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(target.body),
-          keepalive: true,
-        }).catch(() => undefined);
+          ? thesisId && (() => client.theses.recordEdit.mutate({ thesisId, action, symbol }, options))
+          : ref && (() => client.demo.recordEdit.mutate({ ref, action, symbol }, options));
+      if (!send) return;
+      const post = () => void send().catch(() => undefined);
       if (action !== "reweight" && action !== "step") return post();
       // Slider drags and repeated clicks count as one edit.
       const key = `${action}:${symbol}`;
       window.clearTimeout(editTimers.current.get(key));
       editTimers.current.set(key, window.setTimeout(post, 1000));
     },
-    [mode, thesisId, ref],
+    [client, mode, thesisId, ref],
   );
 
   return (
@@ -506,7 +497,7 @@ export function ThesisStudio({
               executable={canExecuteStudioBasket(cache)}
               onSubmitted={(basketId) => setCache((current) => confirmStudioBasket(current, basketId))}
               onDialogOpenChange={(open) => setCache((current) => setStudioDialog(current, open))}
-              preflightEndpoint={mode === "live" ? "/api/preflight" : "/api/demo/preflight"}
+              preflightMode={mode}
             />
           </div>
         ) : (

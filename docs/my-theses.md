@@ -15,12 +15,12 @@ Marks come from one SnapTrade quotes call per account (batched at 10 symbols, in
 
 ## Rebalance and Close
 
-`POST /api/baskets/:id/preflight` with `{ "kind": "rebalance" | "close" }` builds the exact order list from the ledger and fresh marks (`lib/theses/action-preflight.ts`) and saves it on the basket with a `preflightId`.
+`baskets.preflight` with `{ basketId, kind: "rebalance" | "close" }` builds the exact order list from the ledger and fresh marks (`lib/theses/action-preflight.ts`) and saves it on the basket with a `preflightId`.
 
 - **Rebalance** uses `planRebalance`: whole shares only, sells first. Overweight names sell down to target at the bid, and the estimated proceeds fund the buys, which go to the underweight names at the ask through the whole-share solver. Total value stays about the same, and the small remainder stays as basket cash. The modal shows what the trades raise and spend, plus "Largest drift X pts → about Y pts after these trades". Offered on every basket, with "Rebalance anyway" below the threshold.
 - **Close** uses `planClose`: sell every whole share the basket holds. While the market is open the price is the bid, otherwise the last trade. When the last leg fills, the basket becomes `closed` and the proceeds are held as cash.
 
-Confirming posts to `POST /api/executions` with `kind` and `preflightId`. That reuses the paper queue unchanged (one leg per 1.1 seconds, retry failed leg, resume after a closed tab), with these rules:
+Confirming calls `executions.create` with `kind` and `preflightId`. That reuses the paper queue unchanged (one leg per 1.1 seconds, retry failed leg, resume after a closed tab), with these rules:
 
 - The basket's mode decides: a Paper basket runs Paper, a Live basket runs Live (`409 mode_mismatch` otherwise). Live adds the brokerage preview, acknowledgement, and order-status reconciliation, and sells no more than the broker holds.
 - A basket whose last Live run still has orders open or unconfirmed at the broker can't be rebalanced or closed until they settle (`409 orders_open`).
@@ -30,7 +30,7 @@ Confirming posts to `POST /api/executions` with `kind` and `preflightId`. That r
 
 ## Guest demo
 
-`/demo/theses` lists the guest's baskets (the `td_guest` cookie). Fixture prices never move on their own, so the page has a reviewer tool, "Simulate a market move", which scales one ticker's price by +50%, +100%, or −40% (`POST /api/baskets/:id/simulate`), and "Reset prices". It only changes the demo price multipliers stored on the basket. Rebalance and Close then work as above. Guest rebalances count toward the existing daily paper-run limits.
+`/demo/theses` lists the guest's baskets (the `td_guest` cookie). Fixture prices never move on their own, so the page has a reviewer tool, "Simulate a market move", which scales one ticker's price by +50%, +100%, or −40% (`baskets.simulate`), and "Reset prices". It only changes the demo price multipliers stored on the basket. Rebalance and Close then work as above. Guest rebalances count toward the existing daily paper-run limits.
 
 ## Loading states
 

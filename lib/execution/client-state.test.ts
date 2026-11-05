@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pacingLegId, stackLegs } from "@/lib/execution/client-state";
-import type { ExecutionView, LegView } from "@/lib/execution/types";
+import type { ExecutionView, LegView } from "@/types/execution";
 
 const leg = (seq: number, status: LegView["status"], attempt = 1): LegView => ({
   id: `${seq}-${attempt}`,
